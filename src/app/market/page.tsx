@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { MarketPageView } from "@/components/pages/MarketPageView";
 
 export default function MarketPage() {
-  return <DashboardShell />;
+  return <MarketPageView />;
 }

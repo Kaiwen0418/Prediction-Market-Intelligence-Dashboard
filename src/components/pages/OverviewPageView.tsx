@@ -1,81 +1,49 @@
 "use client";
 
-import { calculateLeadLag } from "@/analytics/leadLag";
-import { calculateLiquidity } from "@/analytics/liquidity";
-import { calculateMomentum } from "@/analytics/momentum";
-import { calculateVolatility } from "@/analytics/volatility";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { MarketPollChart } from "@/components/charts/MarketPollChart";
 import { Header } from "@/components/layout/Header";
+import { LoadingState } from "@/components/layout/LoadingState";
 import { MetricCard } from "@/components/layout/MetricCard";
+import { TopNav } from "@/components/navigation/TopNav";
 import { OrderBookTable } from "@/components/orderbook/OrderBookTable";
 import { TradeTape } from "@/components/orderbook/TradeTape";
 import { EventTimeline } from "@/components/timeline/EventTimeline";
-import { useMarketData } from "@/hooks/useMarketData";
-import { useOrderbook } from "@/hooks/useOrderbook";
-import { usePollingData } from "@/hooks/usePollingData";
-import { useTimelineData } from "@/hooks/useTimelineData";
-import { useEventStore } from "@/stores/eventStore";
-import { useMarketStore } from "@/stores/marketStore";
+import { useDashboardData } from "@/hooks/useDashboardData";
 import { relativeTime } from "@/utils/time";
 
-export function DashboardShell() {
-  const { featuredMarketQuery, historicalSeriesQuery } = useMarketData();
-  const pollingQuery = usePollingData();
-  const timelineQuery = useTimelineData();
-  const { orderbook } = useOrderbook();
+export function OverviewPageView() {
+  const { isLoading, market, marketSeries, pollSeries, orderbook, events, analytics } = useDashboardData();
 
-  const featuredMarket = useMarketStore((state) => state.featuredMarket);
-  const marketSeries = useMarketStore((state) => state.series);
-  const events = useEventStore((state) => state.events);
-
-  const isLoading =
-    featuredMarketQuery.isLoading ||
-    historicalSeriesQuery.isLoading ||
-    pollingQuery.isLoading ||
-    timelineQuery.isLoading ||
-    !orderbook;
-
-  if (isLoading || !featuredMarket || !pollingQuery.data || !orderbook) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-6 py-12">
-        <div className="panel px-8 py-8 text-center">
-          <p className="metric-label">Initializing dashboard</p>
-          <p className="mt-3 text-lg text-slate-700">Hydrating market, polling, timeline, and orderbook streams...</p>
-        </div>
-      </main>
-    );
+  if (isLoading || !market || !orderbook || !analytics) {
+    return <LoadingState />;
   }
-
-  const leadLag = calculateLeadLag(marketSeries, pollingQuery.data);
-  const volatility = calculateVolatility(marketSeries);
-  const momentum = calculateMomentum(marketSeries);
-  const liquidity = calculateLiquidity(orderbook);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-4 py-6 md:px-6 lg:px-8">
+      <TopNav />
       <Header />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Market Probability"
-          value={`${(featuredMarket.probability * 100).toFixed(1)}%`}
-          detail={`${featuredMarket.title} updated ${relativeTime(featuredMarket.updatedAt)}`}
+          value={`${(market.probability * 100).toFixed(1)}%`}
+          detail={`${market.title} updated ${relativeTime(market.updatedAt)}`}
         />
         <MetricCard
           label="Lead-Lag Signal"
-          value={leadLag.lagDays === 0 ? "Sync" : `${Math.abs(leadLag.lagDays)}d`}
-          detail={`${leadLag.interpretation} (corr ${leadLag.score})`}
+          value={analytics.leadLag.lagDays === 0 ? "Sync" : `${Math.abs(analytics.leadLag.lagDays)}d`}
+          detail={`${analytics.leadLag.interpretation} (corr ${analytics.leadLag.score})`}
         />
         <MetricCard
           label="Realized Volatility"
-          value={`${volatility.realizedVolatility}%`}
-          detail={`Average daily move ${volatility.averageReturn > 0 ? "+" : ""}${volatility.averageReturn} pts`}
+          value={`${analytics.volatility.realizedVolatility}%`}
+          detail={`Average daily move ${analytics.volatility.averageReturn > 0 ? "+" : ""}${analytics.volatility.averageReturn} pts`}
         />
         <MetricCard
           label="Liquidity Imbalance"
-          value={`${(liquidity.imbalance * 100).toFixed(1)}%`}
-          detail={`Spread ${liquidity.spreadBps} bps, mid ${orderbook.midPrice.toFixed(3)}`}
+          value={`${(analytics.liquidity.imbalance * 100).toFixed(1)}%`}
+          detail={`Spread ${analytics.liquidity.spreadBps} bps, mid ${orderbook.midPrice.toFixed(3)}`}
         />
       </section>
 
@@ -87,11 +55,11 @@ export function DashboardShell() {
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">Market pricing against polling consensus</h2>
             </div>
             <p className="text-sm text-slate-500">
-              1D momentum {momentum.oneDay > 0 ? "+" : ""}{momentum.oneDay} pts | 7D {momentum.sevenDay > 0 ? "+" : ""}{momentum.sevenDay} pts
+              1D momentum {analytics.momentum.oneDay > 0 ? "+" : ""}{analytics.momentum.oneDay} pts | 7D {analytics.momentum.sevenDay > 0 ? "+" : ""}{analytics.momentum.sevenDay} pts
             </p>
           </div>
           <div className="mt-6">
-            <MarketPollChart marketSeries={marketSeries} pollSeries={pollingQuery.data} />
+            <MarketPollChart marketSeries={marketSeries} pollSeries={pollSeries} />
           </div>
         </div>
 
@@ -111,8 +79,8 @@ export function DashboardShell() {
               <p className="mt-1 font-semibold text-slate-900">{orderbook.asks[0]?.price.toFixed(2)}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 px-4 py-3">
-              <p className="metric-label">24h Volume</p>
-              <p className="mt-1 font-semibold text-slate-900">${featuredMarket.volume24h.toLocaleString()}</p>
+              <p className="metric-label">Trade Pressure</p>
+              <p className="mt-1 font-semibold capitalize text-slate-900">{analytics.tradePressure.pressure}</p>
             </div>
           </div>
         </div>

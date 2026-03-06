@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { TimelinePageView } from "@/components/pages/TimelinePageView";
 
 export default function TimelinePage() {
-  return <DashboardShell />;
+  return <TimelinePageView />;
 }

@@ -5,12 +5,19 @@ export type TimePoint = {
 
 export type MarketSnapshot = {
   marketId: string;
+  eventId?: string;
+  tokenId?: string;
   slug: string;
+  eventSlug?: string;
   title: string;
   category: string;
   probability: number;
   volume24h: number;
   openInterest: number;
+  liquidity?: number;
+  image?: string;
+  description?: string;
+  outcomeLabel?: string;
   updatedAt: string;
 };
 
@@ -29,19 +36,24 @@ export type TradePrint = {
 
 export type OrderbookState = {
   marketId: string;
+  tokenId?: string;
   bids: OrderbookLevel[];
   asks: OrderbookLevel[];
   trades: TradePrint[];
   spread: number;
   midPrice: number;
+  tickSize?: number;
+  source: "mock" | "live";
   updatedAt: string;
 };
 
 export type TimelineEvent = {
   id: string;
+  eventId?: string;
   timestamp: string;
   headline: string;
   source: string;
+  category?: string;
   impactScore: number;
   marketMove: number;
   summary: string;

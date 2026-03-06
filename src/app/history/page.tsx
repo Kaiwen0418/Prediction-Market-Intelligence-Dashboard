@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { HistoryPageView } from "@/components/pages/HistoryPageView";
 
 export default function HistoryPage() {
-  return <DashboardShell />;
+  return <HistoryPageView />;
 }

@@ -1,6 +1,11 @@
 import type { TimelineEvent } from "@/types/market";
-import { getTimelineEvents } from "@/services/polymarket/api";
+import { useDataSourceStore } from "@/stores/dataSourceStore";
+import { timelineEvents } from "@/services/polymarket/mockData";
 
 export async function getNewsEvents(): Promise<TimelineEvent[]> {
-  return getTimelineEvents();
+  useDataSourceStore.getState().markFallback("news", {
+    stage: "reachability",
+    message: "News/event feed is still mocked; live event source has not been integrated yet"
+  });
+  return timelineEvents;
 }

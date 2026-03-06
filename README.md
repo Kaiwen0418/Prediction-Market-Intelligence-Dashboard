@@ -108,14 +108,22 @@ src
 ## Local Development
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Environment
+
+Create a local `.env.local` from `.env.example` if you want to point the app at a specific live market slug or override API endpoints.
+
 ## Notes
 
-- Current data is mocked but structured behind service adapters, so swapping to live REST / WebSocket endpoints is straightforward.
+- The app now uses live-ready Polymarket REST / WebSocket adapters with mock fallback, so the dashboard remains usable if upstream fetches fail.
 - The architecture is intentionally designed to showcase frontend systems thinking, not just UI styling.
-- The same dashboard shell is exposed at `/`, `/market`, `/history`, and `/timeline` to match the proposed information architecture while keeping the initial implementation compact.
+- Routes now have distinct purposes:
+  - `/` overview
+  - `/market` realtime microstructure
+  - `/history` lead-lag and historical comparison
+  - `/timeline` catalyst interpretation

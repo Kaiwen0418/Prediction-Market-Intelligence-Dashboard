@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { OverviewPageView } from "@/components/pages/OverviewPageView";
 
 export default function HomePage() {
-  return <DashboardShell />;
+  return <OverviewPageView />;
 }

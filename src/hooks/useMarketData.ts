@@ -15,8 +15,9 @@ export function useMarketData() {
   });
 
   const historicalSeriesQuery = useQuery({
-    queryKey: ["historical-market-series"],
-    queryFn: getHistoricalMarketSeries
+    queryKey: ["historical-market-series", featuredMarketQuery.data?.tokenId],
+    queryFn: () => getHistoricalMarketSeries(featuredMarketQuery.data?.tokenId),
+    enabled: Boolean(featuredMarketQuery.data)
   });
 
   useEffect(() => {
@@ -32,6 +33,8 @@ export function useMarketData() {
   }, [historicalSeriesQuery.data, setSeries]);
 
   return {
+    featuredMarket: featuredMarketQuery.data ?? null,
+    marketSeries: historicalSeriesQuery.data ?? [],
     featuredMarketQuery,
     historicalSeriesQuery
   };

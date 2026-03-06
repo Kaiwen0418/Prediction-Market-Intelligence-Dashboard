@@ -10,6 +10,11 @@ export type MomentumResult = {
   direction: "up" | "down" | "flat";
 };
 
+export type CorrelationResult = {
+  coefficient: number;
+  strength: "weak" | "moderate" | "strong";
+};
+
 export type LiquidityMetrics = {
   totalBidDepth: number;
   totalAskDepth: number;
@@ -20,4 +25,17 @@ export type LiquidityMetrics = {
 export type VolatilityResult = {
   realizedVolatility: number;
   averageReturn: number;
+};
+
+export type TradePressureResult = {
+  buyVolume: number;
+  sellVolume: number;
+  ratio: number;
+  pressure: "buy" | "sell" | "balanced";
+};
+
+export type EventImpactResult = {
+  averageImpact: number;
+  strongestEventId: string | null;
+  strongestMove: number;
 };
