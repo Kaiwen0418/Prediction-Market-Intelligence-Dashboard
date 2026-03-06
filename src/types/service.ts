@@ -7,10 +7,12 @@ export type ValidationIssue = {
   message: string;
 };
 
+export type SourceMode = "live" | "curated" | "mock";
+
 export type SourceDiagnostics = {
   sourceKey: string;
   state: DataSourceState;
-  mode: "live" | "mock";
+  mode: SourceMode;
   checkedAt: string | null;
   issues: ValidationIssue[];
 };

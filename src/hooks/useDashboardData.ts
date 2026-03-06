@@ -16,7 +16,7 @@ import { useMarketStore } from "@/stores/marketStore";
 
 export function useDashboardData() {
   const { featuredMarketQuery, historicalSeriesQuery, featuredMarket } = useMarketData();
-  const pollingQuery = usePollingData();
+  const pollingQuery = usePollingData(featuredMarket);
   const timelineQuery = useTimelineData(featuredMarket);
   const { orderbook, snapshotQuery } = useOrderbook(featuredMarket?.tokenId);
 

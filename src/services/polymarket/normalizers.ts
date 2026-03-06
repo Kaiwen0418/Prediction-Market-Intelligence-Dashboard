@@ -56,6 +56,30 @@ function parseTokenMetadata(payload: UnknownRecord) {
   };
 }
 
+function normalizeEventMarketCandidate(event: UnknownRecord, market: UnknownRecord): MarketSnapshot | null {
+  const { tokenId, outcomeLabel, probability } = parseTokenMetadata(market);
+  if (!tokenId) return null;
+
+  const marketId = asString(market.id, asString(market.conditionId, tokenId));
+  return {
+    marketId,
+    eventId: asString(event.id) || undefined,
+    tokenId,
+    slug: asString(event.slug, marketId),
+    eventSlug: asString(event.slug, marketId),
+    title: asString(event.title, asString(event.slug, marketId)),
+    category: asString(event.category, asString(market.category, "Politics")),
+    probability,
+    volume24h: asNumber(market.volume24hr, asNumber(event.volume24hr)),
+    openInterest: asNumber(market.openInterest, asNumber(event.openInterest)),
+    liquidity: asNumber(market.liquidity, asNumber(event.liquidity)),
+    image: asString(event.image) || undefined,
+    description: asString(event.description) || undefined,
+    outcomeLabel: outcomeLabel ?? asString(market.question),
+    updatedAt: new Date().toISOString()
+  };
+}
+
 export function normalizeGammaMarket(payload: unknown): MarketSnapshot | null {
   if (!isRecord(payload)) return null;
 
@@ -81,6 +105,29 @@ export function normalizeGammaMarket(payload: unknown): MarketSnapshot | null {
     outcomeLabel,
     updatedAt: new Date().toISOString()
   };
+}
+
+export function normalizeGammaEvent(payload: unknown, preferredOutcomeLabels: string[] = []): MarketSnapshot | null {
+  if (!isRecord(payload) || !Array.isArray(payload.markets)) return null;
+
+  const candidates = payload.markets
+    .filter(isRecord)
+    .map((market) => normalizeEventMarketCandidate(payload, market))
+    .filter((market): market is MarketSnapshot => market !== null);
+
+  if (!candidates.length) return null;
+
+  if (preferredOutcomeLabels.length) {
+    const preferred = candidates.find((candidate) =>
+      preferredOutcomeLabels.some(
+        (label) => candidate.outcomeLabel?.toLowerCase().includes(label.toLowerCase()) || candidate.title.toLowerCase().includes(label.toLowerCase())
+      )
+    );
+
+    if (preferred) return preferred;
+  }
+
+  return candidates.sort((left, right) => right.probability - left.probability)[0];
 }
 
 export function normalizePriceHistory(payload: unknown): TimePoint[] {

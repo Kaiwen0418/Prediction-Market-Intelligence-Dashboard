@@ -1,10 +1,11 @@
 import { subDays, subHours } from "date-fns";
 import type { MarketSnapshot, OrderbookLevel, OrderbookState, TimelineEvent, TimePoint, TradePrint } from "@/types/market";
 import type { PollPoint } from "@/types/poll";
+import { polymarketConfig } from "./config";
 
 const now = new Date();
 
-export const featuredMarket: MarketSnapshot = {
+const defaultFeaturedMarket: MarketSnapshot = {
   marketId: "pres-2028-winner",
   eventId: "event-pres-2028",
   tokenId: "token-pres-2028-yes",
@@ -19,6 +20,32 @@ export const featuredMarket: MarketSnapshot = {
   outcomeLabel: "Yes",
   updatedAt: now.toISOString()
 };
+
+const texasRepublicanSenatePrimaryMarket: MarketSnapshot = {
+  marketId: "texas-republican-senate-primary-winner",
+  eventId: "event-texas-gop-senate-primary",
+  tokenId: "token-texas-gop-senate-paxton",
+  slug: "texas-republican-senate-primary-winner",
+  eventSlug: "texas-republican-senate-primary-winner",
+  title: "Who will win the Texas Republican Senate primary?",
+  category: "Politics",
+  probability: 0.40,
+  volume24h: 1_280_000,
+  openInterest: 6_450_000,
+  liquidity: 2_300_000,
+  outcomeLabel: "Paxton",
+  updatedAt: now.toISOString()
+};
+
+export function getMockFeaturedMarket(): MarketSnapshot {
+  if (polymarketConfig.featuredMarketSlug === "texas-republican-senate-primary-winner") {
+    return texasRepublicanSenatePrimaryMarket;
+  }
+
+  return defaultFeaturedMarket;
+}
+
+export const featuredMarket = getMockFeaturedMarket();
 
 export const marketSeries: TimePoint[] = Array.from({ length: 30 }, (_, index) => {
   const timestamp = subDays(now, 29 - index).toISOString();
@@ -50,6 +77,7 @@ function generateSide(start: number, direction: 1 | -1): OrderbookLevel[] {
 }
 
 export function createOrderbookSnapshot(): OrderbookState {
+  const market = getMockFeaturedMarket();
   const bids = generateSide(0.56, -1);
   const asks = generateSide(0.58, 1);
   const trades: TradePrint[] = Array.from({ length: 20 }, (_, index) => ({
@@ -61,8 +89,8 @@ export function createOrderbookSnapshot(): OrderbookState {
   })).reverse();
 
   return {
-    marketId: featuredMarket.marketId,
-    tokenId: featuredMarket.tokenId,
+    marketId: market.marketId,
+    tokenId: market.tokenId,
     bids,
     asks,
     trades,

@@ -45,6 +45,24 @@ export function validateGammaMarketPayload(payload: unknown): ValidationIssue | 
   return null;
 }
 
+export function validateGammaEventPayload(payload: unknown): ValidationIssue | null {
+  if (!isRecord(payload)) {
+    return { stage: "payload", message: "Gamma event payload is not an object" };
+  }
+
+  const hasTitle = typeof payload.title === "string" || typeof payload.slug === "string";
+  const hasMarkets = Array.isArray(payload.markets) && payload.markets.length > 0;
+
+  if (!hasTitle) {
+    return { stage: "payload", message: "Gamma event payload is missing title/slug" };
+  }
+  if (!hasMarkets) {
+    return { stage: "payload", message: "Gamma event payload is missing markets array" };
+  }
+
+  return null;
+}
+
 export function validatePriceHistoryPayload(payload: unknown): ValidationIssue | null {
   const valid =
     Array.isArray(payload) ||

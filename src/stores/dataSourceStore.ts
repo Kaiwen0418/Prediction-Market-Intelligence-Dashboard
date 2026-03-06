@@ -7,6 +7,7 @@ type DataSourceStoreState = {
   sources: Record<string, SourceDiagnostics>;
   markPending: (sourceKey: string) => void;
   markLive: (sourceKey: string) => void;
+  markCurated: (sourceKey: string) => void;
   markFallback: (sourceKey: string, issue: ValidationIssue) => void;
   markFailed: (sourceKey: string, issue: ValidationIssue) => void;
 };
@@ -42,6 +43,19 @@ export const useDataSourceStore = create<DataSourceStoreState>((set) => ({
           sourceKey,
           state: "live",
           mode: "live",
+          checkedAt: new Date().toISOString(),
+          issues: []
+        }
+      }
+    })),
+  markCurated: (sourceKey) =>
+    set((state) => ({
+      sources: {
+        ...state.sources,
+        [sourceKey]: {
+          sourceKey,
+          state: "live",
+          mode: "curated",
           checkedAt: new Date().toISOString(),
           issues: []
         }

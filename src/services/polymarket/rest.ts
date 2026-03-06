@@ -1,9 +1,9 @@
 import type { MarketSnapshot, OrderbookState, TimePoint, TradePrint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 import { polymarketConfig } from "./config";
-import { normalizeGammaMarket, normalizeOrderbook, normalizePriceHistory } from "./normalizers";
+import { normalizeGammaEvent, normalizeGammaMarket, normalizeOrderbook, normalizePriceHistory } from "./normalizers";
 import {
-  validateBaseUrl,
+  validateGammaEventPayload,
   validateGammaMarketPayload,
   validateOrderbookPayload,
   validatePriceHistoryPayload,
@@ -50,27 +50,41 @@ function pickFeaturedMarket(markets: unknown[]): MarketSnapshot | null {
   return null;
 }
 
-export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> {
-  const gammaUrlIssue = validateBaseUrl(polymarketConfig.gammaBaseUrl, "Gamma base URL");
-  const slugIssue = validateSlug(polymarketConfig.featuredMarketSlug);
-  if (gammaUrlIssue) {
-    recordFallback("featured-market", gammaUrlIssue.stage, gammaUrlIssue.message);
+export async function fetchEventMarketBySlug(
+  slug: string,
+  preferredOutcomeLabels: string[] = []
+): Promise<MarketSnapshot | null> {
+  const slugIssue = validateSlug(slug);
+  if (slugIssue) {
     return null;
   }
+
+  const url = `/api/polymarket/featured-market?slug=${encodeURIComponent(slug)}`;
+  const payload = await requestJson<unknown>(url);
+  const payloadIssue = validateGammaEventPayload(payload);
+  if (payloadIssue) {
+    return null;
+  }
+
+  return normalizeGammaEvent(payload, preferredOutcomeLabels);
+}
+
+export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> {
+  const slugIssue = validateSlug(polymarketConfig.featuredMarketSlug);
   if (slugIssue) {
     recordFallback("featured-market", slugIssue.stage, slugIssue.message);
     return null;
   }
 
-  const bySlugUrl = `${polymarketConfig.gammaBaseUrl}/markets/slug/${polymarketConfig.featuredMarketSlug}`;
+  const bySlugUrl = `/api/polymarket/featured-market?slug=${encodeURIComponent(polymarketConfig.featuredMarketSlug)}`;
 
   try {
     const payload = await requestJson<unknown>(bySlugUrl);
-    const payloadIssue = validateGammaMarketPayload(payload);
+    const payloadIssue = validateGammaEventPayload(payload);
     if (payloadIssue) {
       recordFallback("featured-market", payloadIssue.stage, payloadIssue.message);
     } else {
-      const normalized = normalizeGammaMarket(payload);
+      const normalized = normalizeGammaEvent(payload);
       if (normalized?.tokenId) {
         recordLive("featured-market");
         return normalized;
@@ -81,16 +95,20 @@ export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> 
     recordFallback("featured-market", "reachability", "Featured market slug request failed");
   }
 
-  const marketsUrl = `${polymarketConfig.gammaBaseUrl}/markets?active=true&closed=false&limit=10`;
+  const marketsUrl = `/api/polymarket/featured-market`;
   try {
     const payload = await requestJson<unknown>(marketsUrl);
-    const markets = Array.isArray(payload)
+    const events = Array.isArray(payload)
       ? payload
       : typeof payload === "object" && payload !== null && Array.isArray((payload as Record<string, unknown>).data)
         ? ((payload as Record<string, unknown>).data as unknown[])
         : [];
 
-    const picked = pickFeaturedMarket(markets);
+    const picked = events
+      .map((event) => normalizeGammaEvent(event))
+      .filter((event): event is MarketSnapshot => event !== null)
+      .find((event) => event.slug === polymarketConfig.featuredMarketSlug) ?? pickFeaturedMarket(events);
+
     if (picked) {
       recordLive("featured-market");
       return picked;
@@ -104,12 +122,7 @@ export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> 
 }
 
 export async function fetchPriceHistoryLive(tokenId: string): Promise<TimePoint[]> {
-  const clobUrlIssue = validateBaseUrl(polymarketConfig.clobBaseUrl, "CLOB base URL");
-  if (clobUrlIssue) {
-    recordFallback("price-history", clobUrlIssue.stage, clobUrlIssue.message);
-    return [];
-  }
-  const historyUrl = `${polymarketConfig.clobBaseUrl}/prices-history?market=${encodeURIComponent(tokenId)}&interval=1w&fidelity=1440`;
+  const historyUrl = `/api/polymarket/price-history?tokenId=${encodeURIComponent(tokenId)}`;
   try {
     const payload = await requestJson<unknown>(historyUrl);
     const payloadIssue = validatePriceHistoryPayload(payload);
@@ -131,12 +144,7 @@ export async function fetchPriceHistoryLive(tokenId: string): Promise<TimePoint[
 }
 
 export async function fetchOrderbookLive(tokenId: string): Promise<OrderbookState | null> {
-  const clobUrlIssue = validateBaseUrl(polymarketConfig.clobBaseUrl, "CLOB base URL");
-  if (clobUrlIssue) {
-    recordFallback("orderbook", clobUrlIssue.stage, clobUrlIssue.message);
-    return null;
-  }
-  const orderbookUrl = `${polymarketConfig.clobBaseUrl}/book?token_id=${encodeURIComponent(tokenId)}`;
+  const orderbookUrl = `/api/polymarket/orderbook?tokenId=${encodeURIComponent(tokenId)}`;
   try {
     const payload = await requestJson<unknown>(orderbookUrl);
     const payloadIssue = validateOrderbookPayload(payload);
@@ -158,12 +166,7 @@ export async function fetchOrderbookLive(tokenId: string): Promise<OrderbookStat
 }
 
 export async function fetchTradesLive(tokenId: string): Promise<TradePrint[]> {
-  const gammaUrlIssue = validateBaseUrl(polymarketConfig.gammaBaseUrl, "Gamma base URL");
-  if (gammaUrlIssue) {
-    recordFallback("trades", gammaUrlIssue.stage, gammaUrlIssue.message);
-    return [];
-  }
-  const tradesUrl = `${polymarketConfig.gammaBaseUrl}/trades?limit=20&market=${encodeURIComponent(tokenId)}`;
+  const tradesUrl = `/api/polymarket/trades?tokenId=${encodeURIComponent(tokenId)}`;
   try {
     const payload = await requestJson<unknown>(tradesUrl);
     const payloadIssue = validateTradesPayload(payload);
