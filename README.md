@@ -118,6 +118,24 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Create a local `.env.local` from `.env.example` if you want to point the app at a specific live market slug or override API endpoints.
 
+## Public Data Assets
+
+The cleaned state-level polling resource used by `/history` is published as a frontend-readable asset:
+
+- [public/data/state-party-support-2024.json](/Users/blueberryncherry/Proj/Prediction%20Market%20Intelligence%20Dashboard/public/data/state-party-support-2024.json)
+
+Regenerate it from the original FiveThirtyEight CSV with:
+
+```bash
+pnpm generate:state-support
+```
+
+Or provide a local CSV path:
+
+```bash
+pnpm generate:state-support -- /tmp/presidential_general_averages_2024-09-12_uncorrected.csv
+```
+
 ## Notes
 
 - The app now uses live-ready Polymarket REST / WebSocket adapters with mock fallback, so the dashboard remains usable if upstream fetches fail.

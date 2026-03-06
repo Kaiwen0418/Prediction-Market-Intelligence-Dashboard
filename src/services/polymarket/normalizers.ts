@@ -49,7 +49,7 @@ function parseTokenMetadata(payload: UnknownRecord) {
 
   return {
     tokenId:
-      firstString([payload.clobTokenId, tokenIds[0], tokenRecord?.token_id, tokenRecord?.asset_id, payload.conditionId]) ??
+      firstString([tokenIds[0], payload.clobTokenId, tokenRecord?.token_id, tokenRecord?.asset_id, payload.conditionId]) ??
       undefined,
     outcomeLabel: firstString([outcomes[0], tokenRecord?.outcome, "Yes"]),
     probability: asNumber(outcomePrices[0], asNumber(tokenRecord?.price, asNumber(payload.lastTradePrice, 0.5)))
@@ -61,6 +61,10 @@ function normalizeEventMarketCandidate(event: UnknownRecord, market: UnknownReco
   if (!tokenId) return null;
 
   const marketId = asString(market.id, asString(market.conditionId, tokenId));
+  const contractLabel = asString(market.question, asString(market.title, ""));
+  const normalizedOutcomeLabel =
+    outcomeLabel && ["yes", "no"].includes(outcomeLabel.toLowerCase()) && contractLabel ? contractLabel : outcomeLabel;
+
   return {
     marketId,
     eventId: asString(event.id) || undefined,
@@ -75,7 +79,8 @@ function normalizeEventMarketCandidate(event: UnknownRecord, market: UnknownReco
     liquidity: asNumber(market.liquidity, asNumber(event.liquidity)),
     image: asString(event.image) || undefined,
     description: asString(event.description) || undefined,
-    outcomeLabel: outcomeLabel ?? asString(market.question),
+    outcomeLabel: normalizedOutcomeLabel ?? contractLabel,
+    contractLabel,
     updatedAt: new Date().toISOString()
   };
 }
@@ -120,7 +125,10 @@ export function normalizeGammaEvent(payload: unknown, preferredOutcomeLabels: st
   if (preferredOutcomeLabels.length) {
     const preferred = candidates.find((candidate) =>
       preferredOutcomeLabels.some(
-        (label) => candidate.outcomeLabel?.toLowerCase().includes(label.toLowerCase()) || candidate.title.toLowerCase().includes(label.toLowerCase())
+        (label) =>
+          candidate.outcomeLabel?.toLowerCase().includes(label.toLowerCase()) ||
+          candidate.contractLabel?.toLowerCase().includes(label.toLowerCase()) ||
+          candidate.title.toLowerCase().includes(label.toLowerCase())
       )
     );
 

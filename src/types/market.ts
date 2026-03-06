@@ -18,6 +18,7 @@ export type MarketSnapshot = {
   image?: string;
   description?: string;
   outcomeLabel?: string;
+  contractLabel?: string;
   updatedAt: string;
 };
 

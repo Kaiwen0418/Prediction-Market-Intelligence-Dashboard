@@ -121,8 +121,8 @@ export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> 
   }
 }
 
-export async function fetchPriceHistoryLive(tokenId: string): Promise<TimePoint[]> {
-  const historyUrl = `/api/polymarket/price-history?tokenId=${encodeURIComponent(tokenId)}`;
+export async function fetchPriceHistoryLive(marketIdOrTokenId: string): Promise<TimePoint[]> {
+  const historyUrl = `/api/polymarket/price-history?market=${encodeURIComponent(marketIdOrTokenId)}`;
   try {
     const payload = await requestJson<unknown>(historyUrl);
     const payloadIssue = validatePriceHistoryPayload(payload);

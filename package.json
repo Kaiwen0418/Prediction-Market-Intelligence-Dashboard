@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate:state-support": "node scripts/generate-state-party-support.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.8",
