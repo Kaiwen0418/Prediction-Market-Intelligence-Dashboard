@@ -9,27 +9,59 @@ import { SourceStatusCard } from "@/components/layout/SourceStatusCard";
 import { TopNav } from "@/components/navigation/TopNav";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
 import { getLiveHistoryCases } from "@/services/history/liveHistory";
+import supportDataset from "@/../public/data/state-party-support-2024.json";
 import { researchCases, researchDataSources } from "@/services/history/researchStatic";
 
+type Party = "Democrat" | "Republican";
+
+function buildPollSeries(state: string, party: Party) {
+  const stateData = supportDataset.states.find((entry) => entry.state === state);
+  if (!stateData) return [];
+
+  return stateData.series.flatMap((point) => {
+    const support = party === "Republican" ? point.republican : point.democrat;
+    if (typeof support !== "number") {
+      return [];
+    }
+
+    return {
+      timestamp: new Date(point.date).toISOString(),
+      pollAverage: support,
+      sampleSize: 0,
+      source: "FiveThirtyEight cleaned public dataset",
+      sourceUrl:
+        "https://github.com/fivethirtyeight/data/blob/master/polls/2024-averages/presidential_general_averages_2024-09-12_uncorrected.csv",
+      fieldDateLabel: point.date,
+      methodology: "Local cleaned public resource from 538 daily averages",
+      candidate: party
+    };
+  });
+}
+
 export function HistoryPageView() {
-  const [party, setParty] = useState<"Democrat" | "Republican">("Republican");
+  const [party, setParty] = useState<Party>("Republican");
   const liveHistoryQuery = useQuery({
     queryKey: ["history-live-cases", party],
     queryFn: () => getLiveHistoryCases(party)
   });
   const sourceDiagnostics = useSourceDiagnostics();
 
-  const cases = liveHistoryQuery.data?.length ? liveHistoryQuery.data : researchCases;
-  const [activeState, setActiveState] = useState(cases[0].state);
-  const activeCase = cases.find((item) => item.state === activeState) ?? cases[0];
+  const availableStates = ["Arizona", "Georgia", "Michigan", "Pennsylvania", "Wisconsin"];
+  const [activeState, setActiveState] = useState(availableStates[0]);
+  const liveCase = liveHistoryQuery.data?.find((item) => item.state === activeState) ?? null;
+  const researchCase = researchCases.find((item) => item.state === activeState) ?? researchCases[0];
+  const pollSeries = buildPollSeries(activeState, party);
+  const activeCase = liveCase
+    ? { ...liveCase, pollSeries }
+    : { ...researchCase, pollSeries, summary: `${party} polling shown from cleaned public dataset; market series is fallback research data.` };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
-  const usingLiveCases = Boolean(liveHistoryQuery.data?.length);
+  const usingLiveCases = Boolean(liveCase);
 
   useEffect(() => {
-    if (!cases.some((item) => item.state === activeState)) {
-      setActiveState(cases[0].state);
+    if (!availableStates.includes(activeState)) {
+      setActiveState(availableStates[0]);
     }
-  }, [activeState, cases]);
+  }, [activeState]);
 
   if (liveHistoryQuery.isLoading && !liveHistoryQuery.data) {
     return <LoadingState label="Loading FiveThirtyEight polling averages and matching Polymarket state market histories..." />;
@@ -78,22 +110,6 @@ export function HistoryPageView() {
             ? `Live source mode: public cleaned 538 dataset + Polymarket historical prices (${party})`
             : "Fallback mode: research-inspired static series"}
         </p>
-        <div className="mt-4 flex gap-3">
-          {(["Republican", "Democrat"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setParty(option)}
-              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                option === party
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {["Arizona", "Georgia", "Michigan", "Pennsylvania", "Wisconsin"].map((state) => (
             <SourceStatusCard
@@ -106,18 +122,18 @@ export function HistoryPageView() {
       </section>
 
       <section className="flex flex-wrap gap-3">
-        {cases.map((item) => (
+        {availableStates.map((state) => (
           <button
-            key={item.state}
+            key={state}
             type="button"
-            onClick={() => setActiveState(item.state)}
+            onClick={() => setActiveState(state)}
             className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-              item.state === activeCase.state
+              state === activeState
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
             }`}
           >
-            {item.state}
+            {state}
           </button>
         ))}
       </section>
@@ -148,6 +164,22 @@ export function HistoryPageView() {
       <section className="panel px-6 py-6">
         <p className="metric-label">Time Series</p>
         <h2 className="mt-2 text-2xl font-semibold text-slate-900">{activeCase.state}: {party} support against PM contract path</h2>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {(["Republican", "Democrat"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setParty(option)}
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                option === party
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
         <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
           {pollingSources.map((point) => (
             <a

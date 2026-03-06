@@ -15,8 +15,8 @@ type StatePartySupportDataset = {
     state: string;
     series: Array<{
       date: string;
-      democrat: number;
-      republican: number;
+      democrat?: number;
+      republican?: number;
     }>;
   }>;
 };
@@ -77,17 +77,24 @@ function normalizePollJson(
   const stateData = dataset.states.find((entry) => entry.state === state);
   if (!stateData) return [];
 
-  return stateData.series.map((point) => ({
-    timestamp: new Date(point.date).toISOString(),
-    pollAverage: party === "Republican" ? point.republican : point.democrat,
-    sampleSize: 0,
-    source: "FiveThirtyEight cleaned public dataset",
-    sourceUrl:
-      "https://github.com/fivethirtyeight/data/blob/master/polls/2024-averages/presidential_general_averages_2024-09-12_uncorrected.csv",
-    fieldDateLabel: point.date,
-    methodology: "Local cleaned public resource from 538 daily averages",
-    candidate: party
-  }));
+  return stateData.series.flatMap((point) => {
+    const support = party === "Republican" ? point.republican : point.democrat;
+    if (typeof support !== "number") {
+      return [];
+    }
+
+    return {
+      timestamp: new Date(point.date).toISOString(),
+      pollAverage: support,
+      sampleSize: 0,
+      source: "FiveThirtyEight cleaned public dataset",
+      sourceUrl:
+        "https://github.com/fivethirtyeight/data/blob/master/polls/2024-averages/presidential_general_averages_2024-09-12_uncorrected.csv",
+      fieldDateLabel: point.date,
+      methodology: "Local cleaned public resource from 538 daily averages",
+      candidate: party
+    };
+  });
 }
 
 async function fetchPollDataset() {
