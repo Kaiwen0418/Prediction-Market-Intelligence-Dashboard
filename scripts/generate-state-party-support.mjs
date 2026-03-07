@@ -1,8 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const SOURCE_URL =
-  "https://raw.githubusercontent.com/fivethirtyeight/data/master/polls/2024-averages/presidential_general_averages_2024-09-12_uncorrected.csv";
+const SOURCE_URL = "https://github.com/kevin-claw-agent/poll-data";
+const DEFAULT_INPUT_DIR = "/tmp/poll-data";
 
 function parseCsv(text) {
   const rows = [];
@@ -58,46 +58,74 @@ function normalizeParty(value) {
   return null;
 }
 
-function toStructuredData(text) {
+function normalizeDate(value) {
+  const [day, month, year] = value.split("/");
+  if (!day || !month || !year) return null;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function appendCsvToGroups(grouped, text) {
   const rows = parseCsv(text);
   const [headers, ...dataRows] = rows;
   if (!headers) {
     throw new Error("CSV did not contain headers");
   }
 
-  const columns = Object.fromEntries(headers.map((header, index) => [header, index]));
-  const grouped = new Map();
+  const columns = Object.fromEntries(headers.map((header, index) => [header.replace(/^\uFEFF/, ""), index]));
 
   for (const row of dataRows) {
-    const cycle = row[columns.cycle];
     const state = row[columns.state];
-    const date = row[columns.date];
+    const date = normalizeDate(row[columns.end_date]);
     const party = normalizeParty(row[columns.party]);
-    const support = Number(row[columns.pct_estimate]);
+    const support = Number(row[columns.pct]);
 
-    if (cycle !== "2024" || !state || !date || !party || !Number.isFinite(support)) {
+    if (!state || !date || !party || !Number.isFinite(support)) {
       continue;
     }
 
     const stateMap = grouped.get(state) ?? new Map();
-    const dayRecord = stateMap.get(date) ?? { date };
+    const dayRecord = stateMap.get(date) ?? {
+      date,
+      democratTotal: 0,
+      democratCount: 0,
+      republicanTotal: 0,
+      republicanCount: 0
+    };
 
     if (party === "Democrat") {
-      dayRecord.democrat = Number((support / 100).toFixed(4));
+      dayRecord.democratTotal += support;
+      dayRecord.democratCount += 1;
     }
 
     if (party === "Republican") {
-      dayRecord.republican = Number((support / 100).toFixed(4));
+      dayRecord.republicanTotal += support;
+      dayRecord.republicanCount += 1;
     }
 
     stateMap.set(date, dayRecord);
     grouped.set(state, stateMap);
+  }
+}
+
+function toStructuredData(csvTexts) {
+  const grouped = new Map();
+  for (const text of csvTexts) {
+    appendCsvToGroups(grouped, text);
   }
 
   const states = Array.from(grouped.entries())
     .map(([state, entries]) => ({
       state,
       series: Array.from(entries.values())
+        .map((entry) => ({
+          date: entry.date,
+          ...(entry.republicanCount > 0
+            ? { republican: Number(((entry.republicanTotal / entry.republicanCount) / 100).toFixed(4)) }
+            : {}),
+          ...(entry.democratCount > 0
+            ? { democrat: Number(((entry.democratTotal / entry.democratCount) / 100).toFixed(4)) }
+            : {})
+        }))
         .filter((entry) => typeof entry.democrat === "number" && typeof entry.republican === "number")
         .sort((left, right) => left.date.localeCompare(right.date))
     }))
@@ -107,27 +135,43 @@ function toStructuredData(text) {
   return {
     generatedAt: new Date().toISOString(),
     sourceUrl: SOURCE_URL,
-    description: "FiveThirtyEight 2024 presidential general averages cleaned to Democrat/Republican state support rates.",
+    description:
+      "State-level daily Democrat/Republican support rebuilt from kevin-claw-agent/poll-data by averaging all available FiveThirtyEight poll rows for each state-day-party bucket.",
     states
   };
 }
 
+async function resolveCsvTexts(inputPath) {
+  const resolvedInput = path.resolve(process.cwd(), inputPath ?? DEFAULT_INPUT_DIR);
+  const inputStats = await stat(resolvedInput).catch(() => null);
+  if (!inputStats) {
+    throw new Error(`Input path not found: ${resolvedInput}`);
+  }
+
+  if (inputStats.isFile()) {
+    return [await readFile(resolvedInput, "utf8")];
+  }
+
+  if (!inputStats.isDirectory()) {
+    throw new Error(`Input path is neither a file nor a directory: ${resolvedInput}`);
+  }
+
+  const fileNames = (await readdir(resolvedInput))
+    .filter((fileName) => fileName.toLowerCase().endsWith("_538.csv"))
+    .sort((left, right) => left.localeCompare(right));
+
+  if (!fileNames.length) {
+    throw new Error(`No *_538.csv files found in ${resolvedInput}`);
+  }
+
+  return Promise.all(fileNames.map((fileName) => readFile(path.join(resolvedInput, fileName), "utf8")));
+}
+
 async function main() {
   const cliArgs = process.argv.slice(2).filter((arg) => arg !== "--");
-  const inputPath = cliArgs[0];
-  const csv = inputPath
-    ? await readFile(path.resolve(process.cwd(), inputPath), "utf8")
-    : await fetch(SOURCE_URL, {
-        headers: {
-          Accept: "text/csv"
-        }
-      }).then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to fetch source CSV: ${response.status}`);
-        }
-        return response.text();
-      });
-  const structured = toStructuredData(csv);
+  const inputPath = cliArgs[0] ?? DEFAULT_INPUT_DIR;
+  const csvTexts = await resolveCsvTexts(inputPath);
+  const structured = toStructuredData(csvTexts);
 
   const outputDir = path.resolve(process.cwd(), "public", "data");
   const outputPath = path.join(outputDir, "state-party-support-2024.json");
@@ -135,7 +179,7 @@ async function main() {
   await mkdir(outputDir, { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(structured, null, 2)}\n`, "utf8");
 
-  console.log(`Wrote ${structured.states.length} states to ${outputPath}`);
+  console.log(`Wrote ${structured.states.length} states to ${outputPath} from ${csvTexts.length} CSV files`);
 }
 
 main().catch((error) => {

@@ -88,10 +88,9 @@ function normalizePollJson(
       pollAverage: support,
       sampleSize: 0,
       source: "FiveThirtyEight cleaned public dataset",
-      sourceUrl:
-        "https://github.com/fivethirtyeight/data/blob/master/polls/2024-averages/presidential_general_averages_2024-09-12_uncorrected.csv",
+      sourceUrl: "https://github.com/kevin-claw-agent/poll-data",
       fieldDateLabel: point.date,
-      methodology: "Local cleaned public resource from 538 daily averages",
+      methodology: "Daily mean across all available 538 poll rows for the same state, date, and party",
       candidate: party
     };
   });
