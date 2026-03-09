@@ -46,8 +46,15 @@ export function MarketPollChart({ marketSeries, pollSeries }: MarketPollChartPro
       ...Array.from(normalizedPollByDay.keys())
     ])
   ).sort((left, right) => left.localeCompare(right));
+  const pollTimestamps = Array.from(normalizedPollByDay.keys()).sort((left, right) => left.localeCompare(right));
+  const timelineStart = pollTimestamps[0] ?? allTimestamps[0];
+  const timelineEnd = allTimestamps.at(-1) ?? timelineStart;
   const timeline =
-    allTimestamps.length > 1 ? buildDayRange(allTimestamps[0], allTimestamps.at(-1) ?? allTimestamps[0]) : allTimestamps;
+    timelineStart && timelineEnd && timelineStart !== timelineEnd
+      ? buildDayRange(timelineStart, timelineEnd)
+      : timelineStart
+        ? [timelineStart]
+        : [];
   const marketData = timeline.map((timestamp) => normalizedMarketByDay.get(timestamp) ?? null);
   const pollData = timeline.map((timestamp) => normalizedPollByDay.get(timestamp) ?? null);
   const numericValues = [...marketData, ...pollData].filter((value): value is number => typeof value === "number");
@@ -108,7 +115,7 @@ export function MarketPollChart({ marketSeries, pollSeries }: MarketPollChartPro
         symbol: "none",
         lineStyle: { width: 2, color: "#f97316", type: "dashed" },
         z: 3,
-        connectNulls: false,
+        connectNulls: true,
         data: pollData
       }
     ]

@@ -5,7 +5,6 @@ import type { CorrelationResult, LeadLagResult, VolatilityResult } from "@/types
 import type { PollPoint } from "@/types/poll";
 import type { TimePoint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
-import { fetchEventMarketBySlug, fetchPriceHistoryLive } from "@/services/polymarket/rest";
 
 type StatePartySupportDataset = {
   generatedAt: string;
@@ -18,6 +17,37 @@ type StatePartySupportDataset = {
       democrat?: number;
       republican?: number;
     }>;
+  }>;
+};
+
+type StaticPolymarketHistoryDataset = {
+  generatedAt: string;
+  sourceUrls: {
+    gamma: string;
+    clob: string;
+  };
+  description: string;
+  states: Array<{
+    state: string;
+    eventSlug: string;
+    parties: {
+      Republican: {
+        marketId: string;
+        tokenId: string;
+        title: string;
+        outcomeLabel?: string;
+        contractLabel?: string;
+        series: TimePoint[];
+      } | null;
+      Democrat: {
+        marketId: string;
+        tokenId: string;
+        title: string;
+        outcomeLabel?: string;
+        contractLabel?: string;
+        series: TimePoint[];
+      } | null;
+    };
   }>;
 };
 
@@ -35,6 +65,7 @@ export type LiveHistoryCase = {
 };
 
 const STATE_SUPPORT_PUBLIC_URL = "/data/state-party-support-2024.json";
+const POLYMARKET_HISTORY_PUBLIC_URL = "/data/polymarket-history-2024.json";
 
 const stateRegistry = [
   {
@@ -110,34 +141,6 @@ async function fetchPollDataset() {
   return (await response.json()) as StatePartySupportDataset;
 }
 
-async function fetchMarketDebug(slug: string) {
-  const response = await fetch(`/api/polymarket/debug-market?slug=${encodeURIComponent(slug)}`, {
-    headers: {
-      Accept: "application/json"
-    }
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return response.json();
-}
-
-async function fetchPriceHistoryDebug(tokenId: string) {
-  const response = await fetch(`/api/polymarket/price-history?market=${encodeURIComponent(tokenId)}&debug=1`, {
-    headers: {
-      Accept: "application/json"
-    }
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return response.json();
-}
-
 function historySourceKey(state: string, party: "Democrat" | "Republican") {
   return `history:${state}:${party}`;
 }
@@ -147,32 +150,33 @@ function describeRange(series: Array<{ timestamp: string }>) {
   return `${series[0].timestamp} -> ${series.at(-1)?.timestamp ?? series[0].timestamp}`;
 }
 
-function preferredOutcomeLabelsForParty(party: "Democrat" | "Republican") {
-  return party === "Republican"
-    ? [
-        "Donald Trump",
-        "Trump",
-        "Donald J. Trump",
-        "Republican"
-      ]
-    : [
-        "Kamala Harris",
-        "Harris",
-        "Kamala D. Harris",
-        "Democrat",
-        "Democratic"
-      ];
+async function fetchPolymarketHistoryDataset() {
+  const response = await fetch(POLYMARKET_HISTORY_PUBLIC_URL, {
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Polymarket history JSON request failed: ${response.status}`);
+  }
+
+  return (await response.json()) as StaticPolymarketHistoryDataset;
 }
 
 export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Republican"): Promise<LiveHistoryCase[]> {
   let dataset: StatePartySupportDataset | null = null;
+  let polymarketHistoryDataset: StaticPolymarketHistoryDataset | null = null;
   try {
-    dataset = await fetchPollDataset();
+    [dataset, polymarketHistoryDataset] = await Promise.all([
+      fetchPollDataset(),
+      fetchPolymarketHistoryDataset()
+    ]);
   } catch {
     stateRegistry.forEach((stateCase) => {
       useDataSourceStore.getState().markFallback(historySourceKey(stateCase.state, party), {
         stage: "reachability",
-        message: "Failed to fetch cleaned public polling dataset"
+        message: "Failed to fetch cleaned public polling or Polymarket history dataset"
       });
     });
     return [];
@@ -183,12 +187,9 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
       useDataSourceStore.getState().markPending(historySourceKey(stateCase.state, party));
 
       const pollSeries = normalizePollJson(dataset, stateCase.pollStateCode, party);
-      const preferredOutcomeLabels = preferredOutcomeLabelsForParty(party);
-      const market = await fetchEventMarketBySlug(stateCase.eventSlug, preferredOutcomeLabels).catch(() => null);
-      const historyMarketKey = market?.tokenId ?? market?.marketId;
-      const marketSeries = historyMarketKey ? await fetchPriceHistoryLive(historyMarketKey).catch(() => []) : [];
-      const marketDebug = await fetchMarketDebug(stateCase.eventSlug).catch(() => null);
-      const priceHistoryDebug = historyMarketKey ? await fetchPriceHistoryDebug(historyMarketKey).catch(() => null) : null;
+      const stateHistory = polymarketHistoryDataset.states.find((entry) => entry.state === stateCase.state) ?? null;
+      const market = stateHistory?.parties[party] ?? null;
+      const marketSeries = market?.series ?? [];
       const pollRange = describeRange(pollSeries);
       const marketRange = describeRange(marketSeries);
 
@@ -200,22 +201,20 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
         matchedContract: market?.contractLabel ?? null,
         marketId: market?.marketId ?? null,
         tokenId: market?.tokenId ?? null,
-        historyMarketKey,
         pollPoints: pollSeries.length,
         pollRange,
         marketPoints: marketSeries.length,
         marketRange,
-        marketDebug,
-        priceHistoryDebug
+        staticHistoryGeneratedAt: polymarketHistoryDataset.generatedAt
       });
 
       if (pollSeries.length > 1 && marketSeries.length > 1) {
-        useDataSourceStore.getState().markLive(historySourceKey(stateCase.state, party));
+        useDataSourceStore.getState().markCurated(historySourceKey(stateCase.state, party));
       } else {
         const detailedMessage =
           pollSeries.length <= 1
             ? `Public cleaned polling dataset did not have enough usable rows. party=${party}, pollPoints=${pollSeries.length}, pollRange=${pollRange}`
-            : `Polymarket history did not return enough points for the matched event outcome. party=${party}, outcome=${market?.outcomeLabel ?? "unknown"}, contract=${market?.contractLabel ?? "unknown"}, marketId=${market?.marketId ?? "unknown"}, token=${market?.tokenId ?? "unknown"}, historyKey=${historyMarketKey ?? "unknown"}, marketPoints=${marketSeries.length}, marketRange=${marketRange}`;
+            : `Static Polymarket history dataset did not have enough points for the matched event outcome. party=${party}, outcome=${market?.outcomeLabel ?? "unknown"}, contract=${market?.contractLabel ?? "unknown"}, marketId=${market?.marketId ?? "unknown"}, token=${market?.tokenId ?? "unknown"}, marketPoints=${marketSeries.length}, marketRange=${marketRange}`;
         useDataSourceStore.getState().markFallback(historySourceKey(stateCase.state, party), {
           stage: "normalization",
           message: detailedMessage
@@ -226,7 +225,7 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
         state: stateCase.state,
         eventSlug: stateCase.eventSlug,
         party,
-        summary: `FiveThirtyEight ${party} state support matched against Polymarket history for ${stateCase.state} using clobTokenIds[0] with all-interval history at fidelity 720.`,
+        summary: `FiveThirtyEight ${party} state support matched against a pre-fetched Polymarket history snapshot for ${stateCase.state}.`,
         marketSeries,
         pollSeries,
         leadLag: calculateLeadLag(marketSeries, pollSeries),
@@ -234,7 +233,7 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
         volatility: calculateVolatility(marketSeries),
         sourceUrls: [
           STATE_SUPPORT_PUBLIC_URL,
-          `https://polymarket.com/event/${stateCase.eventSlug}`
+          POLYMARKET_HISTORY_PUBLIC_URL
         ]
       };
     })

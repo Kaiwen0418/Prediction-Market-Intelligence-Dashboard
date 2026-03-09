@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "generate:state-support": "node scripts/generate-state-party-support.mjs"
+    "generate:state-support": "node scripts/generate-state-party-support.mjs",
+    "generate:polymarket-history": "node scripts/generate-polymarket-history.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.8",
