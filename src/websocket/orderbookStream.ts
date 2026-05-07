@@ -3,6 +3,9 @@ import { PolymarketWebSocket } from "@/services/polymarket/ws";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 
 type StreamHandler = (payload: unknown) => void;
+type ConnectOptions = {
+  allowMockFallback?: boolean;
+};
 
 class OrderbookStream {
   private readonly liveSocket = new PolymarketWebSocket();
@@ -35,7 +38,8 @@ class OrderbookStream {
     }, 2_000);
   }
 
-  connect(tokenId: string | undefined, handler: StreamHandler) {
+  connect(tokenId: string | undefined, handler: StreamHandler, options: ConnectOptions = {}) {
+    const { allowMockFallback = true } = options;
     if (tokenId && !this.liveFailed) {
       this.liveSocket.connect([tokenId], {
         onOpen: () => {
@@ -45,19 +49,41 @@ class OrderbookStream {
         onError: () => {
           this.liveFailed = true;
           this.liveSocket.disconnect();
-          this.startMockStream(handler);
+          if (allowMockFallback) {
+            this.startMockStream(handler);
+          } else {
+            useDataSourceStore.getState().markFailed("orderbook-stream", {
+              stage: "reachability",
+              message: "WebSocket live stream unavailable and mock fallback is disabled"
+            });
+          }
         },
         onClose: (event) => {
           if (event && !event.wasClean) {
             this.liveFailed = true;
-            this.startMockStream(handler);
+            if (allowMockFallback) {
+              this.startMockStream(handler);
+            } else {
+              useDataSourceStore.getState().markFailed("orderbook-stream", {
+                stage: "reachability",
+                message: "WebSocket live stream closed unexpectedly and mock fallback is disabled"
+              });
+            }
           }
         }
       });
       return;
     }
 
-    this.startMockStream(handler);
+    if (allowMockFallback) {
+      this.startMockStream(handler);
+      return;
+    }
+
+    useDataSourceStore.getState().markFailed("orderbook-stream", {
+      stage: "config",
+      message: "No live token was available for the orderbook stream and mock fallback is disabled"
+    });
   }
 
   disconnect() {

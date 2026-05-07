@@ -1,0 +1,63 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+  background: radial-gradient(circle at top, #1f2937, #0f172a 70%);
+  color: #e2e8f0;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  z-index: 10;
+  max-width: 300px;
+}
+
+#hud h1 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+#hud p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.value {
+  margin-bottom: 8px;
+}
+
+#value {
+  color: #67e8f9;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  background: #0ea5e9;
+  color: white;
+  font-weight: 600;
+}

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
-import { getOrderbookSnapshot } from "@/services/polymarket/api";
+import { getOrderbookSnapshot, getOrderbookSnapshotStrict } from "@/services/polymarket/api";
 import { mergeNormalizedBookEvent } from "@/services/polymarket/normalizers";
 import { useOrderbookStore } from "@/stores/orderbookStore";
 import { useRawEventStore } from "@/stores/rawEventStore";
@@ -10,14 +10,20 @@ import { routeMarketStreamMessage } from "@/websocket/messageRouter";
 import { orderbookStream } from "@/websocket/orderbookStream";
 import { useRealtimeConnection } from "./useRealtimeConnection";
 
-export function useOrderbook(tokenId?: string) {
+type UseOrderbookOptions = {
+  strictSnapshot?: boolean;
+  allowMockStreamFallback?: boolean;
+};
+
+export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}) {
+  const { strictSnapshot = false, allowMockStreamFallback = true } = options;
   const orderbook = useOrderbookStore((state) => state.orderbook);
   const upsertOrderbook = useOrderbookStore((state) => state.upsertOrderbook);
   const pushEvents = useRawEventStore((state) => state.pushEvents);
 
   const snapshotQuery = useQuery({
-    queryKey: ["orderbook-snapshot", tokenId],
-    queryFn: () => getOrderbookSnapshot(tokenId),
+    queryKey: ["orderbook-snapshot", tokenId, strictSnapshot ? "strict" : "fallback"],
+    queryFn: () => (strictSnapshot ? getOrderbookSnapshotStrict(tokenId) : getOrderbookSnapshot(tokenId)),
     refetchInterval: tokenId ? 30_000 : 15_000
   });
 
@@ -49,13 +55,13 @@ export function useOrderbook(tokenId?: string) {
         if (events.length) {
           onBatch(events);
         }
-      });
+      }, { allowMockFallback: allowMockStreamFallback });
 
       return () => {
         orderbookStream.disconnect();
       };
     },
-    [tokenId]
+    [allowMockStreamFallback, tokenId]
   );
 
   useRealtimeConnection({

@@ -1,5 +1,5 @@
-import { MarketPageView } from "@/components/pages/MarketPageView";
+import { redirect } from "next/navigation";
 
 export default function MarketPage() {
-  return <MarketPageView />;
+  redirect("/");
 }

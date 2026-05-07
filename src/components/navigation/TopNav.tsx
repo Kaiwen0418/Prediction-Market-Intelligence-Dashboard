@@ -2,10 +2,8 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 const links = [
-  { href: "/", label: "Overview" },
-  { href: "/market", label: "Market" },
-  { href: "/history", label: "History" },
-  { href: "/timeline", label: "Timeline" }
+  { href: "/", label: "Home" },
+  { href: "/history", label: "Research" }
 ];
 
 export function TopNav() {

@@ -17,8 +17,12 @@ function cumulative(levels: { price: number; size: number }[]) {
 }
 
 export function DepthChart({ orderbook }: DepthChartProps) {
-  const bidDepth = cumulative([...orderbook.bids].sort((a, b) => a.price - b.price));
+  const bidDepth = cumulative([...orderbook.bids].sort((a, b) => b.price - a.price)).reverse();
   const askDepth = cumulative([...orderbook.asks].sort((a, b) => a.price - b.price));
+  const visiblePrices = [...bidDepth, ...askDepth].map(([price]) => Number(price));
+  const minPrice = visiblePrices.length ? Math.min(...visiblePrices) : 0;
+  const maxPrice = visiblePrices.length ? Math.max(...visiblePrices) : 1;
+  const axisPadding = Math.max(orderbook.tickSize ?? 0.01, 0.005);
 
   const option: EChartsOption = {
     tooltip: {
@@ -33,6 +37,8 @@ export function DepthChart({ orderbook }: DepthChartProps) {
     },
     xAxis: {
       type: "value",
+      min: Number(Math.max(0, minPrice - axisPadding).toFixed(3)),
+      max: Number((maxPrice + axisPadding).toFixed(3)),
       axisLabel: {
         formatter: (value: number) => value.toFixed(2)
       }

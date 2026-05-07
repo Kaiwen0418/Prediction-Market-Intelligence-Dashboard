@@ -17,6 +17,14 @@ export async function getFeaturedMarket(): Promise<MarketSnapshot> {
   return liveMarket ?? simulateLatency(featuredMarket);
 }
 
+export async function getFeaturedMarketStrict(): Promise<MarketSnapshot> {
+  const liveMarket = await fetchFeaturedMarketLive().catch(() => null);
+  if (!liveMarket) {
+    throw new Error("Featured market live request failed and no fallback is allowed.");
+  }
+  return liveMarket;
+}
+
 export async function getHistoricalMarketSeries(tokenId?: string): Promise<TimePoint[]> {
   if (!tokenId) return simulateLatency(marketSeries);
 
@@ -42,6 +50,23 @@ export async function getOrderbookSnapshot(tokenId?: string): Promise<OrderbookS
   }
 
   return simulateLatency(createOrderbookSnapshot(), 180);
+}
+
+export async function getOrderbookSnapshotStrict(tokenId?: string): Promise<OrderbookState> {
+  if (!tokenId) {
+    throw new Error("Cannot load live orderbook without a live token id.");
+  }
+
+  const liveOrderbook = await fetchOrderbookLive(tokenId).catch(() => null);
+  if (!liveOrderbook) {
+    throw new Error("Live orderbook request failed and no fallback is allowed.");
+  }
+
+  const liveTrades = await fetchTradesLive(tokenId).catch(() => []);
+  return {
+    ...liveOrderbook,
+    trades: liveTrades.length ? liveTrades : liveOrderbook.trades
+  };
 }
 
 export async function getTimelineEvents(market?: MarketSnapshot): Promise<TimelineEvent[]> {
