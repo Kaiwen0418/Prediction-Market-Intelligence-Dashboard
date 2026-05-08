@@ -38,7 +38,7 @@ export function ProductDemoShell({
   const pathname = usePathname();
 
   return (
-    <main className="product-demo-page mx-auto flex min-h-screen max-w-[1500px] flex-col px-4 py-5 md:px-6 lg:px-8">
+    <main className="product-demo-page flex min-h-screen w-full flex-col px-4 py-5 md:px-6 lg:px-8">
       <MobileDesktopNotice />
       <section className="product-demo-hero">
         <div className="product-demo-shell">

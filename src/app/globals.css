@@ -70,6 +70,7 @@ html[data-theme="dark"] {
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -79,6 +80,7 @@ body {
   color: var(--app-text);
   font-family: Georgia, "Times New Roman", serif;
   transition: background 180ms ease, color 180ms ease;
+  overflow-x: hidden;
 }
 
 a {
@@ -218,6 +220,20 @@ a {
   background: var(--demo-card-bg);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.22);
   padding: 36px 46px 28px;
+  width: 100%;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  align-self: center;
+}
+
+/* Once the viewport has room for the 1280px floor + the page gutters, let the
+   card grow up to 90% of the viewport width so wide displays use the space. */
+@media (min-width: 1344px) {
+  .product-demo-card {
+    width: max(1280px, 90vw);
+    max-width: none;
+  }
 }
 
 .product-demo-card-header {
@@ -425,18 +441,35 @@ html[data-theme="dark"] .theme-switch-thumb {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1023.98px) {
+  body {
+    background: var(--demo-card-bg);
+  }
+
   .product-demo-page {
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-top: 12px;
-    padding-bottom: 96px;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    background: var(--demo-card-bg);
+  }
+
+  .product-demo-page::before,
+  .product-demo-page::after {
+    display: none;
+  }
+
+  .product-demo-shell {
+    gap: 12px;
   }
 
   .product-demo-bar {
     grid-template-columns: 1fr;
     gap: 6px;
     font-size: 12px;
+    padding: 10px 16px;
+    color: var(--demo-card-text);
+    border-bottom-color: var(--demo-card-divider);
   }
 
   .product-demo-bar .text-center,
@@ -445,8 +478,10 @@ html[data-theme="dark"] .theme-switch-thumb {
   }
 
   .product-demo-card {
-    border-radius: 16px;
+    border-radius: 0;
     padding: 18px 16px 18px;
+    box-shadow: none;
+    max-width: none;
   }
 
   .product-demo-card-header {
