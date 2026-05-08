@@ -4,11 +4,13 @@ import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { MarketPageView } from "@/components/pages/MarketPageView";
 
 export function HomePageView() {
+  const staticMode = process.env.NEXT_PUBLIC_STATIC_SITE_MODE === "true";
+
   return (
     <ProductDemoShell
       barLeft="Prediction Market Intelligence"
-      barCenter="Hero + Live Market"
-      barRight="Research lives separately"
+      barCenter="-"
+      barRight="v0.03"
       title={
         <>
           Market
@@ -16,13 +18,13 @@ export function HomePageView() {
           Flow
         </>
       }
-      footerLabel="Interface Thesis"
-      footerLeft="This dashboard frames prediction markets as a product surface: price, liquidity, and catalysts are shown together so users can read market structure instead of just a quote."
-      footerRight="The experience moves from preset product demo to strict live market monitoring and cached historical comparison, giving a clear path from orientation to real usage."
+      footerLabel="Vision & Thesis"
+      footerLeft="MarketFlow reimagines prediction markets as intelligence networks, fusing real-time pricing, liquidity analytics, and event catalysts into a cohesive interface that decodes market psychology and collective foresight."
+      footerRight="Evolving from guided demos to autonomous monitoring, MarketFlow charts a course toward democratizing predictive intelligence—envisioning AI-enhanced forecasting, global market integration, and community-driven decision tools that empower societies to anticipate and shape the future."
       showHero
     >
       <div className="product-demo-market">
-        <MarketPageView embedded />
+        <MarketPageView embedded staticMode={staticMode} />
       </div>
     </ProductDemoShell>
   );

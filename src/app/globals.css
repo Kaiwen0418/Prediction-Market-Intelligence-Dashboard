@@ -222,7 +222,7 @@ a {
 
 .product-demo-card-header {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -277,35 +277,25 @@ a {
 
 .product-demo-globe {
   position: absolute;
-  top: 172px;
+  top: 320px;
   left: 50%;
-  width: min(34vw, 520px);
-  height: min(34vw, 520px);
+  width: min(42vw, 640px);
+  height: min(42vw, 640px);
   transform: translate(-50%, -50%);
   z-index: 0;
   pointer-events: none;
   opacity: 0.98;
 }
 
-.product-demo-globe svg {
-  animation: product-demo-spin 22s linear infinite;
-}
-
-.product-demo-orbit path {
-  animation: product-demo-pulse 4.8s ease-in-out infinite;
-}
-
-.product-demo-orbit path:nth-child(2) {
-  animation-delay: 0.8s;
-}
-
-.product-demo-orbit path:nth-child(3) {
-  animation-delay: 1.6s;
+.product-demo-globe canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .product-demo-footer {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   margin-top: auto;
   display: grid;
   grid-template-columns: 1.3fr 2.35fr 2.35fr;
@@ -342,9 +332,10 @@ a {
 .product-demo-body {
   position: relative;
   z-index: 2;
-  margin-top: 44px;
+  margin-top: -156px;
   border-top: 1px solid var(--demo-card-divider);
-  padding-top: 28px;
+  background: var(--demo-card-bg);
+  padding-top: 184px;
 }
 
 .product-demo-body--compact {
@@ -396,25 +387,6 @@ html[data-theme="dark"] .theme-switch-thumb {
   transform: translateX(28px);
 }
 
-@keyframes product-demo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes product-demo-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 @media (max-width: 1100px) {
   .product-demo-card {
     padding: 28px 28px 24px;
@@ -429,9 +401,9 @@ html[data-theme="dark"] .theme-switch-thumb {
   }
 
   .product-demo-globe {
-    top: 188px;
-    width: min(46vw, 420px);
-    height: min(46vw, 420px);
+    top: 312px;
+    width: min(50vw, 520px);
+    height: min(50vw, 520px);
   }
 
   .product-demo-footer {
@@ -448,12 +420,19 @@ html[data-theme="dark"] .theme-switch-thumb {
   }
 
   .product-demo-body {
-    margin-top: 36px;
-    padding-top: 24px;
+    margin-top: -124px;
+    padding-top: 148px;
   }
 }
 
 @media (max-width: 720px) {
+  .product-demo-page {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 12px;
+    padding-bottom: 96px;
+  }
+
   .product-demo-bar {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -466,45 +445,76 @@ html[data-theme="dark"] .theme-switch-thumb {
   }
 
   .product-demo-card {
-    padding: 24px 20px 20px;
+    border-radius: 16px;
+    padding: 18px 16px 18px;
   }
 
   .product-demo-card-header {
     flex-direction: column;
+    gap: 14px;
   }
 
   .product-demo-stage {
-    min-height: 620px;
+    min-height: 560px;
   }
 
   .product-demo-local-nav {
-    flex-wrap: wrap;
-    gap: 14px 24px;
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px 18px;
     padding-top: 0;
   }
 
+  .product-demo-title {
+    font-size: clamp(3.35rem, 18vw, 5rem);
+    line-height: 0.88;
+  }
+
   .product-demo-globe {
-    top: 214px;
-    width: min(72vw, 360px);
-    height: min(72vw, 360px);
+    top: 278px;
+    width: min(76vw, 340px);
+    height: min(76vw, 340px);
   }
 
   .product-demo-footer {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
+    padding-top: 14px;
   }
 
   .product-demo-footer-copy {
     max-width: 100%;
+    font-size: 13px;
   }
 
   .product-demo-market {
-    margin-top: 28px;
-    padding-top: 20px;
+    margin-top: 18px;
+    padding-top: 16px;
   }
 
   .product-demo-body {
-    margin-top: 28px;
-    padding-top: 20px;
+    margin-top: -34px;
+    padding-top: 54px;
+  }
+}
+
+@media (max-width: 520px) {
+  .product-demo-stage {
+    min-height: 500px;
+  }
+
+  .product-demo-globe {
+    top: 252px;
+    width: min(74vw, 300px);
+    height: min(74vw, 300px);
+  }
+
+  .product-demo-local-nav {
+    align-items: center;
+  }
+
+  .product-demo-body {
+    margin-top: -18px;
+    padding-top: 34px;
   }
 }

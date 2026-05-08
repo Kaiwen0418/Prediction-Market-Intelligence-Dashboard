@@ -11,12 +11,13 @@ import { orderbookStream } from "@/websocket/orderbookStream";
 import { useRealtimeConnection } from "./useRealtimeConnection";
 
 type UseOrderbookOptions = {
+  enableRealtime?: boolean;
   strictSnapshot?: boolean;
   allowMockStreamFallback?: boolean;
 };
 
 export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}) {
-  const { strictSnapshot = false, allowMockStreamFallback = true } = options;
+  const { strictSnapshot = false, allowMockStreamFallback = true, enableRealtime = true } = options;
   const orderbook = useOrderbookStore((state) => state.orderbook);
   const upsertOrderbook = useOrderbookStore((state) => state.upsertOrderbook);
   const pushEvents = useRawEventStore((state) => state.pushEvents);
@@ -65,7 +66,7 @@ export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}
   );
 
   useRealtimeConnection({
-    enabled: Boolean(tokenId),
+    enabled: enableRealtime && Boolean(tokenId),
     connect,
     onBatch: handleBatch
   });

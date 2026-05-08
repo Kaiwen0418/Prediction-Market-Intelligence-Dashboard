@@ -4,15 +4,20 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { MarketPollChart } from "@/components/charts/MarketPollChart";
 import { LoadingState } from "@/components/layout/LoadingState";
-import { MetricCard } from "@/components/layout/MetricCard";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
-import { SourceStatusCard } from "@/components/layout/SourceStatusCard";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
 import { getLiveHistoryCases } from "@/services/history/liveHistory";
 import supportDataset from "@/../public/data/state-party-support-2024.json";
 import { researchCases, researchDataSources } from "@/services/history/researchStatic";
 
 type Party = "Democrat" | "Republican";
+
+function sourceTone(state?: string) {
+  if (state === "live") return "border-emerald-200 bg-emerald-50 text-emerald-900";
+  if (state === "fallback") return "border-amber-200 bg-amber-50 text-amber-900";
+  if (state === "failed") return "border-rose-200 bg-rose-50 text-rose-900";
+  return "border-slate-200 bg-slate-50 text-slate-800";
+}
 
 function buildPollSeries(state: string, party: Party) {
   const stateData = supportDataset.states.find((entry) => entry.state === state);
@@ -81,7 +86,7 @@ export function HistoryPageView() {
       showHero={false}
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <section className="panel px-6 py-6">
+        <section>
           <p className="metric-label">Historical Analysis</p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">Research-style market vs polling comparison</h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
@@ -120,63 +125,10 @@ export function HistoryPageView() {
               ? `Live source mode: public cleaned 538 dataset + Polymarket historical prices (${party})`
               : "Fallback mode: research-inspired static series"}
           </p>
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {["Arizona", "Georgia", "Michigan", "Pennsylvania", "Wisconsin"].map((state) => (
-              <SourceStatusCard
-                key={state}
-                title={state}
-                diagnostics={sourceDiagnostics[`history:${state}:${party}`]}
-              />
-            ))}
-          </div>
         </section>
 
-        <section className="flex flex-wrap gap-3">
-          {availableStates.map((state) => (
-            <button
-              key={state}
-              type="button"
-              onClick={() => setActiveState(state)}
-              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                state === activeState
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              {state}
-            </button>
-          ))}
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Lead-Lag"
-            value={activeCase.leadLag.lagDays === 0 ? "Sync" : `${Math.abs(activeCase.leadLag.lagDays)}d`}
-            detail={activeCase.leadLag.interpretation}
-          />
-          <MetricCard
-            label="Correlation"
-            value={String(activeCase.correlation.coefficient)}
-            detail={`${activeCase.correlation.strength} relationship between market and polling series`}
-          />
-          <MetricCard
-            label="Research Finding"
-            value={activeCase.state}
-            detail={activeCase.summary}
-          />
-          <MetricCard
-            label="Volatility"
-            value={`${activeCase.volatility.realizedVolatility}%`}
-            detail={`Average return ${activeCase.volatility.averageReturn > 0 ? "+" : ""}${activeCase.volatility.averageReturn} pts`}
-          />
-        </section>
-
-        <section className="panel px-6 py-6">
-          <p className="metric-label">Time Series</p>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-            {activeCase.state}: {party} support against PM contract path
-          </h2>
-          <div className="mt-4 flex flex-wrap gap-3">
+        <section className="border-t border-[var(--demo-card-divider)] pt-8">
+          <div className="flex flex-wrap items-center gap-3">
             {(["Republican", "Democrat"] as const).map((option) => (
               <button
                 key={option}
@@ -192,6 +144,85 @@ export function HistoryPageView() {
               </button>
             ))}
           </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            {availableStates.map((state) => (
+              <button
+                key={state}
+                type="button"
+                onClick={() => setActiveState(state)}
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                  state === activeState
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                }`}
+              >
+                {state}
+              </button>
+            ))}
+          </div>
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            {["Arizona", "Georgia", "Michigan", "Pennsylvania", "Wisconsin"].map((state) => {
+              const diagnostics = sourceDiagnostics[`history:${state}:${party}`];
+              const checkedAt = diagnostics?.checkedAt;
+
+              return (
+                <div
+                  key={state}
+                  className={`rounded-2xl border px-4 py-3 text-sm ${sourceTone(diagnostics?.state)}`}
+                >
+                  <p className="metric-label">{state}</p>
+                  <p className="mt-1 font-medium capitalize">
+                    {diagnostics?.state ?? "pending"} · {diagnostics?.mode ?? "mock"}
+                  </p>
+                  <p className="mt-1 text-xs opacity-80">
+                    {checkedAt
+                      ? `Checked ${new Date(checkedAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric"
+                        })}`
+                      : "Not checked yet"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="border-t border-[var(--demo-card-divider)] pt-8">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <p className="metric-label">Lead-Lag</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">
+                {activeCase.leadLag.lagDays === 0 ? "Sync" : `${Math.abs(activeCase.leadLag.lagDays)}d`}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">{activeCase.leadLag.interpretation}</p>
+            </div>
+            <div>
+              <p className="metric-label">Correlation</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">{String(activeCase.correlation.coefficient)}</p>
+              <p className="mt-2 text-sm text-slate-500">{activeCase.correlation.strength} relationship between market and polling series</p>
+            </div>
+            <div>
+              <p className="metric-label">Research Finding</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.state}</p>
+              <p className="mt-2 text-sm text-slate-500">{activeCase.summary}</p>
+            </div>
+            <div>
+              <p className="metric-label">Volatility</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.volatility.realizedVolatility}%</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Average return {activeCase.volatility.averageReturn > 0 ? "+" : ""}
+                {activeCase.volatility.averageReturn} pts
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-[var(--demo-card-divider)] pt-8">
+          <p className="metric-label">Time Series</p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+            {activeCase.state}: {party} support against PM contract path
+          </h2>
           <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
             {pollingSources.map((point) => (
               <a

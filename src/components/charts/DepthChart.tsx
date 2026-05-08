@@ -5,6 +5,9 @@ import type { OrderbookState } from "@/types/market";
 import { ReactECharts } from "./ChartContainer";
 
 type DepthChartProps = {
+  askColor?: string;
+  bidColor?: string;
+  height?: number;
   orderbook: OrderbookState;
 };
 
@@ -16,7 +19,12 @@ function cumulative(levels: { price: number; size: number }[]) {
   });
 }
 
-export function DepthChart({ orderbook }: DepthChartProps) {
+export function DepthChart({
+  askColor = "#9f5f71",
+  bidColor = "#5c7ea6",
+  height = 280,
+  orderbook
+}: DepthChartProps) {
   const bidDepth = cumulative([...orderbook.bids].sort((a, b) => b.price - a.price)).reverse();
   const askDepth = cumulative([...orderbook.asks].sort((a, b) => a.price - b.price));
   const visiblePrices = [...bidDepth, ...askDepth].map(([price]) => Number(price));
@@ -53,8 +61,8 @@ export function DepthChart({ orderbook }: DepthChartProps) {
         type: "line",
         step: "end",
         showSymbol: false,
-        lineStyle: { width: 3, color: "#14b8a6" },
-        areaStyle: { color: "rgba(20, 184, 166, 0.14)" },
+        lineStyle: { width: 3, color: bidColor },
+        areaStyle: { color: `${bidColor}26` },
         data: bidDepth
       },
       {
@@ -62,12 +70,12 @@ export function DepthChart({ orderbook }: DepthChartProps) {
         type: "line",
         step: "start",
         showSymbol: false,
-        lineStyle: { width: 3, color: "#f97316" },
-        areaStyle: { color: "rgba(249, 115, 22, 0.12)" },
+        lineStyle: { width: 3, color: askColor },
+        areaStyle: { color: `${askColor}22` },
         data: askDepth
       }
     ]
   };
 
-  return <ReactECharts option={option} style={{ height: 280 }} />;
+  return <ReactECharts option={option} style={{ height }} />;
 }
