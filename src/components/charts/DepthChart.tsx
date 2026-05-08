@@ -15,8 +15,14 @@ function cumulative(levels: { price: number; size: number }[]) {
   let running = 0;
   return levels.map((level) => {
     running += level.size;
-    return [level.price, running];
+    return [running, level.price];
   });
+}
+
+function compactDepth(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}k`;
+  return `${Math.round(value)}`;
 }
 
 export function DepthChart({
@@ -25,53 +31,60 @@ export function DepthChart({
   height = 280,
   orderbook
 }: DepthChartProps) {
-  const bidDepth = cumulative([...orderbook.bids].sort((a, b) => b.price - a.price)).reverse();
+  const bidDepth = cumulative([...orderbook.bids].sort((a, b) => b.price - a.price));
   const askDepth = cumulative([...orderbook.asks].sort((a, b) => a.price - b.price));
-  const visiblePrices = [...bidDepth, ...askDepth].map(([price]) => Number(price));
+  const visiblePrices = [...bidDepth, ...askDepth].map(([, price]) => Number(price));
   const minPrice = visiblePrices.length ? Math.min(...visiblePrices) : 0;
   const maxPrice = visiblePrices.length ? Math.max(...visiblePrices) : 1;
   const axisPadding = Math.max(orderbook.tickSize ?? 0.01, 0.005);
 
   const option: EChartsOption = {
     tooltip: {
-      trigger: "axis"
+      trigger: "axis",
+      valueFormatter: (value) => compactDepth(Number(value))
     },
     grid: {
-      left: 32,
-      right: 20,
-      top: 20,
-      bottom: 28,
+      left: 16,
+      right: 16,
+      top: 16,
+      bottom: 24,
       containLabel: true
     },
     xAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => compactDepth(value)
+      },
+      splitLine: { lineStyle: { color: "rgba(148, 163, 184, 0.18)" } }
+    },
+    yAxis: {
       type: "value",
       min: Number(Math.max(0, minPrice - axisPadding).toFixed(3)),
       max: Number((maxPrice + axisPadding).toFixed(3)),
       axisLabel: {
         formatter: (value: number) => value.toFixed(2)
-      }
-    },
-    yAxis: {
-      type: "value",
-      splitLine: { lineStyle: { color: "rgba(148, 163, 184, 0.18)" } }
+      },
+      splitLine: { show: false }
     },
     series: [
       {
         name: "Bids",
         type: "line",
-        step: "end",
         showSymbol: false,
-        lineStyle: { width: 3, color: bidColor },
+        lineStyle: { width: 2.5, color: bidColor },
+        // Bids span the lower price range; default origin fills downward toward y=0,
+        // sitting cleanly below the bid line.
         areaStyle: { color: `${bidColor}26` },
         data: bidDepth
       },
       {
         name: "Asks",
         type: "line",
-        step: "start",
         showSymbol: false,
-        lineStyle: { width: 3, color: askColor },
-        areaStyle: { color: `${askColor}22` },
+        lineStyle: { width: 2.5, color: askColor },
+        // Asks span the upper price range; fill upward toward y=max so the red shading
+        // hugs the line from above and never bleeds into the bid region.
+        areaStyle: { color: `${askColor}22`, origin: "end" },
         data: askDepth
       }
     ]

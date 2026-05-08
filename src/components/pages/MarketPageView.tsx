@@ -61,13 +61,17 @@ export function MarketPageView({ embedded = false, staticMode = false }: MarketP
     <>
       <section>
         <p className="metric-label">Interactive Map</p>
-        <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <h2 className="max-w-4xl text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
-            {market.outcomeLabel ?? market.title}
-          </h2>
-          <p className="shrink-0 text-[11px] uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
-            {formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}
-          </p>
+        {/* The title row mirrors the UsMarketMap grid columns so the timestamp sits at
+            the right edge of the map column (not the full content width). */}
+        <div className="mt-2 grid gap-x-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] xl:grid-cols-[3fr_1fr]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <h2 className="max-w-4xl text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
+              {market.outcomeLabel ?? market.title}
+            </h2>
+            <p className="shrink-0 text-[11px] uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
+              {formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}
+            </p>
+          </div>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:leading-7">
           The map is now the primary navigation surface. Click a state to zoom in and move the current live market
@@ -90,7 +94,7 @@ export function MarketPageView({ embedded = false, staticMode = false }: MarketP
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="metric-label">Price History</p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">Annotated Polymarket contract path</h2>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">Republican win probability over time</h2>
           </div>
           <p className="text-sm leading-6 text-slate-500 md:max-w-[280px] md:text-right">
             {historicalSeriesQuery.isLoading
@@ -99,9 +103,11 @@ export function MarketPageView({ embedded = false, staticMode = false }: MarketP
           </p>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:leading-7">
-          The line uses Polymarket contract history for the current outcome. When live history is unavailable, this
-          section falls back to the local market history series. Annotation copy is placeholder-driven when no usable
-          event mapping is available.
+          The line tracks Polymarket&rsquo;s implied probability that the Republican candidate wins, sourced from live
+          contract history when available and the local fallback series otherwise. Each value is the last traded price of
+          the &ldquo;Republican&rdquo; outcome — 50% means the market sees the race as a coin flip, while moves above
+          imply the GOP is favored. Annotations call out polling shifts, campaign events, and macro releases that
+          repriced the contract.
         </p>
         <div className="mt-6">
           <PolymarketHistoryChart events={deferredEvents} series={marketSeries} />

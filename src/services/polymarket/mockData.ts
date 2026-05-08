@@ -106,31 +106,41 @@ export const timelineEvents: TimelineEvent[] = [
   {
     id: "event-1",
     timestamp: subDays(now, 6).toISOString(),
-    headline: "Major swing-state poll shifts toward incumbent coalition",
+    headline: "Swing-state polling tilts Republican",
     source: "Polling Consortium",
     category: "poll",
     impactScore: 78,
     marketMove: 3.4,
-    summary: "Polling composite narrowed in two decisive states and the market repriced within hours."
+    summary: "Composite polling broke decisively toward the Republican ticket in decisive states, repricing the contract well above parity."
   },
   {
     id: "event-2",
     timestamp: subDays(now, 4).toISOString(),
-    headline: "Economic surprise prints below expectations",
-    source: "Macro Calendar",
-    category: "macro",
-    impactScore: 65,
-    marketMove: -1.8,
-    summary: "Risk sentiment weakened and contracts briefly sold off before stabilizing."
+    headline: "Democratic ticket reshuffles, GOP odds compress",
+    source: "Campaign Desk",
+    category: "campaign",
+    impactScore: 72,
+    marketMove: -3.2,
+    summary: "An unexpected Democratic candidate change pulled the Republican lead back toward 50% as bettors priced in fresh momentum."
   },
   {
     id: "event-3",
-    timestamp: subDays(now, 2).toISOString(),
-    headline: "Debate performance triggers aggressive overnight buy flow",
+    timestamp: subDays(now, 3).toISOString(),
+    headline: "Soft economic prints test the rally",
+    source: "Macro Calendar",
+    category: "macro",
+    impactScore: 58,
+    marketMove: -1.6,
+    summary: "Below-consensus data briefly weighed on the Republican contract before liquidity stabilized in the low 40s."
+  },
+  {
+    id: "event-4",
+    timestamp: subDays(now, 1).toISOString(),
+    headline: "Closing-stretch buying flips the contract bullish",
     source: "Event Monitor",
     category: "debate",
     impactScore: 89,
     marketMove: 4.9,
-    summary: "Trade pressure flipped positive and best bid depth doubled during the session."
+    summary: "Late-cycle debate and rally signals lifted Republican positioning; best-bid depth doubled overnight as the contract reclaimed the 60s."
   }
 ];

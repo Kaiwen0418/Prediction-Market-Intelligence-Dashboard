@@ -287,12 +287,11 @@ export function UsMarketMap({ market, orderbook, sources }: UsMarketMapProps) {
           <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Source status</span>
         </div>
 
-        <div className="mt-6 overflow-visible">
-          <div className="flex min-h-[300px] items-center justify-center overflow-visible sm:min-h-[360px] lg:min-h-[430px] xl:min-h-[360px]">
-            <div className="w-full max-w-[500px] -rotate-90 transform sm:max-w-[620px] lg:max-w-[680px] xl:max-w-[560px]">
-              <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={340} />
-            </div>
-          </div>
+        {/* Depth chart only renders once the parent grid actually has a right panel (lg+).
+            Below lg, the layout collapses to a single column and stacking the depth chart
+            beneath the map looks broken — so we hide it entirely in that range. */}
+        <div className="mt-6 hidden lg:block">
+          <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
         </div>
 
         {selectedState ? (
