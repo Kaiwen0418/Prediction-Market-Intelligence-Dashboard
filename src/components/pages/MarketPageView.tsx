@@ -14,17 +14,16 @@ import { formatTimestamp } from "@/utils/time";
 
 type MarketPageViewProps = {
   embedded?: boolean;
-  staticMode?: boolean;
 };
 
-export function MarketPageView({ embedded = false, staticMode = false }: MarketPageViewProps) {
+export function MarketPageView({ embedded = false }: MarketPageViewProps) {
   const { featuredMarketQuery, featuredMarket: market, historicalSeriesQuery, marketSeries } = useMarketData({
-    strictFeaturedMarket: !staticMode
+    strictFeaturedMarket: true
   });
   const { orderbook, snapshotQuery } = useOrderbook(market?.tokenId, {
-    strictSnapshot: !staticMode,
-    allowMockStreamFallback: staticMode,
-    enableRealtime: !staticMode
+    strictSnapshot: true,
+    allowMockStreamFallback: false,
+    enableRealtime: true
   });
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market);
@@ -49,9 +48,7 @@ export function MarketPageView({ embedded = false, staticMode = false }: MarketP
       <ErrorState
         detail={
           errorMessage ??
-          (staticMode
-            ? "The static showcase could not load even the fallback market data."
-            : "The live market page is configured to use real data only, and no usable live response was available.")
+          "The live market page is configured to use real data only, and no usable live response was available."
         }
       />
     );

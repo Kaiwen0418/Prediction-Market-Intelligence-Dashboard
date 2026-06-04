@@ -1,33 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { polymarketConfig } from "@/services/polymarket/config";
-import { featuredMarket } from "@/services/polymarket/mockData";
 import { validateProxyBaseUrls, validateRequestedSlug } from "../_lib/proxy";
 
-const isStaticExport = process.env.STATIC_EXPORT === "true";
 export const revalidate = 60;
 
 export async function GET(request: NextRequest) {
-  if (isStaticExport) {
-    return NextResponse.json({
-      slug: featuredMarket.eventSlug ?? featuredMarket.slug,
-      eventTitle: featuredMarket.title,
-      marketCount: 1,
-      markets: [
-        {
-          id: featuredMarket.marketId,
-          question: featuredMarket.contractLabel ?? featuredMarket.title,
-          title: featuredMarket.title,
-          conditionId: featuredMarket.marketId,
-          clobTokenId: featuredMarket.tokenId ?? null,
-          clobTokenIds: JSON.stringify([featuredMarket.tokenId]),
-          outcomes: JSON.stringify([featuredMarket.outcomeLabel ?? "Yes"]),
-          outcomePrices: JSON.stringify([featuredMarket.probability]),
-          tokens: null
-        }
-      ]
-    });
-  }
-
   const baseUrlError = validateProxyBaseUrls();
   if (baseUrlError) return baseUrlError;
 

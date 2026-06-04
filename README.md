@@ -1,73 +1,20 @@
-<<<<<<< ours
-<<<<<<< ours
 # Prediction Market Intelligence Dashboard
 
-A frontend-only, production-style analytics dashboard for prediction markets. The project demonstrates realtime data handling, client-side state architecture, derived market analytics, and rich visualization without a custom backend.
+Production-style frontend for prediction market analysis. The app combines live Polymarket data, cached research datasets, client-side analytics, and editorial visualization in a single Next.js project.
 
-## Problem
+## Product Structure
 
-Prediction markets react faster than many traditional information channels, but raw market pages do not explain:
+- `/` Home: hero + embedded live market surface
+- `/history` Research: cached polling vs market comparison
+- `/market` Redirects to `/`
 
-- how market pricing compares with polls
-- whether price action leads or lags public polling
-- what events likely caused moves
-- what the orderbook says about short-term conviction
+## Core Capabilities
 
-## Solution
-
-This dashboard treats the frontend as a complete intelligence layer:
-
-- ingest market, polling, and event data
-- maintain query cache and live store state
-- compute derived analytics in the client
-- render dashboard views for interpretation
-
-## Core Features
-
-- Historical `market probability vs poll average` chart
-- `Lead-lag analysis` using cross-correlation
-- `Realtime orderbook` depth, spread, and recent trade prints
-- `Event timeline` connecting catalysts to market moves
-- `Analytics layer` for volatility, momentum, and liquidity imbalance
-
-## Architecture
-
-```text
-External APIs
- ├ Polymarket
- ├ Polling data
- └ News / event feeds
-       │
-       ▼
-Frontend ingestion layer
- ├ TanStack Query cache
- ├ Mock/live-ready WebSocket manager
- └ Service adapters
-       │
-       ▼
-Client stores
- ├ marketStore
- ├ orderbookStore
- └ eventStore
-       │
-       ▼
-Analytics layer
- ├ leadLag.ts
- ├ volatility.ts
- ├ momentum.ts
- └ liquidity.ts
-       │
-       ▼
-Visualization layer
- ├ time-series chart
- ├ depth chart
- ├ orderbook table
- ├ trade tape
- └ event timeline
-       │
-       ▼
-Dashboard UI
-```
+- Live featured market and orderbook view
+- Interactive U.S. state map with market rail
+- Annotated Polymarket price-history chart
+- Research-grade polling vs market comparison page
+- Client-side analytics for lead-lag, correlation, volatility, and liquidity
 
 ## Stack
 
@@ -77,35 +24,8 @@ Dashboard UI
 - TanStack Query
 - ECharts
 - Tailwind CSS
-- date-fns
-- d3-array / d3-scale ready in dependency layer for future expansion
-
-## Repo Structure
-
-```text
-src
- ├ app
- │   ├ page.tsx
- │   ├ market/page.tsx
- │   ├ history/page.tsx
- │   └ timeline/page.tsx
- ├ analytics
- ├ components
- │   ├ charts
- │   ├ dashboard
- │   ├ layout
- │   ├ orderbook
- │   └ timeline
- ├ hooks
- ├ services
- │   ├ polymarket
- │   ├ polling
- │   └ news
- ├ stores
- ├ websocket
- ├ utils
- └ types
-```
+- Three.js
+- react-simple-maps
 
 ## Local Development
 
@@ -116,20 +36,34 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Environment
+## Vercel Deployment
 
-Create a local `.env.local` from `.env.example` if you want to point the app at a specific live market slug or override API endpoints.
+This repo is now Vercel-first.
+
+### Recommended settings
+
+- Framework preset: `Next.js`
+- Install command: `pnpm install --frozen-lockfile`
+- Build command: `pnpm build`
+- Output directory: leave empty
+- Node version: `22.x`
+
+### Environment variables
+
+None are required for the default Vercel deployment.
+
+Do not set any static-export flags. The app is intended to run as a normal Next.js deployment with serverless route handlers on Vercel.
 
 ## Public Data Assets
 
-The cleaned state-level polling resource used by `/history` is published as a frontend-readable asset:
+- Polling dataset: [public/data/state-party-support-2024.json](/Users/blueberryncherry/Proj/Prediction%20Market%20Intelligence%20Dashboard/public/data/state-party-support-2024.json)
+- Cached Polymarket history: [public/data/polymarket-history-2024.json](/Users/blueberryncherry/Proj/Prediction%20Market%20Dashboard/public/data/polymarket-history-2024.json)
 
-- [public/data/state-party-support-2024.json](/Users/blueberryncherry/Proj/Prediction%20Market%20Intelligence%20Dashboard/public/data/state-party-support-2024.json)
-
-Regenerate it from the original FiveThirtyEight CSV with:
+## Validation
 
 ```bash
-pnpm generate:state-support
+pnpm typecheck
+pnpm build
 ```
 
 Or provide a local CSV path:

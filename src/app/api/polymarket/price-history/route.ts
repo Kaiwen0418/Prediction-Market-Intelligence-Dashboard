@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { polymarketConfig } from "@/services/polymarket/config";
-import { marketSeries } from "@/services/polymarket/mockData";
 import { proxyJson, validateProxyBaseUrls } from "../_lib/proxy";
 
-const isStaticExport = process.env.STATIC_EXPORT === "true";
 export const revalidate = 60;
 
 export async function GET(request: NextRequest) {
-  if (isStaticExport) {
-    return NextResponse.json({
-      history: marketSeries.map((point) => ({
-        p: point.value,
-        t: Math.floor(new Date(point.timestamp).getTime() / 1000)
-      }))
-    });
-  }
-
   const baseUrlError = validateProxyBaseUrls();
   if (baseUrlError) return baseUrlError;
 

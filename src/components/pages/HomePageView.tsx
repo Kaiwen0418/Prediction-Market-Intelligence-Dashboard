@@ -4,8 +4,6 @@ import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { MarketPageView } from "@/components/pages/MarketPageView";
 
 export function HomePageView() {
-  const staticMode = process.env.NEXT_PUBLIC_STATIC_SITE_MODE === "true";
-
   return (
     <ProductDemoShell
       barLeft="Prediction Market Intelligence"
@@ -24,7 +22,7 @@ export function HomePageView() {
       showHero
     >
       <div className="product-demo-market">
-        <MarketPageView embedded staticMode={staticMode} />
+        <MarketPageView embedded />
       </div>
     </ProductDemoShell>
   );
