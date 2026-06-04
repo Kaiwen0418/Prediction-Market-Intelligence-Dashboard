@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { ThreeGlobeVisual } from "@/components/hero/ThreeGlobeVisual";
 import { MobileDesktopNotice } from "@/components/layout/MobileDesktopNotice";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type ProductDemoShellProps = {
@@ -36,6 +37,7 @@ export function ProductDemoShell({
   children
 }: ProductDemoShellProps) {
   const pathname = usePathname();
+  const { theme } = useTheme();
 
   return (
     <main className="product-demo-page flex min-h-screen w-full flex-col px-4 py-5 md:px-6 lg:px-8">
@@ -63,7 +65,7 @@ export function ProductDemoShell({
                 </nav>
               </div>
 
-              {showHero ? <ThreeGlobeVisual /> : null}
+              {showHero ? <ThreeGlobeVisual key={theme} /> : null}
 
               {showHero && footerLabel && footerLeft && footerRight ? (
                 <div className="product-demo-footer">

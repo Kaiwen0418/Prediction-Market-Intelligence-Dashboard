@@ -14,16 +14,17 @@ import { formatTimestamp } from "@/utils/time";
 
 type MarketPageViewProps = {
   embedded?: boolean;
+  strictLive?: boolean;
 };
 
-export function MarketPageView({ embedded = false }: MarketPageViewProps) {
+export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
   const { featuredMarketQuery, featuredMarket: market, historicalSeriesQuery, marketSeries } = useMarketData({
-    strictFeaturedMarket: true
+    strictFeaturedMarket: strictLive
   });
   const { orderbook, snapshotQuery } = useOrderbook(market?.tokenId, {
-    strictSnapshot: true,
-    allowMockStreamFallback: false,
-    enableRealtime: true
+    strictSnapshot: strictLive,
+    allowMockStreamFallback: !strictLive,
+    enableRealtime: strictLive
   });
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market);
@@ -48,7 +49,9 @@ export function MarketPageView({ embedded = false }: MarketPageViewProps) {
       <ErrorState
         detail={
           errorMessage ??
-          "The live market page is configured to use real data only, and no usable live response was available."
+          (strictLive
+            ? "The live market page is configured to use real data only, and no usable live response was available."
+            : "The embedded market module could not load even the fallback data.")
         }
       />
     );

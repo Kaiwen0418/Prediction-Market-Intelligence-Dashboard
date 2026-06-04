@@ -22,7 +22,7 @@ export function HomePageView() {
       showHero
     >
       <div className="product-demo-market">
-        <MarketPageView embedded />
+        <MarketPageView embedded strictLive={false} />
       </div>
     </ProductDemoShell>
   );

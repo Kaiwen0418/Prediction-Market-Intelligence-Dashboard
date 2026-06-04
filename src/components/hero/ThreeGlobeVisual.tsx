@@ -52,7 +52,7 @@ export function ThreeGlobeVisual() {
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
+    container.replaceChildren(renderer.domElement);
 
     const computedStyles = getComputedStyle(document.documentElement);
     const ink = computedStyles.getPropertyValue("--demo-card-text").trim() || "#0c0c0c";
@@ -189,8 +189,11 @@ export function ThreeGlobeVisual() {
         arc.line.geometry.dispose();
         arc.line.material.dispose();
       });
+      renderer.forceContextLoss();
       renderer.dispose();
-      container.innerHTML = "";
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
     };
   }, [theme]);
 
