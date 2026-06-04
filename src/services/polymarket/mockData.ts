@@ -37,9 +37,29 @@ const texasRepublicanSenatePrimaryMarket: MarketSnapshot = {
   updatedAt: now.toISOString()
 };
 
+const californiaGovernorElectionMarket: MarketSnapshot = {
+  marketId: "california-governor-election-2026",
+  eventId: "event-california-governor-2026",
+  tokenId: "token-california-governor-becerra",
+  slug: "california-governor-election-2026",
+  eventSlug: "california-governor-election-2026",
+  title: "California Governor Election Winner",
+  category: "Politics",
+  probability: 0.74,
+  volume24h: 2_180_000,
+  openInterest: 1_120_000,
+  liquidity: 3_400_000,
+  outcomeLabel: "Will Xavier Becerra win the California Governor Election in 2026?",
+  updatedAt: now.toISOString()
+};
+
 export function getMockFeaturedMarket(): MarketSnapshot {
   if (polymarketConfig.featuredMarketSlug === "texas-republican-senate-primary-winner") {
     return texasRepublicanSenatePrimaryMarket;
+  }
+
+  if (polymarketConfig.featuredMarketSlug === "california-governor-election-2026") {
+    return californiaGovernorElectionMarket;
   }
 
   return defaultFeaturedMarket;
