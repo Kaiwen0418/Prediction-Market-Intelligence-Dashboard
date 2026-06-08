@@ -2,21 +2,27 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { getFeaturedMarket, getFeaturedMarketStrict, getHistoricalMarketSeries } from "@/services/polymarket/api";
+import { getFeaturedMarket, getFeaturedMarketStrict, getHistoricalMarketSeries, getMarketBySlug, getMarketBySlugStrict } from "@/services/polymarket/api";
 import { useMarketStore } from "@/stores/marketStore";
 
 type UseMarketDataOptions = {
   strictFeaturedMarket?: boolean;
+  slug?: string;
 };
 
 export function useMarketData(options: UseMarketDataOptions = {}) {
-  const { strictFeaturedMarket = false } = options;
+  const { strictFeaturedMarket = false, slug } = options;
   const setFeaturedMarket = useMarketStore((state) => state.setFeaturedMarket);
   const setSeries = useMarketStore((state) => state.setSeries);
 
   const featuredMarketQuery = useQuery({
-    queryKey: ["featured-market", strictFeaturedMarket ? "strict" : "fallback"],
-    queryFn: strictFeaturedMarket ? getFeaturedMarketStrict : getFeaturedMarket
+    queryKey: ["featured-market", slug ?? "default", strictFeaturedMarket ? "strict" : "fallback"],
+    queryFn: () => {
+      if (slug) {
+        return strictFeaturedMarket ? getMarketBySlugStrict(slug) : getMarketBySlug(slug);
+      }
+      return strictFeaturedMarket ? getFeaturedMarketStrict() : getFeaturedMarket();
+    }
   });
 
   const historicalSeriesQuery = useQuery({

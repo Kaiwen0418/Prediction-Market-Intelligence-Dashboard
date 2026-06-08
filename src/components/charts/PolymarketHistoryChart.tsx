@@ -2,7 +2,7 @@
 
 import type { EChartsOption } from "echarts";
 import { format, parseISO } from "date-fns";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import type { TimePoint, TimelineEvent } from "@/types/market";
 import { ReactECharts } from "./ChartContainer";
@@ -15,18 +15,24 @@ type PolymarketHistoryChartProps = {
 type AnnotationPlacement = {
   headline: string;
   id: string;
+  pointIndex: number;
   source: string;
   summary: string;
-  x: number;
-  y: number;
+  value: number;
+  xRatio: number;
 };
 
 type WhalePlacement = {
   amountUsd: number;
   id: string;
   outcome: "YES" | "NO";
+  pointIndex: number;
   timestamp: string;
+  value: number;
   wallet: string;
+};
+
+type OverlayPosition = {
   x: number;
   y: number;
 };
@@ -38,13 +44,8 @@ const WHALE_PLACEHOLDERS: Array<Pick<WhalePlacement, "amountUsd" | "outcome" | "
   { amountUsd: 875_000, outcome: "YES", wallet: "0x4B81…73DD" }
 ];
 
-function buildWhalePlacements(
-  series: TimePoint[],
-  yAxisMin: number,
-  yAxisMax: number
-): WhalePlacement[] {
+function buildWhalePlacements(series: TimePoint[]): WhalePlacement[] {
   if (series.length < 2) return [];
-  const span = Math.max(yAxisMax - yAxisMin, 0.001);
   // Place placeholders at ~35% and ~78% of the series so they don't sit on top of the news annotations.
   const positions = [0.35, 0.78];
 
@@ -56,10 +57,10 @@ function buildWhalePlacements(
       id: `whale-${seriesIndex}-${index}`,
       amountUsd: placeholder.amountUsd,
       outcome: placeholder.outcome,
+      pointIndex: seriesIndex,
       wallet: placeholder.wallet,
       timestamp: point.timestamp,
-      x: seriesIndex / (series.length - 1),
-      y: 1 - (point.value - yAxisMin) / span
+      value: point.value
     };
   });
 }
@@ -105,36 +106,33 @@ const FALLBACK_ANNOTATIONS: Array<Pick<AnnotationPlacement, "headline" | "source
   }
 ];
 
-function buildAnnotations(
-  series: TimePoint[],
-  events: TimelineEvent[],
-  yAxisMin: number,
-  yAxisMax: number
-): AnnotationPlacement[] {
+function buildAnnotations(series: TimePoint[], events: TimelineEvent[]): AnnotationPlacement[] {
   const indices = pickIndices(series.length, Math.min(4, series.length));
   const selectedEvents = events.slice(0, indices.length);
-  const span = Math.max(yAxisMax - yAxisMin, 0.001);
 
   return indices.map((index, annotationIndex) => {
     const point = series[index];
     const event = selectedEvents[annotationIndex];
     const fallback = FALLBACK_ANNOTATIONS[annotationIndex % FALLBACK_ANNOTATIONS.length];
-    const x = series.length === 1 ? 0.5 : index / (series.length - 1);
-    const y = 1 - (point.value - yAxisMin) / span;
+    const xRatio = series.length === 1 ? 0.5 : index / (series.length - 1);
 
     return {
       id: `${point.timestamp}-${annotationIndex}`,
       headline: event?.headline ?? fallback.headline,
+      pointIndex: index,
       source: event?.source ?? fallback.source,
       summary: event?.summary ?? fallback.summary,
-      x,
-      y
+      value: point.value,
+      xRatio
     };
   });
 }
 
 export function PolymarketHistoryChart({ events = [], series }: PolymarketHistoryChartProps) {
   const { theme } = useTheme();
+  const chartInstanceRef = useRef<any>(null);
+  const [annotationPositions, setAnnotationPositions] = useState<Record<string, OverlayPosition>>({});
+  const [whalePositions, setWhalePositions] = useState<Record<string, OverlayPosition>>({});
 
   const sortedSeries = useMemo(
     () => [...series].sort((left, right) => left.timestamp.localeCompare(right.timestamp)),
@@ -205,13 +203,51 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
     };
 
     return {
-      annotations: buildAnnotations(sortedSeries, events, yAxisMin, yAxisMax),
+      annotations: buildAnnotations(sortedSeries, events),
       leaderColor,
       option,
       textColor,
-      whales: buildWhalePlacements(sortedSeries, yAxisMin, yAxisMax)
+      whales: buildWhalePlacements(sortedSeries)
     };
   }, [events, sortedSeries, theme]);
+
+  useEffect(() => {
+    const updateOverlayPositions = () => {
+      const instance = chartInstanceRef.current;
+      if (!instance) return;
+
+      const nextAnnotationPositions = Object.fromEntries(
+        chartModel.annotations.map((annotation) => {
+          const [x, y] = instance.convertToPixel(
+            { xAxisIndex: 0, yAxisIndex: 0 },
+            [annotation.pointIndex, annotation.value]
+          );
+          return [annotation.id, { x, y }];
+        })
+      );
+
+      const nextWhalePositions = Object.fromEntries(
+        chartModel.whales.map((whale) => {
+          const [x, y] = instance.convertToPixel(
+            { xAxisIndex: 0, yAxisIndex: 0 },
+            [whale.pointIndex, whale.value]
+          );
+          return [whale.id, { x, y }];
+        })
+      );
+
+      setAnnotationPositions(nextAnnotationPositions);
+      setWhalePositions(nextWhalePositions);
+    };
+
+    const timeoutId = window.setTimeout(updateOverlayPositions, 0);
+    window.addEventListener("resize", updateOverlayPositions);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("resize", updateOverlayPositions);
+    };
+  }, [chartModel.annotations, chartModel.whales, chartModel.option]);
 
   if (!sortedSeries.length) {
     return (
@@ -238,11 +274,11 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
             color: chartModel.textColor
           };
           if (isFirst) {
-            cardStyle.left = `${annotation.x * 100}%`;
+            cardStyle.left = `${annotation.xRatio * 100}%`;
           } else if (isLast) {
-            cardStyle.right = `${(1 - annotation.x) * 100}%`;
+            cardStyle.right = `${(1 - annotation.xRatio) * 100}%`;
           } else {
-            cardStyle.left = `${annotation.x * 100}%`;
+            cardStyle.left = `${annotation.xRatio * 100}%`;
             cardStyle.transform = "translateX(-50%)";
           }
           return (
@@ -260,48 +296,83 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
       </div>
 
       <div className="relative h-[320px] w-full sm:h-[360px] md:h-[380px]">
-        <ReactECharts option={chartModel.option} notMerge style={{ height: "100%", width: "100%" }} />
+        <ReactECharts
+          option={chartModel.option}
+          notMerge
+          onChartReady={(instance) => {
+            chartInstanceRef.current = instance;
+
+            setAnnotationPositions(
+              Object.fromEntries(
+                chartModel.annotations.map((annotation) => {
+                  const [x, y] = instance.convertToPixel(
+                    { xAxisIndex: 0, yAxisIndex: 0 },
+                    [annotation.pointIndex, annotation.value]
+                  );
+                  return [annotation.id, { x, y }];
+                })
+              )
+            );
+
+            setWhalePositions(
+              Object.fromEntries(
+                chartModel.whales.map((whale) => {
+                  const [x, y] = instance.convertToPixel(
+                    { xAxisIndex: 0, yAxisIndex: 0 },
+                    [whale.pointIndex, whale.value]
+                  );
+                  return [whale.id, { x, y }];
+                })
+              )
+            );
+          }}
+          style={{ height: "100%", width: "100%" }}
+        />
 
         {chartModel.annotations.map((annotation) => (
           <div key={`${annotation.id}-marker`} className="pointer-events-none hidden md:block">
-            {/* Vertical leader line from chart top down to the dot */}
-            <div
-              className="absolute"
-              style={{
-                left: `${annotation.x * 100}%`,
-                top: 0,
-                height: `${annotation.y * 100}%`,
-                width: 1,
-                backgroundColor: chartModel.leaderColor,
-                transform: "translateX(-0.5px)"
-              }}
-            />
-            {/* Annotation dot on the line */}
-            <div
-              className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
-              style={{
-                left: `${annotation.x * 100}%`,
-                top: `${annotation.y * 100}%`,
-                backgroundColor: chartModel.textColor,
-                borderColor: chartModel.textColor
-              }}
-            />
+            {annotationPositions[annotation.id] ? (
+              <>
+                <div
+                  className="absolute"
+                  style={{
+                    left: annotationPositions[annotation.id].x,
+                    top: 0,
+                    height: annotationPositions[annotation.id].y,
+                    width: 1,
+                    backgroundColor: chartModel.leaderColor,
+                    transform: "translateX(-0.5px)"
+                  }}
+                />
+                <div
+                  className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
+                  style={{
+                    left: annotationPositions[annotation.id].x,
+                    top: annotationPositions[annotation.id].y,
+                    backgroundColor: chartModel.textColor,
+                    borderColor: chartModel.textColor
+                  }}
+                />
+              </>
+            ) : null}
           </div>
         ))}
 
         {/* Whale buy markers — yellow dots on the line */}
         {chartModel.whales.map((whale) => (
-          <div
-            key={`${whale.id}-marker`}
-            className="pointer-events-none absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-[0_0_0_3px_rgba(245,181,0,0.18)]"
-            style={{
-              left: `${whale.x * 100}%`,
-              top: `${whale.y * 100}%`,
-              backgroundColor: WHALE_DOT_COLOR,
-              borderColor: WHALE_DOT_COLOR
-            }}
-            aria-label={`Whale buy ${formatWhaleAmount(whale.amountUsd)}`}
-          />
+          whalePositions[whale.id] ? (
+            <div
+              key={`${whale.id}-marker`}
+              className="pointer-events-none absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-[0_0_0_3px_rgba(245,181,0,0.18)]"
+              style={{
+                left: whalePositions[whale.id].x,
+                top: whalePositions[whale.id].y,
+                backgroundColor: WHALE_DOT_COLOR,
+                borderColor: WHALE_DOT_COLOR
+              }}
+              aria-label={`Whale buy ${formatWhaleAmount(whale.amountUsd)}`}
+            />
+          ) : null
         ))}
       </div>
 

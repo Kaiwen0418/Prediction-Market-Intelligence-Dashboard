@@ -20,6 +20,7 @@ export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}
   const { strictSnapshot = false, allowMockStreamFallback = true, enableRealtime = true } = options;
   const orderbook = useOrderbookStore((state) => state.orderbook);
   const upsertOrderbook = useOrderbookStore((state) => state.upsertOrderbook);
+  const resetOrderbook = useOrderbookStore((state) => state.resetOrderbook);
   const pushEvents = useRawEventStore((state) => state.pushEvents);
 
   const snapshotQuery = useQuery({
@@ -27,6 +28,10 @@ export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}
     queryFn: () => (strictSnapshot ? getOrderbookSnapshotStrict(tokenId) : getOrderbookSnapshot(tokenId)),
     refetchInterval: tokenId ? 30_000 : 15_000
   });
+
+  useEffect(() => {
+    resetOrderbook();
+  }, [resetOrderbook, tokenId]);
 
   useEffect(() => {
     if (snapshotQuery.data) {

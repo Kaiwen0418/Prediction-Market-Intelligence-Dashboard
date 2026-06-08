@@ -1,7 +1,7 @@
 import type { MarketSnapshot, OrderbookState, TimelineEvent, TimePoint } from "@/types/market";
 import type { PollPoint } from "@/types/poll";
 import { getNewsEvents } from "@/services/news/api";
-import { fetchFeaturedMarketLive, fetchOrderbookLive, fetchPriceHistoryLive, fetchTradesLive } from "./rest";
+import { fetchEventMarketBySlug, fetchFeaturedMarketLive, fetchOrderbookLive, fetchPriceHistoryLive, fetchTradesLive } from "./rest";
 import { featuredMarket, marketSeries, pollSeries } from "./mockData";
 import { createOrderbookSnapshot } from "./mockData";
 import { normalizeTimelineFromMarket } from "./normalizers";
@@ -21,6 +21,19 @@ export async function getFeaturedMarketStrict(): Promise<MarketSnapshot> {
   const liveMarket = await fetchFeaturedMarketLive().catch(() => null);
   if (!liveMarket) {
     throw new Error("Featured market live request failed and no fallback is allowed.");
+  }
+  return liveMarket;
+}
+
+export async function getMarketBySlug(slug: string): Promise<MarketSnapshot> {
+  const liveMarket = await fetchEventMarketBySlug(slug).catch(() => null);
+  return liveMarket ?? simulateLatency(featuredMarket);
+}
+
+export async function getMarketBySlugStrict(slug: string): Promise<MarketSnapshot> {
+  const liveMarket = await fetchEventMarketBySlug(slug).catch(() => null);
+  if (!liveMarket) {
+    throw new Error(`Live market request failed for slug "${slug}" and no fallback is allowed.`);
   }
   return liveMarket;
 }

@@ -6,9 +6,11 @@ import type { OrderbookState } from "@/types/market";
 type OrderbookStoreState = {
   orderbook: OrderbookState | null;
   upsertOrderbook: (nextOrderbook: OrderbookState) => void;
+  resetOrderbook: () => void;
 };
 
 export const useOrderbookStore = create<OrderbookStoreState>((set) => ({
   orderbook: null,
-  upsertOrderbook: (nextOrderbook) => set({ orderbook: nextOrderbook })
+  upsertOrderbook: (nextOrderbook) => set({ orderbook: nextOrderbook }),
+  resetOrderbook: () => set({ orderbook: null })
 }));

@@ -4,96 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
+import { getSpotlightState, inferSpotlightCodeFromMarket, SPOTLIGHT_STATES } from "@/components/maps/spotlightStates";
 import type { MarketSnapshot } from "@/types/market";
 import type { OrderbookState } from "@/types/market";
 import type { SourceDiagnostics } from "@/types/service";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 
-type StateSpotlight = {
-  code: string;
-  center: [number, number];
-  fips: string;
-  label: string;
-  note: string;
-  zoom: number;
-  status: "live" | "watch" | "research";
-};
-
-const SPOTLIGHT_STATES: StateSpotlight[] = [
-  {
-    code: "TX",
-    center: [-99.3, 31.1],
-    fips: "48",
-    label: "Texas",
-    note: "Current live market focus. Republican Senate primary liquidity and price discovery are active here.",
-    zoom: 3.2,
-    status: "live"
-  },
-  {
-    code: "AZ",
-    center: [-111.7, 34.2],
-    fips: "04",
-    label: "Arizona",
-    note: "Historical battleground polling and PM comparison already exists in the research cache.",
-    zoom: 4.2,
-    status: "research"
-  },
-  {
-    code: "GA",
-    center: [-83.5, 32.7],
-    fips: "13",
-    label: "Georgia",
-    note: "Useful swing-state comparison surface for polling-vs-market behaviour.",
-    zoom: 5,
-    status: "research"
-  },
-  {
-    code: "MI",
-    center: [-85.5, 44.4],
-    fips: "26",
-    label: "Michigan",
-    note: "Research state with enough daily polling density to compare against cached PM paths.",
-    zoom: 4.1,
-    status: "research"
-  },
-  {
-    code: "PA",
-    center: [-77.7, 40.8],
-    fips: "42",
-    label: "Pennsylvania",
-    note: "Dense battleground state with good fit for event-driven PM interpretation.",
-    zoom: 5.2,
-    status: "research"
-  },
-  {
-    code: "WI",
-    center: [-89.9, 44.6],
-    fips: "55",
-    label: "Wisconsin",
-    note: "Useful for comparing slower polling drift against discrete market repricing.",
-    zoom: 5.4,
-    status: "research"
-  },
-  {
-    code: "FL",
-    center: [-82.3, 28.4],
-    fips: "12",
-    label: "Florida",
-    note: "Kept as a watch state placeholder for future live map expansion.",
-    zoom: 4.2,
-    status: "watch"
-  }
-];
-
-function inferSpotlightCode(market: MarketSnapshot) {
-  const text = `${market.slug} ${market.eventSlug ?? ""} ${market.title}`.toLowerCase();
-  const match = SPOTLIGHT_STATES.find((state) => text.includes(state.label.toLowerCase()));
-  return match?.code ?? "TX";
-}
-
 type UsMarketMapProps = {
   market: MarketSnapshot;
   orderbook: OrderbookState;
+  selectedCode?: string | null;
+  onSelectCode?: (code: string | null) => void;
   sources: {
     featuredMarket?: SourceDiagnostics;
     orderbook?: SourceDiagnostics;
@@ -101,9 +22,10 @@ type UsMarketMapProps = {
   };
 };
 
-export function UsMarketMap({ market, orderbook, sources }: UsMarketMapProps) {
-  const defaultCode = useMemo(() => inferSpotlightCode(market), [market]);
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+export function UsMarketMap({ market, orderbook, selectedCode, onSelectCode, sources }: UsMarketMapProps) {
+  const defaultCode = useMemo(() => inferSpotlightCodeFromMarket(market), [market]);
+  const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
+  const activeSelectedCode = selectedCode ?? localSelectedCode;
   const [view, setView] = useState<{ center: [number, number]; zoom: number }>({
     center: [-96, 38],
     zoom: 1
@@ -111,11 +33,29 @@ export function UsMarketMap({ market, orderbook, sources }: UsMarketMapProps) {
   const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setSelectedCode(null);
-  }, [defaultCode]);
+    if (!onSelectCode) {
+      setLocalSelectedCode(null);
+    }
+  }, [defaultCode, onSelectCode]);
 
-  const selectedState = SPOTLIGHT_STATES.find((state) => state.code === selectedCode) ?? null;
-  const zoomState = selectedState ?? SPOTLIGHT_STATES.find((state) => state.code === defaultCode) ?? null;
+  const selectCode = (code: string | null) => {
+    if (onSelectCode) {
+      onSelectCode(code);
+      return;
+    }
+    setLocalSelectedCode(code);
+  };
+
+  useEffect(() => {
+    if (selectedCode === undefined) {
+      return;
+    }
+
+    setLocalSelectedCode(selectedCode);
+  }, [selectedCode]);
+
+  const selectedState = getSpotlightState(activeSelectedCode);
+  const zoomState = selectedState ?? getSpotlightState(defaultCode);
 
   useEffect(() => {
     const targetCenter: [number, number] = selectedState ? zoomState?.center ?? [-96, 38] : [-96, 38];
@@ -197,7 +137,7 @@ export function UsMarketMap({ market, orderbook, sources }: UsMarketMapProps) {
                     geographies.map((geo) => {
                       const fips = String(geo.id).padStart(2, "0");
                       const spotlight = SPOTLIGHT_STATES.find((state) => state.fips === fips);
-                      const isSelected = spotlight?.code === selectedCode;
+                      const isSelected = spotlight?.code === activeSelectedCode;
                       const isDefault = spotlight?.code === defaultCode;
                       const fill = isSelected
                         ? spotlight?.status === "live"
@@ -215,7 +155,7 @@ export function UsMarketMap({ market, orderbook, sources }: UsMarketMapProps) {
                         <Geography
                           key={geo.rsmKey}
                           geography={geo}
-                          onClick={() => spotlight && setSelectedCode(spotlight.code)}
+                          onClick={() => spotlight && selectCode(spotlight.code)}
                           style={{
                             default: {
                               fill,

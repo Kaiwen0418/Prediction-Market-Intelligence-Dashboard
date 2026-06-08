@@ -1,9 +1,10 @@
 "use client";
 
-import { useDeferredValue } from "react";
+import { useDeferredValue, useState } from "react";
 import { PolymarketHistoryChart } from "@/components/charts/PolymarketHistoryChart";
 import { ErrorState } from "@/components/layout/ErrorState";
 import { LoadingState } from "@/components/layout/LoadingState";
+import { getSpotlightState } from "@/components/maps/spotlightStates";
 import { UsMarketMap } from "@/components/maps/UsMarketMap";
 import { TopNav } from "@/components/navigation/TopNav";
 import { useMarketData } from "@/hooks/useMarketData";
@@ -18,7 +19,11 @@ type MarketPageViewProps = {
 };
 
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
+  const [selectedStateCode, setSelectedStateCode] = useState<string | null>(null);
+  const selectedState = getSpotlightState(selectedStateCode);
+  const selectedSlug = selectedState?.liveMarketSlug;
   const { featuredMarketQuery, featuredMarket: market, historicalSeriesQuery, marketSeries } = useMarketData({
+    slug: selectedSlug,
     strictFeaturedMarket: strictLive
   });
   const { orderbook, snapshotQuery } = useOrderbook(market?.tokenId, {
@@ -81,6 +86,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           <UsMarketMap
             market={market}
             orderbook={orderbook}
+            selectedCode={selectedStateCode}
+            onSelectCode={setSelectedStateCode}
             sources={{
               featuredMarket: sources["featured-market"],
               orderbook: sources.orderbook,
