@@ -5,7 +5,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Prediction Market Intelligence Dashboard",
-  description: "Frontend-only dashboard for market analytics, orderbook depth, and event-driven intelligence."
+  description: "Frontend-only dashboard for market analytics, orderbook depth, and event-driven intelligence.",
+  icons: {
+    icon: "/icon.svg"
+  }
 };
 
 export const viewport: Viewport = {
