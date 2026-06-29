@@ -17,8 +17,8 @@ def make_point(index: int, value: float) -> NumericSeriesPoint:
 
 class AnalyticsTestCase(unittest.TestCase):
     def test_lead_lag_detects_market_leading(self) -> None:
-        market = [0.40, 0.45, 0.50, 0.55, 0.60]
-        polling = [0.35, 0.40, 0.45, 0.50, 0.55]
+        market = [0.20, 0.65, 0.30, 0.78, 0.42]
+        polling = [0.10, 0.20, 0.65, 0.30, 0.78]
         payload = LeadLagRequest(
             market=[make_point(index, value) for index, value in enumerate(market)],
             polling=[make_point(index, value) for index, value in enumerate(polling)],
@@ -26,8 +26,9 @@ class AnalyticsTestCase(unittest.TestCase):
         )
 
         result = calculate_lead_lag(payload)
-        self.assertGreaterEqual(result.lag_days, 0)
+        self.assertEqual(result.lag_days, -1)
         self.assertGreater(result.score, 0.9)
+        self.assertEqual(result.interpretation, "Market leads polls by 1 day")
 
     def test_divergence_metrics_are_reported_in_points(self) -> None:
         payload = LeadLagRequest(

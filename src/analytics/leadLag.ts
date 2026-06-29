@@ -47,9 +47,9 @@ export function calculateLeadLag(market: TimePoint[], polls: PollPoint[], maxLag
 
   const interpretation =
     bestLag > 0
-      ? `Market leads polls by ${bestLag} day${bestLag === 1 ? "" : "s"}`
+      ? `Polls lead market by ${bestLag} day${bestLag === 1 ? "" : "s"}`
       : bestLag < 0
-        ? `Polls lead market by ${Math.abs(bestLag)} day${bestLag === -1 ? "" : "s"}`
+        ? `Market leads polls by ${Math.abs(bestLag)} day${bestLag === -1 ? "" : "s"}`
         : "Market and polling move in sync";
 
   return {

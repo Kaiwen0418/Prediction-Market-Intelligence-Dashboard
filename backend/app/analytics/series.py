@@ -62,9 +62,9 @@ def calculate_lead_lag(payload: LeadLagRequest) -> LeadLagResponse:
             best_lag = lag
 
     if best_lag > 0:
-        interpretation = f"Market leads polls by {best_lag} day{'s' if best_lag != 1 else ''}"
+        interpretation = f"Polls lead market by {best_lag} day{'s' if best_lag != 1 else ''}"
     elif best_lag < 0:
-        interpretation = f"Polls lead market by {abs(best_lag)} day{'s' if best_lag != -1 else ''}"
+        interpretation = f"Market leads polls by {abs(best_lag)} day{'s' if best_lag != -1 else ''}"
     else:
         interpretation = "Market and polling move in sync"
 
