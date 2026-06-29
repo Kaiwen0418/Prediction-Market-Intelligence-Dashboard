@@ -43,6 +43,28 @@ function buildPollSeries(state: string, party: Party) {
   });
 }
 
+function buildCoverage(
+  pollSeries: Array<{ timestamp: string }>,
+  marketSeries: Array<{ timestamp: string }>
+) {
+  const marketDays = new Set(marketSeries.map((point) => point.timestamp.slice(0, 10)));
+  const alignedDays = Array.from(
+    new Set(pollSeries.map((point) => point.timestamp.slice(0, 10)).filter((day) => marketDays.has(day)))
+  ).sort((left, right) => left.localeCompare(right));
+
+  return {
+    pollStart: pollSeries[0]?.timestamp.slice(0, 10),
+    pollEnd: pollSeries.at(-1)?.timestamp.slice(0, 10),
+    pollPoints: pollSeries.length,
+    marketStart: marketSeries[0]?.timestamp.slice(0, 10),
+    marketEnd: marketSeries.at(-1)?.timestamp.slice(0, 10),
+    marketPoints: marketSeries.length,
+    alignedStart: alignedDays[0],
+    alignedEnd: alignedDays.at(-1),
+    alignedPoints: alignedDays.length
+  };
+}
+
 export function HistoryPageView() {
   const [party, setParty] = useState<Party>("Republican");
   const liveHistoryQuery = useQuery({
@@ -56,6 +78,7 @@ export function HistoryPageView() {
   const liveCase = liveHistoryQuery.data?.find((item) => item.state === activeState) ?? null;
   const researchCase = researchCases.find((item) => item.state === activeState) ?? researchCases[0];
   const pollSeries = buildPollSeries(activeState, party);
+  const fallbackCoverage = buildCoverage(pollSeries, researchCase.marketSeries);
   const activeCase = liveCase
     ? { ...liveCase, pollSeries }
     : {
@@ -86,6 +109,11 @@ export function HistoryPageView() {
           computedAt: new Date().toISOString(),
           pollDatasetGeneratedAt: undefined,
           marketDatasetGeneratedAt: undefined
+        },
+        coverage: fallbackCoverage,
+        narrative: {
+          overview: `${activeState} ${party.toLowerCase()} support is displayed from a local fallback bundle because the live research summary was unavailable.`,
+          methodology: "This fallback route pairs cleaned public polling support with a static research-style market series and local analytics."
         },
         researchHighlights: {
           shockLabel: "Shock window analysis is unavailable in the static fallback bundle.",
@@ -126,9 +154,7 @@ export function HistoryPageView() {
           <p className="metric-label">Historical Analysis</p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">Research-style market vs polling comparison</h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
-            {usingLiveCases
-              ? `This route is using a cleaned public FiveThirtyEight state-support dataset together with matching Polymarket state-market history for selected battleground states, focused on ${party} support versus the matched ${party.toLowerCase()} contract line.`
-              : "This route fell back to a static research demo dataset because the live battleground-state history fetch did not return enough usable data."}
+            {activeCase.narrative?.overview}
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <a
@@ -161,6 +187,15 @@ export function HistoryPageView() {
               ? `Live source mode: public cleaned 538 dataset + Polymarket historical prices (${party})`
               : "Fallback mode: research-inspired static series"}
           </p>
+          {activeCase.coverage ? (
+            <p className="mt-2 text-sm text-slate-500">
+              Coverage: polls {activeCase.coverage.pollStart ?? "unknown"} to {activeCase.coverage.pollEnd ?? "unknown"} ({activeCase.coverage.pollPoints} points)
+              {" · "}
+              market {activeCase.coverage.marketStart ?? "unknown"} to {activeCase.coverage.marketEnd ?? "unknown"} ({activeCase.coverage.marketPoints} points)
+              {" · "}
+              aligned {activeCase.coverage.alignedPoints} days
+            </p>
+          ) : null}
         </section>
 
         <section className="border-t border-[var(--demo-card-divider)] pt-8">
@@ -328,9 +363,7 @@ export function HistoryPageView() {
             ))}
           </div>
           <p className="mt-4 text-sm leading-7 text-slate-500">
-            {usingLiveCases
-              ? `Data note: polling comes from a local cleaned public JSON resource derived from the referenced FiveThirtyEight CSV and uses ${party} support directly; market history comes from the matched ${party.toLowerCase()}-side Polymarket outcome routed through the app proxy at 1-day precision.`
-              : "Static demo note: this page uses hardcoded research-style series for product presentation. It is informed by the paper's methodology and reported findings, but it is not a reproduction of the paper's raw underlying dataset."}
+            {activeCase.narrative?.methodology}
           </p>
           <p className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-600">
             Analytics engine: {activeCase.analyticsSource === "api" ? "FastAPI + NumPy" : "local TypeScript fallback"}

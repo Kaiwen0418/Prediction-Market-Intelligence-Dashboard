@@ -74,6 +74,21 @@ export type LiveHistoryCase = {
     pollDatasetGeneratedAt?: string | null;
     marketDatasetGeneratedAt?: string | null;
   };
+  coverage?: {
+    pollStart?: string | null;
+    pollEnd?: string | null;
+    pollPoints: number;
+    marketStart?: string | null;
+    marketEnd?: string | null;
+    marketPoints: number;
+    alignedStart?: string | null;
+    alignedEnd?: string | null;
+    alignedPoints: number;
+  };
+  narrative?: {
+    overview: string;
+    methodology: string;
+  };
   researchHighlights?: {
     shockLabel: string;
     leadLagLabel: string;
@@ -170,6 +185,29 @@ function historyBackendSourceKey(state: string, party: "Democrat" | "Republican"
 function describeRange(series: Array<{ timestamp: string }>) {
   if (!series.length) return "none";
   return `${series[0].timestamp} -> ${series.at(-1)?.timestamp ?? series[0].timestamp}`;
+}
+
+function toDateKey(timestamp: string) {
+  return timestamp.slice(0, 10);
+}
+
+function getCoverage(pollSeries: PollPoint[], marketSeries: TimePoint[]) {
+  const marketDays = new Set(marketSeries.map((point) => toDateKey(point.timestamp)));
+  const alignedDays = Array.from(
+    new Set(pollSeries.map((point) => toDateKey(point.timestamp)).filter((day) => marketDays.has(day)))
+  ).sort((left, right) => left.localeCompare(right));
+
+  return {
+    pollStart: pollSeries[0]?.timestamp.slice(0, 10),
+    pollEnd: pollSeries.at(-1)?.timestamp.slice(0, 10),
+    pollPoints: pollSeries.length,
+    marketStart: marketSeries[0]?.timestamp.slice(0, 10),
+    marketEnd: marketSeries.at(-1)?.timestamp.slice(0, 10),
+    marketPoints: marketSeries.length,
+    alignedStart: alignedDays[0],
+    alignedEnd: alignedDays.at(-1),
+    alignedPoints: alignedDays.length
+  };
 }
 
 async function fetchPolymarketHistoryDataset() {
@@ -281,6 +319,7 @@ async function getLiveHistoryCasesLocal(
       }
 
       const analytics = await getAnalyticsSummary(marketSeries, pollSeries);
+      const coverage = getCoverage(pollSeries, marketSeries);
 
       return {
         state: stateCase.state,
@@ -304,6 +343,12 @@ async function getLiveHistoryCasesLocal(
           computedAt: new Date().toISOString(),
           pollDatasetGeneratedAt: dataset.generatedAt,
           marketDatasetGeneratedAt: polymarketHistoryDataset.generatedAt
+        },
+        coverage,
+        narrative: {
+          overview: `${stateCase.state} ${party.toLowerCase()} support is evaluated across ${coverage.alignedPoints} aligned daily observations from the cached frontend datasets.`,
+          methodology:
+            "Poll and market series are date-aligned first, then analytics are computed through the available backend route or the local fallback engine."
         },
         researchHighlights: {
           shockLabel: `Primary shock window moved ${analytics.summary.eventWindow.netMove >= 0 ? "+" : ""}${analytics.summary.eventWindow.netMove} pts around ${analytics.summary.eventWindow.anchorTimestamp.slice(0, 10)}`,

@@ -16,7 +16,9 @@ from app.analytics.series import (
 )
 from app.schemas.analytics import EventWindowRequest, LeadLagRequest
 from app.schemas.research import (
+    ResearchCoverageResponse,
     ResearchHighlightsResponse,
+    ResearchNarrativeResponse,
     PollPointResponse,
     ResearchProvenanceResponse,
     ResearchStateSummaryResponse,
@@ -98,6 +100,40 @@ def _normalize_market_series(dataset: dict[str, Any], state: str, party: Party) 
     return state_data.get("eventSlug", STATE_REGISTRY[state]["eventSlug"]), series
 
 
+def _date_key(timestamp: str) -> str:
+    return timestamp[:10]
+
+
+def _series_bounds(series: list[PollPointResponse] | list[TimePointResponse]) -> tuple[str | None, str | None]:
+    if not series:
+        return None, None
+    return series[0].timestamp[:10], series[-1].timestamp[:10]
+
+
+def _build_coverage(
+    poll_series: list[PollPointResponse],
+    market_series: list[TimePointResponse],
+) -> ResearchCoverageResponse:
+    poll_start, poll_end = _series_bounds(poll_series)
+    market_start, market_end = _series_bounds(market_series)
+    aligned_days = sorted(
+        {_date_key(point.timestamp) for point in poll_series}
+        & {_date_key(point.timestamp) for point in market_series}
+    )
+
+    return ResearchCoverageResponse(
+        pollStart=poll_start,
+        pollEnd=poll_end,
+        pollPoints=len(poll_series),
+        marketStart=market_start,
+        marketEnd=market_end,
+        marketPoints=len(market_series),
+        alignedStart=aligned_days[0] if aligned_days else None,
+        alignedEnd=aligned_days[-1] if aligned_days else None,
+        alignedPoints=len(aligned_days),
+    )
+
+
 def get_research_summary(state: str, party: Party) -> ResearchStateSummaryResponse:
     if state not in STATE_REGISTRY:
         raise HTTPException(status_code=404, detail=f"Unsupported battleground state: {state}")
@@ -124,6 +160,7 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
     volatility = calculate_volatility([point.value for point in market_series])
     divergence = calculate_divergence(analytics_payload)
     rolling_correlation = calculate_rolling_correlation(analytics_payload)
+    coverage = _build_coverage(poll_series, market_series)
     market_values = [point.value for point in market_series]
     if len(market_values) > 1:
         deltas = [abs(market_values[index] - market_values[index - 1]) for index in range(1, len(market_values))]
@@ -171,6 +208,18 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
             divergenceLabel=(
                 f"Current market-poll divergence is {divergence.current_gap:.2f} pts "
                 f"(max {divergence.max_gap:.2f} pts)"
+            ),
+        ),
+        coverage=coverage,
+        narrative=ResearchNarrativeResponse(
+            overview=(
+                f"{state} {party.lower()} support is evaluated across {coverage.aligned_points} aligned daily observations. "
+                f"The market/poll relationship currently reads as {correlation.strength}, with "
+                f"{lead_lag.interpretation.lower()}."
+            ),
+            methodology=(
+                "Poll and market series are date-aligned first, then FastAPI + NumPy computes lead-lag, "
+                "correlation, divergence, volatility, rolling correlation, and the largest event-window shock."
             ),
         ),
         sourceUrls=[

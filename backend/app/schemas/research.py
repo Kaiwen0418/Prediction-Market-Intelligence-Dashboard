@@ -44,6 +44,25 @@ class ResearchHighlightsResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ResearchCoverageResponse(BaseModel):
+    poll_start: str | None = Field(default=None, alias="pollStart")
+    poll_end: str | None = Field(default=None, alias="pollEnd")
+    poll_points: int = Field(alias="pollPoints")
+    market_start: str | None = Field(default=None, alias="marketStart")
+    market_end: str | None = Field(default=None, alias="marketEnd")
+    market_points: int = Field(alias="marketPoints")
+    aligned_start: str | None = Field(default=None, alias="alignedStart")
+    aligned_end: str | None = Field(default=None, alias="alignedEnd")
+    aligned_points: int = Field(alias="alignedPoints")
+
+    model_config = {"populate_by_name": True}
+
+
+class ResearchNarrativeResponse(BaseModel):
+    overview: str
+    methodology: str
+
+
 class ResearchStateSummaryResponse(BaseModel):
     state: str
     event_slug: str = Field(alias="eventSlug")
@@ -61,6 +80,8 @@ class ResearchStateSummaryResponse(BaseModel):
     event_window: EventWindowResponse = Field(alias="eventWindow")
     provenance: ResearchProvenanceResponse
     research_highlights: ResearchHighlightsResponse = Field(alias="researchHighlights")
+    coverage: ResearchCoverageResponse
+    narrative: ResearchNarrativeResponse
     source_urls: list[str] = Field(alias="sourceUrls")
 
     model_config = {"populate_by_name": True}
