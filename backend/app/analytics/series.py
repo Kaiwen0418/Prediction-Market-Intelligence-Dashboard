@@ -5,6 +5,8 @@ import numpy as np
 from app.schemas.analytics import (
     CorrelationResponse,
     DivergenceResponse,
+    EventWindowRequest,
+    EventWindowResponse,
     LeadLagRequest,
     LeadLagResponse,
     RollingCorrelationResponse,
@@ -107,3 +109,35 @@ def calculate_rolling_correlation(payload: LeadLagRequest, window_size: int = 30
     effective_window = min(window_size, length)
     coefficient = _correlation(market[-effective_window:], polling[-effective_window:])
     return RollingCorrelationResponse(coefficient=round(coefficient, 3), windowSize=effective_window)
+
+
+def calculate_event_window(payload: EventWindowRequest) -> EventWindowResponse:
+    series = np.array([point.value for point in payload.series], dtype=float)
+    if series.size < 2:
+        return EventWindowResponse(
+            preChange=0.0,
+            postChange=0.0,
+            netMove=0.0,
+            preWindow=payload.pre_window,
+            postWindow=payload.post_window,
+        )
+
+    anchor = min(payload.anchor_index, series.size - 1)
+    pre_start = max(0, anchor - payload.pre_window)
+    post_end = min(series.size - 1, anchor + payload.post_window)
+
+    pre_base = series[pre_start]
+    anchor_value = series[anchor]
+    post_value = series[post_end]
+
+    pre_change = float((anchor_value - pre_base) * 100)
+    post_change = float((post_value - anchor_value) * 100)
+    net_move = float((post_value - pre_base) * 100)
+
+    return EventWindowResponse(
+        preChange=round(pre_change, 2),
+        postChange=round(post_change, 2),
+        netMove=round(net_move, 2),
+        preWindow=payload.pre_window,
+        postWindow=payload.post_window,
+    )

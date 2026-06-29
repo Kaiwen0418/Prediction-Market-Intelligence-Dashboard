@@ -51,6 +51,10 @@ Status:
 ### 5. Testing and Reliability
 
 - Add Python tests for NumPy analytics
+
+Status:
+- backend analytics unittest suite added
+- CI now runs backend analytics tests before frontend validation
 - Add API contract checks for frontend/ backend compatibility
 - Add deployment smoke tests for Vercel + Railway
 

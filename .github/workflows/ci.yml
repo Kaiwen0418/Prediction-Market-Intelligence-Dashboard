@@ -16,6 +16,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run backend analytics tests
+        run: PYTHONPATH=backend python -m unittest discover -s backend/tests
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 

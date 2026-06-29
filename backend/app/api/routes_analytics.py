@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.analytics.series import (
     calculate_correlation,
     calculate_divergence,
+    calculate_event_window,
     calculate_lead_lag,
     calculate_rolling_correlation,
     calculate_volatility,
@@ -10,6 +11,8 @@ from app.analytics.series import (
 from app.schemas.analytics import (
     AnalyticsSummaryResponse,
     CorrelationResponse,
+    EventWindowRequest,
+    EventWindowResponse,
     LeadLagRequest,
     LeadLagResponse,
     VolatilityResponse,
@@ -31,6 +34,11 @@ async def post_correlation(payload: LeadLagRequest) -> CorrelationResponse:
 @router.post("/volatility", response_model=VolatilityResponse)
 async def post_volatility(payload: LeadLagRequest) -> VolatilityResponse:
     return calculate_volatility([point.value for point in payload.market])
+
+
+@router.post("/event-window", response_model=EventWindowResponse)
+async def post_event_window(payload: EventWindowRequest) -> EventWindowResponse:
+    return calculate_event_window(payload)
 
 
 @router.post("/summary", response_model=AnalyticsSummaryResponse)

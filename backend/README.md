@@ -48,3 +48,10 @@ Environment variables:
 - `POST /api/analytics/correlation`
 - `POST /api/analytics/volatility`
 - `POST /api/analytics/summary`
+- `POST /api/analytics/event-window`
+
+## Tests
+
+```bash
+PYTHONPATH=backend python -m unittest discover -s tests
+```

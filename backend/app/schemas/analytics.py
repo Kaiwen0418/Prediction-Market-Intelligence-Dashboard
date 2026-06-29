@@ -6,6 +6,15 @@ class NumericSeriesPoint(BaseModel):
     value: float
 
 
+class EventWindowRequest(BaseModel):
+    series: list[NumericSeriesPoint]
+    anchor_index: int = Field(alias="anchorIndex", ge=0)
+    pre_window: int = Field(default=3, alias="preWindow", ge=1, le=30)
+    post_window: int = Field(default=3, alias="postWindow", ge=1, le=30)
+
+    model_config = {"populate_by_name": True}
+
+
 class LeadLagRequest(BaseModel):
     market: list[NumericSeriesPoint]
     polling: list[NumericSeriesPoint]
@@ -45,6 +54,16 @@ class DivergenceResponse(BaseModel):
 class RollingCorrelationResponse(BaseModel):
     coefficient: float
     window_size: int = Field(alias="windowSize")
+
+    model_config = {"populate_by_name": True}
+
+
+class EventWindowResponse(BaseModel):
+    pre_change: float = Field(alias="preChange")
+    post_change: float = Field(alias="postChange")
+    net_move: float = Field(alias="netMove")
+    pre_window: int = Field(alias="preWindow")
+    post_window: int = Field(alias="postWindow")
 
     model_config = {"populate_by_name": True}
 
