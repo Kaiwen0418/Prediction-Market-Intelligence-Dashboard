@@ -43,6 +43,7 @@ Environment variables:
 - `GET /api/polymarket/orderbook`
 - `GET /api/polymarket/price-history`
 - `GET /api/polymarket/trades`
+- `GET /api/research/states/{state}/summary`
 - `POST /api/analytics/lead-lag`
 - `POST /api/analytics/correlation`
 - `POST /api/analytics/volatility`

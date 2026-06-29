@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_analytics import router as analytics_router
 from app.api.routes_polymarket import router as polymarket_router
+from app.api.routes_research import router as research_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -24,6 +25,7 @@ app.add_middleware(
 
 app.include_router(polymarket_router)
 app.include_router(analytics_router)
+app.include_router(research_router)
 
 
 @app.get("/health")

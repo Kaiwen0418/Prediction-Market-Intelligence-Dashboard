@@ -15,6 +15,10 @@ This project is moving from a frontend-first dashboard toward a split architectu
 
 ### 1. History Analytics Full Migration
 
+Status:
+- backend state-summary route added
+- frontend `/history` now begins consuming backend-owned research bundles
+
 - Move all research analytics to backend-owned contracts
 - Add derived metrics:
   - divergence score

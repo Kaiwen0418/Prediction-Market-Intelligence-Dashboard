@@ -1,4 +1,5 @@
 import { getAnalyticsSummary } from "@/services/analytics/api";
+import { getExternalApiBaseUrl, withApiBase } from "@/services/api/base";
 import type { CorrelationResult, LeadLagResult, VolatilityResult } from "@/types/analytics";
 import type { PollPoint } from "@/types/poll";
 import type { TimePoint } from "@/types/market";
@@ -163,7 +164,42 @@ async function fetchPolymarketHistoryDataset() {
   return (await response.json()) as StaticPolymarketHistoryDataset;
 }
 
-export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Republican"): Promise<LiveHistoryCase[]> {
+async function fetchBackendResearchSummary(state: string, party: "Democrat" | "Republican"): Promise<LiveHistoryCase> {
+  const response = await fetch(
+    withApiBase(`/api/research/states/${encodeURIComponent(state)}/summary?party=${encodeURIComponent(party)}`),
+    {
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Research summary request failed: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as LiveHistoryCase;
+  return payload;
+}
+
+async function getLiveHistoryCasesFromBackend(
+  party: "Democrat" | "Republican" = "Republican",
+): Promise<LiveHistoryCase[]> {
+  const cases = await Promise.all(
+    stateRegistry.map(async (stateCase) => {
+      useDataSourceStore.getState().markPending(historySourceKey(stateCase.state, party));
+      const result = await fetchBackendResearchSummary(stateCase.state, party);
+      useDataSourceStore.getState().markCurated(historySourceKey(stateCase.state, party));
+      return result;
+    }),
+  );
+
+  return cases;
+}
+
+async function getLiveHistoryCasesLocal(
+  party: "Democrat" | "Republican" = "Republican",
+): Promise<LiveHistoryCase[]> {
   let dataset: StatePartySupportDataset | null = null;
   let polymarketHistoryDataset: StaticPolymarketHistoryDataset | null = null;
   try {
@@ -245,4 +281,21 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
   );
 
   return cases.filter((item) => item.marketSeries.length > 1 && item.pollSeries.length > 1);
+}
+
+export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Republican"): Promise<LiveHistoryCase[]> {
+  if (getExternalApiBaseUrl()) {
+    try {
+      return await getLiveHistoryCasesFromBackend(party);
+    } catch {
+      stateRegistry.forEach((stateCase) => {
+        useDataSourceStore.getState().markFallback(historySourceKey(stateCase.state, party), {
+          stage: "reachability",
+          message: "FastAPI research summary route was unavailable; reverted to local history assembly",
+        });
+      });
+    }
+  }
+
+  return getLiveHistoryCasesLocal(party);
 }
