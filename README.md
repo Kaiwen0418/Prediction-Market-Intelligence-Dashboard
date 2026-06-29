@@ -1,6 +1,6 @@
 # Prediction Market Intelligence Dashboard
 
-Production-style frontend for prediction market analysis. The app combines live Polymarket data, cached research datasets, client-side analytics, and editorial visualization in a single Next.js project.
+Prediction-market research product with a Vercel-hosted Next.js frontend and a Railway-hosted FastAPI + NumPy backend. The app combines live Polymarket data, cached research datasets, quantitative analytics, and editorial visualization.
 
 ## Product Structure
 
@@ -18,14 +18,9 @@ Production-style frontend for prediction market analysis. The app combines live 
 
 ## Stack
 
-- Next.js App Router
-- TypeScript
-- Zustand
-- TanStack Query
-- ECharts
-- Tailwind CSS
-- Three.js
-- react-simple-maps
+- Frontend: Next.js App Router, TypeScript, Zustand, TanStack Query, ECharts, Tailwind CSS
+- Backend: FastAPI, NumPy, httpx
+- Visualization: Three.js, react-simple-maps
 
 ## Local Development
 
@@ -36,23 +31,39 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Vercel Deployment
+### Optional backend
 
-This repo is now Vercel-first.
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+uvicorn app.main:app --reload
+```
 
-### Recommended settings
+Open [http://localhost:8000/docs](http://localhost:8000/docs).
+
+## Deployment Split
+
+### Frontend on Vercel
 
 - Framework preset: `Next.js`
 - Install command: `pnpm install --frozen-lockfile`
 - Build command: `pnpm build`
-- Output directory: leave empty
 - Node version: `22.x`
+- Environment variable: `NEXT_PUBLIC_API_BASE_URL=https://your-railway-app.up.railway.app`
 
-### Environment variables
+### Backend on Railway
 
-None are required for the default Vercel deployment.
+- Root directory: `backend`
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Python version: `3.11+`
+- Recommended variables:
+  - `APP_ENV=production`
+  - `FEATURED_MARKET_SLUG=california-governor-election-2026`
+  - `ALLOW_ORIGINS=["https://your-vercel-project.vercel.app"]`
 
-Do not set any static-export flags. The app is intended to run as a normal Next.js deployment with serverless route handlers on Vercel.
+The frontend falls back to its local Next.js route handlers if `NEXT_PUBLIC_API_BASE_URL` is not set.
 
 ## Public Data Assets
 
@@ -66,6 +77,10 @@ pnpm typecheck
 pnpm build
 ```
 
+```bash
+python3 -m compileall backend/app
+```
+
 Or provide a local CSV path:
 
 ```bash
@@ -74,11 +89,6 @@ pnpm generate:state-support -- /tmp/presidential_general_averages_2024-09-12_unc
 
 ## Notes
 
-- The app now uses live-ready Polymarket REST / WebSocket adapters with mock fallback, so the dashboard remains usable if upstream fetches fail.
-- The architecture is intentionally designed to showcase frontend systems thinking, not just UI styling.
-- Routes now have distinct purposes:
-  - `/` overview
-  - `/market` realtime microstructure
-  - `/history` lead-lag and historical comparison
-  - `/timeline` catalyst interpretation
-
+- The frontend still supports its original Next route handlers for local or fallback use.
+- The FastAPI backend currently owns the live Polymarket proxy layer and NumPy analytics endpoints.
+- This split is intended to showcase both frontend systems thinking and backend/data-engineering ability.

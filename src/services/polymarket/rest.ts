@@ -1,5 +1,6 @@
 import type { MarketSnapshot, OrderbookState, TimePoint, TradePrint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
+import { withApiBase } from "@/services/api/base";
 import { polymarketConfig } from "./config";
 import { normalizeGammaEvent, normalizeGammaMarket, normalizeOrderbook, normalizePriceHistory } from "./normalizers";
 import {
@@ -59,7 +60,7 @@ export async function fetchEventMarketBySlug(
     return null;
   }
 
-  const url = `/api/polymarket/featured-market?slug=${encodeURIComponent(slug)}`;
+  const url = withApiBase(`/api/polymarket/featured-market?slug=${encodeURIComponent(slug)}`);
   const payload = await requestJson<unknown>(url);
   const payloadIssue = validateGammaEventPayload(payload);
   if (payloadIssue) {
@@ -76,7 +77,7 @@ export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> 
     return null;
   }
 
-  const bySlugUrl = `/api/polymarket/featured-market?slug=${encodeURIComponent(polymarketConfig.featuredMarketSlug)}`;
+  const bySlugUrl = withApiBase(`/api/polymarket/featured-market?slug=${encodeURIComponent(polymarketConfig.featuredMarketSlug)}`);
 
   try {
     const payload = await requestJson<unknown>(bySlugUrl);
@@ -95,7 +96,7 @@ export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> 
     recordFallback("featured-market", "reachability", "Featured market slug request failed");
   }
 
-  const marketsUrl = `/api/polymarket/featured-market`;
+  const marketsUrl = withApiBase(`/api/polymarket/featured-market`);
   try {
     const payload = await requestJson<unknown>(marketsUrl);
     const events = Array.isArray(payload)
@@ -122,7 +123,7 @@ export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> 
 }
 
 export async function fetchPriceHistoryLive(marketIdOrTokenId: string): Promise<TimePoint[]> {
-  const historyUrl = `/api/polymarket/price-history?market=${encodeURIComponent(marketIdOrTokenId)}`;
+  const historyUrl = withApiBase(`/api/polymarket/price-history?market=${encodeURIComponent(marketIdOrTokenId)}`);
   try {
     const payload = await requestJson<unknown>(historyUrl);
     const payloadIssue = validatePriceHistoryPayload(payload);
@@ -144,7 +145,7 @@ export async function fetchPriceHistoryLive(marketIdOrTokenId: string): Promise<
 }
 
 export async function fetchOrderbookLive(tokenId: string): Promise<OrderbookState | null> {
-  const orderbookUrl = `/api/polymarket/orderbook?tokenId=${encodeURIComponent(tokenId)}`;
+  const orderbookUrl = withApiBase(`/api/polymarket/orderbook?tokenId=${encodeURIComponent(tokenId)}`);
   try {
     const payload = await requestJson<unknown>(orderbookUrl);
     const payloadIssue = validateOrderbookPayload(payload);
@@ -166,7 +167,7 @@ export async function fetchOrderbookLive(tokenId: string): Promise<OrderbookStat
 }
 
 export async function fetchTradesLive(tokenId: string): Promise<TradePrint[]> {
-  const tradesUrl = `/api/polymarket/trades?tokenId=${encodeURIComponent(tokenId)}`;
+  const tradesUrl = withApiBase(`/api/polymarket/trades?tokenId=${encodeURIComponent(tokenId)}`);
   try {
     const payload = await requestJson<unknown>(tradesUrl);
     const payloadIssue = validateTradesPayload(payload);

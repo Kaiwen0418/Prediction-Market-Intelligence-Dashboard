@@ -1,0 +1,22 @@
+[project]
+name = "prediction-market-api"
+version = "0.1.0"
+description = "FastAPI + NumPy analytics backend for the Prediction Market Intelligence Dashboard"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116.0",
+  "httpx>=0.28.1",
+  "numpy>=2.3.1",
+  "pydantic-settings>=2.10.1",
+  "uvicorn[standard]>=0.35.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uvicorn]
+factory = false
+host = "0.0.0.0"
+port = 8000
+reload = true
