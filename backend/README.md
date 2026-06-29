@@ -19,8 +19,16 @@ Open `http://localhost:8000/docs`.
 Recommended Railway service setup:
 
 - Root directory: `backend`
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Builder: `Nixpacks`
+- Start command: leave empty if `backend/nixpacks.toml` is used, otherwise use `python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 - Python version: `3.11+`
+
+If Railway was previously started with a manual `uvicorn ...` command and no install phase, you'll see `/bin/bash: uvicorn: command not found`. This repo now includes:
+
+- [requirements.txt](/Users/blueberryncherry/Proj/Prediction%20Market%20Intelligence%20Dashboard/backend/requirements.txt)
+- [nixpacks.toml](/Users/blueberryncherry/Proj/Prediction%20Market%20Intelligence%20Dashboard/backend/nixpacks.toml)
+
+These force Railway to install the backend dependencies before boot.
 
 Environment variables:
 
