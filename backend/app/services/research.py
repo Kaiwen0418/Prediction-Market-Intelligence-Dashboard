@@ -16,6 +16,7 @@ from app.analytics.series import (
 )
 from app.schemas.analytics import EventWindowRequest, LeadLagRequest
 from app.schemas.research import (
+    ResearchHighlightsResponse,
     PollPointResponse,
     ResearchProvenanceResponse,
     ResearchStateSummaryResponse,
@@ -160,6 +161,17 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
             computedAt=datetime.now(timezone.utc).isoformat(),
             pollDatasetGeneratedAt=poll_dataset.get("generatedAt"),
             marketDatasetGeneratedAt=market_dataset.get("generatedAt"),
+        ),
+        researchHighlights=ResearchHighlightsResponse(
+            shockLabel=(
+                f"Primary shock window moved {event_window.net_move:+.2f} pts around "
+                f"{event_window.anchor_timestamp[:10]}"
+            ),
+            leadLagLabel=lead_lag.interpretation,
+            divergenceLabel=(
+                f"Current market-poll divergence is {divergence.current_gap:.2f} pts "
+                f"(max {divergence.max_gap:.2f} pts)"
+            ),
         ),
         sourceUrls=[
             "/data/state-party-support-2024.json",

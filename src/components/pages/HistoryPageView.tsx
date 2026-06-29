@@ -85,6 +85,11 @@ export function HistoryPageView() {
           pollDatasetGeneratedAt: undefined,
           marketDatasetGeneratedAt: undefined
         },
+        researchHighlights: {
+          shockLabel: "Shock window analysis is unavailable in the static fallback bundle.",
+          leadLagLabel: researchCase.leadLag.interpretation,
+          divergenceLabel: "Divergence summary is only calculated when the live analytics pipeline is available."
+        },
         summary: `${party} polling shown from cleaned public dataset; market series is fallback research data.`,
       };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
@@ -269,6 +274,13 @@ export function HistoryPageView() {
             <p className="metric-label">Research Finding</p>
             <p className="mt-3 text-xl font-semibold text-slate-900">{activeCase.state}</p>
             <p className="mt-2 max-w-4xl text-sm text-slate-500">{activeCase.summary}</p>
+            {activeCase.researchHighlights ? (
+              <div className="mt-4 grid gap-2 text-sm text-slate-600 md:grid-cols-3">
+                <p>{activeCase.researchHighlights.shockLabel}</p>
+                <p>{activeCase.researchHighlights.leadLagLabel}</p>
+                <p>{activeCase.researchHighlights.divergenceLabel}</p>
+              </div>
+            ) : null}
             {activeCase.provenance ? (
               <p className="mt-3 text-xs uppercase tracking-[0.12em] text-slate-400">
                 computed {new Date(activeCase.provenance.computedAt).toLocaleDateString("en-US", {
@@ -316,7 +328,11 @@ export function HistoryPageView() {
             </p>
           ) : null}
           <div className="mt-6">
-            <MarketPollChart marketSeries={activeCase.marketSeries} pollSeries={activeCase.pollSeries} />
+            <MarketPollChart
+              eventWindow={activeCase.eventWindow}
+              marketSeries={activeCase.marketSeries}
+              pollSeries={activeCase.pollSeries}
+            />
           </div>
         </section>
       </div>

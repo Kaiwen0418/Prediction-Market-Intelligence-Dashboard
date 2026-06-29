@@ -1,8 +1,9 @@
 "use client";
 
 import type { EChartsOption } from "echarts";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, format, isValid, parseISO } from "date-fns";
 import type { TimePoint } from "@/types/market";
+import type { EventWindowResult } from "@/types/analytics";
 import type { PollPoint } from "@/types/poll";
 import { formatTimestamp } from "@/utils/time";
 import { ReactECharts } from "./ChartContainer";
@@ -10,10 +11,16 @@ import { ReactECharts } from "./ChartContainer";
 type MarketPollChartProps = {
   marketSeries: TimePoint[];
   pollSeries: PollPoint[];
+  eventWindow?: EventWindowResult;
 };
 
 function toDateKey(timestamp: string) {
-  return format(parseISO(timestamp), "yyyy-MM-dd");
+  const parsed = parseISO(timestamp);
+  if (!isValid(parsed)) {
+    return null;
+  }
+
+  return format(parsed, "yyyy-MM-dd");
 }
 
 function buildDayRange(start: string, end: string) {
@@ -29,15 +36,19 @@ function buildDayRange(start: string, end: string) {
   return days;
 }
 
-export function MarketPollChart({ marketSeries, pollSeries }: MarketPollChartProps) {
+export function MarketPollChart({ marketSeries, pollSeries, eventWindow }: MarketPollChartProps) {
   const normalizedMarketByDay = new Map<string, number>();
   for (const point of marketSeries) {
-    normalizedMarketByDay.set(toDateKey(point.timestamp), point.value);
+    const dayKey = toDateKey(point.timestamp);
+    if (!dayKey) continue;
+    normalizedMarketByDay.set(dayKey, point.value);
   }
 
   const normalizedPollByDay = new Map<string, number>();
   for (const point of pollSeries) {
-    normalizedPollByDay.set(toDateKey(point.timestamp), point.pollAverage);
+    const dayKey = toDateKey(point.timestamp);
+    if (!dayKey) continue;
+    normalizedPollByDay.set(dayKey, point.pollAverage);
   }
 
   const allTimestamps = Array.from(
@@ -64,6 +75,9 @@ export function MarketPollChart({ marketSeries, pollSeries }: MarketPollChartPro
   const padding = Math.max(spread * 0.05, 0.01);
   const yAxisMin = Math.max(0, rawMin - padding);
   const yAxisMax = Math.min(1, rawMax + padding);
+  const anchorDay = eventWindow?.anchorTimestamp ? toDateKey(eventWindow.anchorTimestamp) : null;
+  const anchorIndex = anchorDay ? timeline.indexOf(anchorDay) : -1;
+  const anchorValue = anchorIndex >= 0 ? marketData[anchorIndex] : null;
   const chartKey = `${timeline[0] ?? "empty"}:${timeline.at(-1) ?? "empty"}:${marketSeries.length}:${pollSeries.length}:${yAxisMin}:${yAxisMax}`;
 
   const option: EChartsOption = {
@@ -102,17 +116,59 @@ export function MarketPollChart({ marketSeries, pollSeries }: MarketPollChartPro
         name: "Market Probability",
         type: "line",
         smooth: true,
-        symbol: "none",
+        symbol: "circle",
+        showSymbol: false,
         lineStyle: { width: 3, color: "#0b3c5d" },
         areaStyle: { color: "rgba(11, 60, 93, 0.10)" },
         connectNulls: false,
-        data: marketData
+        data: marketData,
+        markLine:
+          anchorIndex >= 0
+            ? {
+                symbol: "none",
+                label: {
+                  show: true,
+                  formatter: "Shock",
+                  color: "#475569",
+                  fontSize: 11
+                },
+                lineStyle: {
+                  color: "rgba(100, 116, 139, 0.45)",
+                  type: "dashed",
+                  width: 1.5
+                },
+                data: [{ xAxis: anchorIndex }]
+              }
+            : undefined,
+        markPoint:
+          anchorIndex >= 0 && typeof anchorValue === "number"
+            ? {
+                symbol: "circle",
+                symbolSize: 11,
+                label: {
+                  show: false
+                },
+                itemStyle: {
+                  color: "#111827",
+                  borderColor: "#f8fafc",
+                  borderWidth: 2
+                },
+                data: [
+                  {
+                    name: "Shock Anchor",
+                    coord: [anchorIndex, anchorValue],
+                    value: anchorValue
+                  }
+                ]
+              }
+            : undefined
       },
       {
         name: "Poll Average",
         type: "line",
         smooth: true,
-        symbol: "none",
+        symbol: "circle",
+        showSymbol: false,
         lineStyle: { width: 2, color: "#f97316", type: "dashed" },
         z: 3,
         connectNulls: true,

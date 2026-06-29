@@ -36,6 +36,14 @@ class ResearchProvenanceResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ResearchHighlightsResponse(BaseModel):
+    shock_label: str = Field(alias="shockLabel")
+    lead_lag_label: str = Field(alias="leadLagLabel")
+    divergence_label: str = Field(alias="divergenceLabel")
+
+    model_config = {"populate_by_name": True}
+
+
 class ResearchStateSummaryResponse(BaseModel):
     state: str
     event_slug: str = Field(alias="eventSlug")
@@ -52,6 +60,7 @@ class ResearchStateSummaryResponse(BaseModel):
     rolling_correlation: RollingCorrelationResponse = Field(alias="rollingCorrelation")
     event_window: EventWindowResponse = Field(alias="eventWindow")
     provenance: ResearchProvenanceResponse
+    research_highlights: ResearchHighlightsResponse = Field(alias="researchHighlights")
     source_urls: list[str] = Field(alias="sourceUrls")
 
     model_config = {"populate_by_name": True}

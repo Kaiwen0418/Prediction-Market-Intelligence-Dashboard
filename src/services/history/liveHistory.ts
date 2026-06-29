@@ -77,6 +77,11 @@ export type LiveHistoryCase = {
     pollDatasetGeneratedAt?: string | null;
     marketDatasetGeneratedAt?: string | null;
   };
+  researchHighlights?: {
+    shockLabel: string;
+    leadLagLabel: string;
+    divergenceLabel: string;
+  };
   sourceUrls: string[];
 };
 
@@ -302,6 +307,11 @@ async function getLiveHistoryCasesLocal(
           computedAt: new Date().toISOString(),
           pollDatasetGeneratedAt: dataset.generatedAt,
           marketDatasetGeneratedAt: polymarketHistoryDataset.generatedAt
+        },
+        researchHighlights: {
+          shockLabel: `Primary shock window moved ${analytics.summary.eventWindow.netMove >= 0 ? "+" : ""}${analytics.summary.eventWindow.netMove} pts around ${analytics.summary.eventWindow.anchorTimestamp.slice(0, 10)}`,
+          leadLagLabel: analytics.summary.leadLag.interpretation,
+          divergenceLabel: `Current market-poll divergence is ${analytics.summary.divergence.currentGap.toFixed(2)} pts (max ${analytics.summary.divergence.maxGap.toFixed(2)} pts)`
         },
         sourceUrls: [
           STATE_SUPPORT_PUBLIC_URL,
