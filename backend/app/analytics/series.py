@@ -9,16 +9,23 @@ from app.schemas.analytics import (
     EventWindowResponse,
     LeadLagRequest,
     LeadLagResponse,
+    RollingCorrelationPointResponse,
     RollingCorrelationResponse,
     VolatilityResponse,
 )
 
 
-def _as_arrays(payload: LeadLagRequest) -> tuple[np.ndarray, np.ndarray]:
-    length = min(len(payload.market), len(payload.polling))
-    market = np.array([point.value for point in payload.market[:length]], dtype=float)
-    polling = np.array([point.value for point in payload.polling[:length]], dtype=float)
-    return market, polling
+def _timestamp_key(timestamp: str) -> str:
+    return timestamp[:10]
+
+
+def _align_payload(payload: LeadLagRequest) -> tuple[list[str], np.ndarray, np.ndarray]:
+    market_by_day = {_timestamp_key(point.timestamp): float(point.value) for point in payload.market}
+    polling_by_day = {_timestamp_key(point.timestamp): float(point.value) for point in payload.polling}
+    timestamps = sorted(set(market_by_day.keys()) & set(polling_by_day.keys()))
+    market = np.array([market_by_day[timestamp] for timestamp in timestamps], dtype=float)
+    polling = np.array([polling_by_day[timestamp] for timestamp in timestamps], dtype=float)
+    return timestamps, market, polling
 
 
 def _correlation(left: np.ndarray, right: np.ndarray) -> float:
@@ -37,7 +44,7 @@ def _correlation(left: np.ndarray, right: np.ndarray) -> float:
 
 
 def calculate_lead_lag(payload: LeadLagRequest) -> LeadLagResponse:
-    market, polling = _as_arrays(payload)
+    _, market, polling = _align_payload(payload)
     best_lag = 0
     best_score = -1.0
 
@@ -79,7 +86,7 @@ def calculate_volatility(points: list[float]) -> VolatilityResponse:
 
 
 def calculate_correlation(payload: LeadLagRequest) -> CorrelationResponse:
-    market, polling = _as_arrays(payload)
+    _, market, polling = _align_payload(payload)
     coefficient = _correlation(market, polling)
     absolute = abs(coefficient)
     strength = "strong" if absolute > 0.75 else "moderate" if absolute > 0.4 else "weak"
@@ -87,7 +94,7 @@ def calculate_correlation(payload: LeadLagRequest) -> CorrelationResponse:
 
 
 def calculate_divergence(payload: LeadLagRequest) -> DivergenceResponse:
-    market, polling = _as_arrays(payload)
+    _, market, polling = _align_payload(payload)
     length = min(market.size, polling.size)
     if length < 1:
         return DivergenceResponse(averageGap=0.0, maxGap=0.0, currentGap=0.0)
@@ -101,14 +108,35 @@ def calculate_divergence(payload: LeadLagRequest) -> DivergenceResponse:
 
 
 def calculate_rolling_correlation(payload: LeadLagRequest, window_size: int = 30) -> RollingCorrelationResponse:
-    market, polling = _as_arrays(payload)
+    timestamps, market, polling = _align_payload(payload)
     length = min(market.size, polling.size)
     if length < 2:
-        return RollingCorrelationResponse(coefficient=0.0, windowSize=min(window_size, max(length, 1)))
+        return RollingCorrelationResponse(
+            coefficient=0.0,
+            windowSize=min(window_size, max(length, 1)),
+            points=[],
+        )
 
     effective_window = min(window_size, length)
     coefficient = _correlation(market[-effective_window:], polling[-effective_window:])
-    return RollingCorrelationResponse(coefficient=round(coefficient, 3), windowSize=effective_window)
+    points = [
+        RollingCorrelationPointResponse(
+            timestamp=timestamps[index],
+            coefficient=round(
+                _correlation(
+                    market[index - effective_window + 1 : index + 1],
+                    polling[index - effective_window + 1 : index + 1],
+                ),
+                3,
+            ),
+        )
+        for index in range(effective_window - 1, length)
+    ]
+    return RollingCorrelationResponse(
+        coefficient=round(coefficient, 3),
+        windowSize=effective_window,
+        points=points,
+    )
 
 
 def calculate_event_window(payload: EventWindowRequest) -> EventWindowResponse:

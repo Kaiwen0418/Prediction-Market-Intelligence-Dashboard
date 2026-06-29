@@ -24,6 +24,10 @@ export type DivergenceResult = {
 export type RollingCorrelationResult = {
   coefficient: number;
   windowSize: number;
+  points: Array<{
+    timestamp: string;
+    coefficient: number;
+  }>;
 };
 
 export type EventWindowResult = {

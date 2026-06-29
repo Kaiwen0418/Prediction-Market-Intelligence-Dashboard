@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { MarketPollChart } from "@/components/charts/MarketPollChart";
+import { RollingCorrelationChart } from "@/components/charts/RollingCorrelationChart";
 import { LoadingState } from "@/components/layout/LoadingState";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
@@ -69,7 +70,8 @@ export function HistoryPageView() {
         pollSeries,
         rollingCorrelation: {
           coefficient: researchCase.correlation.coefficient,
-          windowSize: Math.min(30, researchCase.marketSeries.length)
+          windowSize: Math.min(30, researchCase.marketSeries.length),
+          points: []
         },
         eventWindow: {
           anchorIndex: Math.max(researchCase.marketSeries.length - 1, 0),
@@ -268,6 +270,20 @@ export function HistoryPageView() {
               <p className="mt-2 text-sm text-slate-500">
                 -{activeCase.eventWindow.preWindow} / +{activeCase.eventWindow.postWindow} around shock point
               </p>
+            </div>
+          </div>
+          <div className="mt-8">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="metric-label">Rolling Correlation Path</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  FastAPI computes a trailing {activeCase.rollingCorrelation.windowSize}-day alignment score after date-matching the market and polling series.
+                </p>
+              </div>
+              <p className="text-sm font-medium text-slate-700">{activeCase.rollingCorrelation.coefficient}</p>
+            </div>
+            <div className="mt-4">
+              <RollingCorrelationChart rollingCorrelation={activeCase.rollingCorrelation} />
             </div>
           </div>
           <div className="mt-5">

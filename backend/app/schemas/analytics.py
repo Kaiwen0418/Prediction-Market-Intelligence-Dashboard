@@ -51,9 +51,15 @@ class DivergenceResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class RollingCorrelationPointResponse(BaseModel):
+    timestamp: str
+    coefficient: float
+
+
 class RollingCorrelationResponse(BaseModel):
     coefficient: float
     window_size: int = Field(alias="windowSize")
+    points: list[RollingCorrelationPointResponse] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
 

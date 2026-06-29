@@ -1,6 +1,6 @@
 import { getAnalyticsSummary } from "@/services/analytics/api";
 import { getExternalApiBaseUrl, withApiBase } from "@/services/api/base";
-import type { CorrelationResult, EventWindowResult, LeadLagResult, VolatilityResult } from "@/types/analytics";
+import type { CorrelationResult, EventWindowResult, LeadLagResult, RollingCorrelationResult, VolatilityResult } from "@/types/analytics";
 import type { PollPoint } from "@/types/poll";
 import type { TimePoint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
@@ -67,10 +67,7 @@ export type LiveHistoryCase = {
     maxGap: number;
     currentGap: number;
   };
-  rollingCorrelation: {
-    coefficient: number;
-    windowSize: number;
-  };
+  rollingCorrelation: RollingCorrelationResult;
   eventWindow: EventWindowResult;
   provenance?: {
     computedAt: string;

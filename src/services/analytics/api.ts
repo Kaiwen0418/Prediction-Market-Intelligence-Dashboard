@@ -35,6 +35,7 @@ function fallbackAnalytics(marketSeries: TimePoint[], pollSeries: PollPoint[]): 
   const length = Math.min(marketSeries.length, pollSeries.length);
   const marketValues = marketSeries.slice(0, length).map((point) => point.value);
   const pollValues = pollSeries.slice(0, length).map((point) => point.pollAverage);
+  const alignedTimestamps = marketSeries.slice(0, length).map((point) => point.timestamp);
   const gaps = marketValues.map((value, index) => Math.abs(value - (pollValues[index] ?? value)));
   const averageGap = gaps.length ? gaps.reduce((sum, value) => sum + value, 0) / gaps.length : 0;
   const maxGap = gaps.length ? Math.max(...gaps) : 0;
@@ -75,6 +76,16 @@ function fallbackAnalytics(marketSeries: TimePoint[], pollSeries: PollPoint[]): 
             ).coefficient
           : 0,
       windowSize: rollingWindow || 1,
+      points:
+        rollingWindow >= 2
+          ? alignedTimestamps.slice(rollingWindow - 1).map((timestamp, index) => ({
+              timestamp,
+              coefficient: calculateCorrelation(
+                marketSeries.slice(index, index + rollingWindow),
+                pollSeries.slice(index, index + rollingWindow),
+              ).coefficient,
+            }))
+          : [],
     },
     eventWindow: {
       anchorIndex: eventAnchorIndex,

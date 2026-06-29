@@ -51,6 +51,30 @@ class AnalyticsTestCase(unittest.TestCase):
         result = calculate_rolling_correlation(payload, window_size=3)
         self.assertEqual(result.window_size, 3)
         self.assertAlmostEqual(result.coefficient, 1.0, places=3)
+        self.assertEqual(len(result.points), 3)
+        self.assertEqual(result.points[0].timestamp, "2024-01-03")
+        self.assertAlmostEqual(result.points[-1].coefficient, 1.0, places=3)
+
+    def test_analytics_align_on_shared_dates_instead_of_position(self) -> None:
+        payload = LeadLagRequest(
+            market=[
+                NumericSeriesPoint(timestamp="2024-01-01T00:00:00.000Z", value=0.10),
+                NumericSeriesPoint(timestamp="2024-01-02T00:00:00.000Z", value=0.20),
+                NumericSeriesPoint(timestamp="2024-01-03T00:00:00.000Z", value=0.30),
+            ],
+            polling=[
+                NumericSeriesPoint(timestamp="2024-01-02T00:00:00.000Z", value=0.20),
+                NumericSeriesPoint(timestamp="2024-01-03T00:00:00.000Z", value=0.30),
+                NumericSeriesPoint(timestamp="2024-01-04T00:00:00.000Z", value=0.40),
+            ],
+            maxLagDays=1,
+        )
+
+        correlation = calculate_correlation(payload)
+        divergence = calculate_divergence(payload)
+
+        self.assertAlmostEqual(correlation.coefficient, 1.0, places=3)
+        self.assertAlmostEqual(divergence.current_gap, 0.0, places=3)
 
     def test_event_window_computes_pre_and_post_changes(self) -> None:
         payload = EventWindowRequest(
