@@ -9,6 +9,7 @@ import { UsMarketMap } from "@/components/maps/UsMarketMap";
 import { TopNav } from "@/components/navigation/TopNav";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useOrderbook } from "@/hooks/useOrderbook";
+import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
 import { formatTimestamp } from "@/utils/time";
@@ -31,6 +32,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     allowMockStreamFallback: !strictLive,
     enableRealtime: strictLive
   });
+  const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market);
   const deferredEvents = useDeferredValue(timelineQuery.data ?? []);
@@ -86,10 +88,12 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           <UsMarketMap
             market={market}
             orderbook={orderbook}
+            orderbookSummary={orderbookSummaryQuery.data}
             selectedCode={selectedStateCode}
             onSelectCode={setSelectedStateCode}
             sources={{
               featuredMarket: sources["featured-market"],
+              orderbookSummary: sources["orderbook-summary"],
               orderbook: sources.orderbook,
               trades: sources.trades
             }}

@@ -5,24 +5,25 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simp
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { getSpotlightState, inferSpotlightCodeFromMarket, SPOTLIGHT_STATES } from "@/components/maps/spotlightStates";
-import type { MarketSnapshot } from "@/types/market";
-import type { OrderbookState } from "@/types/market";
+import type { MarketSnapshot, OrderbookState, OrderbookSummary } from "@/types/market";
 import type { SourceDiagnostics } from "@/types/service";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 
 type UsMarketMapProps = {
   market: MarketSnapshot;
   orderbook: OrderbookState;
+  orderbookSummary?: OrderbookSummary | null;
   selectedCode?: string | null;
   onSelectCode?: (code: string | null) => void;
   sources: {
     featuredMarket?: SourceDiagnostics;
     orderbook?: SourceDiagnostics;
+    orderbookSummary?: SourceDiagnostics;
     trades?: SourceDiagnostics;
   };
 };
 
-export function UsMarketMap({ market, orderbook, selectedCode, onSelectCode, sources }: UsMarketMapProps) {
+export function UsMarketMap({ market, orderbook, orderbookSummary, selectedCode, onSelectCode, sources }: UsMarketMapProps) {
   const defaultCode = useMemo(() => inferSpotlightCodeFromMarket(market), [market]);
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
@@ -107,9 +108,40 @@ export function UsMarketMap({ market, orderbook, selectedCode, onSelectCode, sou
 
   const sourceDots = [
     { diagnostics: sources.featuredMarket, label: "featured" },
+    { diagnostics: sources.orderbookSummary, label: "summary" },
     { diagnostics: sources.orderbook, label: "orderbook" },
     { diagnostics: sources.trades, label: "trades" }
   ];
+
+  const summary = orderbookSummary ?? {
+    bestBid: orderbook.bids[0]?.price ?? 0,
+    bestAsk: orderbook.asks[0]?.price ?? 0,
+    midPrice: orderbook.midPrice,
+    bidLevels: orderbook.bids.length,
+    askLevels: orderbook.asks.length,
+    tradeCount: orderbook.trades.length,
+    liquidity: {
+      totalBidDepth: orderbook.bids.reduce((sum, level) => sum + level.size, 0),
+      totalAskDepth: orderbook.asks.reduce((sum, level) => sum + level.size, 0),
+      imbalance: 0,
+      spreadBps: orderbook.midPrice === 0 ? 0 : Number(((orderbook.spread / orderbook.midPrice) * 10_000).toFixed(1))
+    },
+    tradePressure: {
+      buyVolume: 0,
+      sellVolume: 0,
+      ratio: 0,
+      pressure: "balanced" as const
+    }
+  };
+  summary.liquidity.imbalance =
+    summary.liquidity.totalBidDepth + summary.liquidity.totalAskDepth === 0
+      ? 0
+      : Number(
+          (
+            (summary.liquidity.totalBidDepth - summary.liquidity.totalAskDepth) /
+            (summary.liquidity.totalBidDepth + summary.liquidity.totalAskDepth)
+          ).toFixed(3)
+        );
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] lg:items-start xl:grid-cols-[3fr_1fr]">
@@ -232,6 +264,35 @@ export function UsMarketMap({ market, orderbook, selectedCode, onSelectCode, sou
             beneath the map looks broken — so we hide it entirely in that range. */}
         <div className="mt-6 hidden lg:block">
           <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+            <p className="metric-label">Mid / Spread</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{summary.midPrice.toFixed(3)}</p>
+            <p className="mt-1 text-sm text-slate-500">{summary.liquidity.spreadBps} bps spread</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+            <p className="metric-label">Pressure</p>
+            <p className="mt-1 text-lg font-semibold capitalize text-slate-900">{summary.tradePressure.pressure}</p>
+            <p className="mt-1 text-sm text-slate-500">Ratio {summary.tradePressure.ratio.toFixed(2)}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+            <p className="metric-label">Bid / Ask Depth</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {summary.liquidity.totalBidDepth.toFixed(0)} / {summary.liquidity.totalAskDepth.toFixed(0)}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              {(summary.liquidity.imbalance * 100).toFixed(1)}% imbalance
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+            <p className="metric-label">Levels / Trades</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {summary.bidLevels} / {summary.askLevels}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">{summary.tradeCount} recent prints</p>
+          </div>
         </div>
 
         {selectedState ? (

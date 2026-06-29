@@ -48,6 +48,31 @@ export type OrderbookState = {
   updatedAt: string;
 };
 
+export type OrderbookSummary = {
+  marketId: string;
+  tokenId: string;
+  updatedAt: string;
+  bestBid: number;
+  bestAsk: number;
+  midPrice: number;
+  spread: number;
+  bidLevels: number;
+  askLevels: number;
+  tradeCount: number;
+  liquidity: {
+    totalBidDepth: number;
+    totalAskDepth: number;
+    imbalance: number;
+    spreadBps: number;
+  };
+  tradePressure: {
+    buyVolume: number;
+    sellVolume: number;
+    ratio: number;
+    pressure: "buy" | "sell" | "balanced";
+  };
+};
+
 export type TimelineEvent = {
   id: string;
   eventId?: string;

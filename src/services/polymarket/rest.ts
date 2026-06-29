@@ -1,4 +1,4 @@
-import type { MarketSnapshot, OrderbookState, TimePoint, TradePrint } from "@/types/market";
+import type { MarketSnapshot, OrderbookState, OrderbookSummary, TimePoint, TradePrint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 import { withApiBase } from "@/services/api/base";
 import { polymarketConfig } from "./config";
@@ -186,5 +186,27 @@ export async function fetchTradesLive(tokenId: string): Promise<TradePrint[]> {
   } catch {
     recordFallback("trades", "reachability", "Trades request failed");
     return [];
+  }
+}
+
+export async function fetchOrderbookSummaryLive(tokenId: string): Promise<OrderbookSummary | null> {
+  const summaryUrl = withApiBase(`/api/polymarket/orderbook-summary?tokenId=${encodeURIComponent(tokenId)}`);
+  try {
+    const payload = await requestJson<OrderbookSummary>(summaryUrl);
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      typeof payload.midPrice !== "number" ||
+      typeof payload.bestBid !== "number" ||
+      typeof payload.bestAsk !== "number"
+    ) {
+      recordFallback("orderbook-summary", "payload", "Orderbook summary payload was malformed");
+      return null;
+    }
+    recordLive("orderbook-summary");
+    return payload;
+  } catch {
+    recordFallback("orderbook-summary", "reachability", "Orderbook summary request failed");
+    return null;
   }
 }
