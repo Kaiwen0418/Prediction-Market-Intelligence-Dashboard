@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote
@@ -8,9 +9,12 @@ from fastapi import HTTPException
 
 from app.core.config import get_settings
 from app.schemas.polymarket import (
+    FeaturedMarketResponse,
     LiquiditySummary,
+    MarketContextResponse,
     OrderbookLevel,
     OrderbookSummaryResponse,
+    PriceHistoryMetaResponse,
     TradePressureSummary,
     TradePrint,
 )
@@ -79,6 +83,73 @@ def _as_number(value: Any, fallback: float = 0.0) -> float:
 
 def _as_string(value: Any, fallback: str = "") -> str:
     return value if isinstance(value, str) else fallback
+
+
+def _parse_json_array(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except json.JSONDecodeError:
+            return []
+    return []
+
+
+def _first_string(values: list[Any]) -> str | None:
+    for value in values:
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _normalize_featured_market_from_event(payload: Any) -> FeaturedMarketResponse:
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=502, detail="Featured market payload was not an object")
+
+    markets = payload.get("markets")
+    if not isinstance(markets, list) or not markets:
+        raise HTTPException(status_code=502, detail="Featured event did not include markets")
+
+    candidates: list[FeaturedMarketResponse] = []
+    for market in markets:
+        if not isinstance(market, dict):
+            continue
+        token_ids = _parse_json_array(market.get("clobTokenIds"))
+        outcomes = _parse_json_array(market.get("outcomes"))
+        outcome_prices = _parse_json_array(market.get("outcomePrices"))
+        token_id = _first_string([token_ids[0] if token_ids else None, market.get("clobTokenId"), market.get("conditionId")])
+        if not token_id:
+            continue
+        contract_label = _as_string(market.get("question"), _as_string(market.get("title"), ""))
+        outcome_label = _first_string([outcomes[0] if outcomes else None, contract_label, "Yes"])
+        probability = _as_number(outcome_prices[0] if outcome_prices else None, _as_number(market.get("lastTradePrice"), 0.5))
+        candidates.append(
+            FeaturedMarketResponse(
+                marketId=_as_string(market.get("id"), _as_string(market.get("conditionId"), token_id)),
+                eventId=_as_string(payload.get("id")) or None,
+                tokenId=token_id,
+                slug=_as_string(payload.get("slug"), token_id),
+                eventSlug=_as_string(payload.get("slug"), token_id),
+                title=_as_string(payload.get("title"), _as_string(payload.get("slug"), token_id)),
+                category=_as_string(payload.get("category"), _as_string(market.get("category"), "Politics")),
+                probability=probability,
+                volume24h=_as_number(market.get("volume24hr"), _as_number(payload.get("volume24hr"))),
+                openInterest=_as_number(market.get("openInterest"), _as_number(payload.get("openInterest"))),
+                liquidity=_as_number(market.get("liquidity"), _as_number(payload.get("liquidity"))),
+                image=_as_string(payload.get("image")) or None,
+                description=_as_string(payload.get("description")) or None,
+                outcomeLabel=outcome_label,
+                contractLabel=contract_label or None,
+                updatedAt=datetime.now(timezone.utc).isoformat(),
+            )
+        )
+
+    if not candidates:
+        raise HTTPException(status_code=502, detail="Featured event did not yield a usable token")
+
+    return sorted(candidates, key=lambda candidate: candidate.probability, reverse=True)[0]
 
 
 def _normalize_levels(value: Any) -> list[OrderbookLevel]:
@@ -180,5 +251,54 @@ async def fetch_orderbook_summary(token_id: str) -> OrderbookSummaryResponse:
             sellVolume=round(sell_volume, 4),
             ratio=round(ratio, 2),
             pressure=pressure,
+        ),
+    )
+
+
+async def fetch_market_context(slug: str | None = None) -> MarketContextResponse:
+    featured_event = await fetch_featured_market(slug)
+    featured_market = _normalize_featured_market_from_event(featured_event)
+
+    orderbook_summary = (
+        await fetch_orderbook_summary(featured_market.token_id)
+        if featured_market.token_id
+        else None
+    )
+
+    price_history_payload = await fetch_price_history(featured_market.token_id or featured_market.market_id)
+    history_rows = (
+        price_history_payload
+        if isinstance(price_history_payload, list)
+        else price_history_payload.get("history", [])
+        if isinstance(price_history_payload, dict)
+        else []
+    )
+
+    start_timestamp: str | None = None
+    end_timestamp: str | None = None
+    normalized_points = 0
+    if isinstance(history_rows, list):
+        normalized_timestamps: list[str] = []
+        for row in history_rows:
+            if not isinstance(row, dict):
+                continue
+            timestamp_value = row.get("t", row.get("timestamp"))
+            if isinstance(timestamp_value, (int, float)):
+                normalized_timestamps.append(datetime.fromtimestamp(timestamp_value, tz=timezone.utc).isoformat())
+            elif isinstance(timestamp_value, str) and timestamp_value:
+                normalized_timestamps.append(timestamp_value)
+        normalized_points = len(normalized_timestamps)
+        if normalized_timestamps:
+            start_timestamp = normalized_timestamps[0]
+            end_timestamp = normalized_timestamps[-1]
+
+    return MarketContextResponse(
+        featuredMarket=featured_market,
+        orderbookSummary=orderbook_summary,
+        priceHistoryMeta=PriceHistoryMetaResponse(
+            market=featured_market.token_id or featured_market.market_id,
+            points=normalized_points,
+            startTimestamp=start_timestamp,
+            endTimestamp=end_timestamp,
         ),
     )

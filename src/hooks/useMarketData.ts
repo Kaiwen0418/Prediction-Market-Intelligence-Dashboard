@@ -3,15 +3,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { getFeaturedMarket, getFeaturedMarketStrict, getHistoricalMarketSeries, getMarketBySlug, getMarketBySlugStrict } from "@/services/polymarket/api";
+import type { MarketSnapshot } from "@/types/market";
 import { useMarketStore } from "@/stores/marketStore";
 
 type UseMarketDataOptions = {
   strictFeaturedMarket?: boolean;
   slug?: string;
+  initialFeaturedMarket?: MarketSnapshot | null;
 };
 
 export function useMarketData(options: UseMarketDataOptions = {}) {
-  const { strictFeaturedMarket = false, slug } = options;
+  const { strictFeaturedMarket = false, slug, initialFeaturedMarket = null } = options;
   const setFeaturedMarket = useMarketStore((state) => state.setFeaturedMarket);
   const setSeries = useMarketStore((state) => state.setSeries);
 
@@ -22,13 +24,14 @@ export function useMarketData(options: UseMarketDataOptions = {}) {
         return strictFeaturedMarket ? getMarketBySlugStrict(slug) : getMarketBySlug(slug);
       }
       return strictFeaturedMarket ? getFeaturedMarketStrict() : getFeaturedMarket();
-    }
+    },
+    initialData: initialFeaturedMarket ?? undefined
   });
 
   const historicalSeriesQuery = useQuery({
-    queryKey: ["historical-market-series", featuredMarketQuery.data?.tokenId],
-    queryFn: () => getHistoricalMarketSeries(featuredMarketQuery.data?.tokenId),
-    enabled: Boolean(featuredMarketQuery.data)
+    queryKey: ["historical-market-series", featuredMarketQuery.data?.tokenId ?? initialFeaturedMarket?.tokenId],
+    queryFn: () => getHistoricalMarketSeries(featuredMarketQuery.data?.tokenId ?? initialFeaturedMarket?.tokenId),
+    enabled: Boolean(featuredMarketQuery.data ?? initialFeaturedMarket)
   });
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function useMarketData(options: UseMarketDataOptions = {}) {
   }, [historicalSeriesQuery.data, setSeries]);
 
   return {
-    featuredMarket: featuredMarketQuery.data ?? null,
+    featuredMarket: featuredMarketQuery.data ?? initialFeaturedMarket,
     marketSeries: historicalSeriesQuery.data ?? [],
     featuredMarketQuery,
     historicalSeriesQuery

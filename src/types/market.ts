@@ -73,6 +73,19 @@ export type OrderbookSummary = {
   };
 };
 
+export type PriceHistoryMeta = {
+  market: string;
+  points: number;
+  startTimestamp?: string | null;
+  endTimestamp?: string | null;
+};
+
+export type MarketContext = {
+  featuredMarket: MarketSnapshot;
+  orderbookSummary: OrderbookSummary | null;
+  priceHistoryMeta: PriceHistoryMeta;
+};
+
 export type TimelineEvent = {
   id: string;
   eventId?: string;

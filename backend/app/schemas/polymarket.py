@@ -7,6 +7,27 @@ class MarketProxyResponse(BaseModel):
     payload: dict[str, Any] | list[Any]
 
 
+class FeaturedMarketResponse(BaseModel):
+    market_id: str = Field(alias="marketId")
+    event_id: str | None = Field(default=None, alias="eventId")
+    token_id: str | None = Field(default=None, alias="tokenId")
+    slug: str
+    event_slug: str | None = Field(default=None, alias="eventSlug")
+    title: str
+    category: str
+    probability: float
+    volume24h: float
+    open_interest: float = Field(alias="openInterest")
+    liquidity: float | None = None
+    image: str | None = None
+    description: str | None = None
+    outcome_label: str | None = Field(default=None, alias="outcomeLabel")
+    contract_label: str | None = Field(default=None, alias="contractLabel")
+    updated_at: str = Field(alias="updatedAt")
+
+    model_config = {"populate_by_name": True}
+
+
 class PricePoint(BaseModel):
     timestamp: str
     value: float
@@ -71,5 +92,22 @@ class OrderbookSummaryResponse(BaseModel):
     trade_count: int = Field(alias="tradeCount")
     liquidity: LiquiditySummary
     trade_pressure: TradePressureSummary = Field(alias="tradePressure")
+
+    model_config = {"populate_by_name": True}
+
+
+class PriceHistoryMetaResponse(BaseModel):
+    market: str
+    points: int
+    start_timestamp: str | None = Field(default=None, alias="startTimestamp")
+    end_timestamp: str | None = Field(default=None, alias="endTimestamp")
+
+    model_config = {"populate_by_name": True}
+
+
+class MarketContextResponse(BaseModel):
+    featured_market: FeaturedMarketResponse = Field(alias="featuredMarket")
+    orderbook_summary: OrderbookSummaryResponse | None = Field(default=None, alias="orderbookSummary")
+    price_history_meta: PriceHistoryMetaResponse = Field(alias="priceHistoryMeta")
 
     model_config = {"populate_by_name": True}

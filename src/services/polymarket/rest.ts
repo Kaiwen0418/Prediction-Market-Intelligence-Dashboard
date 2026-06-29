@@ -1,4 +1,4 @@
-import type { MarketSnapshot, OrderbookState, OrderbookSummary, TimePoint, TradePrint } from "@/types/market";
+import type { MarketContext, MarketSnapshot, OrderbookState, OrderbookSummary, TimePoint, TradePrint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 import { withApiBase } from "@/services/api/base";
 import { polymarketConfig } from "./config";
@@ -207,6 +207,34 @@ export async function fetchOrderbookSummaryLive(tokenId: string): Promise<Orderb
     return payload;
   } catch {
     recordFallback("orderbook-summary", "reachability", "Orderbook summary request failed");
+    return null;
+  }
+}
+
+export async function fetchMarketContextLive(slug?: string): Promise<MarketContext | null> {
+  const url = withApiBase(
+    slug
+      ? `/api/polymarket/market-context?slug=${encodeURIComponent(slug)}`
+      : "/api/polymarket/market-context"
+  );
+
+  try {
+    const payload = await requestJson<MarketContext>(url);
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      typeof payload.featuredMarket !== "object" ||
+      payload.featuredMarket === null ||
+      typeof payload.priceHistoryMeta !== "object" ||
+      payload.priceHistoryMeta === null
+    ) {
+      recordFallback("market-context", "payload", "Market context payload was malformed");
+      return null;
+    }
+    recordLive("market-context");
+    return payload;
+  } catch {
+    recordFallback("market-context", "reachability", "Market context request failed");
     return null;
   }
 }

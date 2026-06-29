@@ -7,6 +7,7 @@ import { LoadingState } from "@/components/layout/LoadingState";
 import { getSpotlightState } from "@/components/maps/spotlightStates";
 import { UsMarketMap } from "@/components/maps/UsMarketMap";
 import { TopNav } from "@/components/navigation/TopNav";
+import { useMarketContext } from "@/hooks/useMarketContext";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
@@ -23,9 +24,12 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const [selectedStateCode, setSelectedStateCode] = useState<string | null>(null);
   const selectedState = getSpotlightState(selectedStateCode);
   const selectedSlug = selectedState?.liveMarketSlug;
+  const marketContextQuery = useMarketContext(selectedSlug);
+  const contextMarket = marketContextQuery.data?.featuredMarket ?? null;
   const { featuredMarketQuery, featuredMarket: market, historicalSeriesQuery, marketSeries } = useMarketData({
     slug: selectedSlug,
-    strictFeaturedMarket: strictLive
+    strictFeaturedMarket: strictLive,
+    initialFeaturedMarket: contextMarket
   });
   const { orderbook, snapshotQuery } = useOrderbook(market?.tokenId, {
     strictSnapshot: strictLive,
@@ -36,8 +40,12 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market);
   const deferredEvents = useDeferredValue(timelineQuery.data ?? []);
-  const isLoading = featuredMarketQuery.isLoading || snapshotQuery.isLoading;
-  const errorMessage = featuredMarketQuery.error instanceof Error
+  const resolvedOrderbookSummary = marketContextQuery.data?.orderbookSummary ?? orderbookSummaryQuery.data;
+  const historyMeta = marketContextQuery.data?.priceHistoryMeta;
+  const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
+  const errorMessage = marketContextQuery.error instanceof Error
+    ? marketContextQuery.error.message
+    : featuredMarketQuery.error instanceof Error
     ? featuredMarketQuery.error.message
     : snapshotQuery.error instanceof Error
       ? snapshotQuery.error.message
@@ -88,12 +96,12 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           <UsMarketMap
             market={market}
             orderbook={orderbook}
-            orderbookSummary={orderbookSummaryQuery.data}
+            orderbookSummary={resolvedOrderbookSummary}
             selectedCode={selectedStateCode}
             onSelectCode={setSelectedStateCode}
             sources={{
-              featuredMarket: sources["featured-market"],
-              orderbookSummary: sources["orderbook-summary"],
+              featuredMarket: sources["market-context"] ?? sources["featured-market"],
+              orderbookSummary: sources["market-context"] ?? sources["orderbook-summary"],
               orderbook: sources.orderbook,
               trades: sources.trades
             }}
@@ -110,7 +118,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           <p className="text-sm leading-6 text-slate-500 md:max-w-[280px] md:text-right">
             {historicalSeriesQuery.isLoading
               ? "Loading history..."
-              : `${marketSeries.length} points · ${sources["price-history"]?.state ?? "fallback"} · ${sources["price-history"]?.mode ?? "mock"}`}
+              : `${historyMeta?.points ?? marketSeries.length} points · ${sources["market-context"]?.state ?? sources["price-history"]?.state ?? "fallback"} · ${sources["market-context"]?.mode ?? sources["price-history"]?.mode ?? "mock"}`}
           </p>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:leading-7">
