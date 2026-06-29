@@ -84,6 +84,7 @@ export type MarketContext = {
   featuredMarket: MarketSnapshot;
   orderbookSummary: OrderbookSummary | null;
   priceHistoryMeta: PriceHistoryMeta;
+  timelineEvents: TimelineEvent[];
 };
 
 export type TimelineEvent = {

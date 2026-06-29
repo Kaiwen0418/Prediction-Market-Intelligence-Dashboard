@@ -38,7 +38,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   });
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
   const sources = useSourceDiagnostics();
-  const timelineQuery = useTimelineData(market);
+  const timelineQuery = useTimelineData(market, marketContextQuery.data?.timelineEvents);
   const deferredEvents = useDeferredValue(timelineQuery.data ?? []);
   const resolvedOrderbookSummary = marketContextQuery.data?.orderbookSummary ?? orderbookSummaryQuery.data;
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;

@@ -5,14 +5,16 @@ import { useEffect } from "react";
 import { getNewsEvents } from "@/services/news/api";
 import { getTimelineEvents } from "@/services/polymarket/api";
 import type { MarketSnapshot } from "@/types/market";
+import type { TimelineEvent } from "@/types/market";
 import { useEventStore } from "@/stores/eventStore";
 
-export function useTimelineData(market?: MarketSnapshot | null) {
+export function useTimelineData(market?: MarketSnapshot | null, initialEvents?: TimelineEvent[]) {
   const setEvents = useEventStore((state) => state.setEvents);
 
   const query = useQuery({
     queryKey: ["timeline-events", market?.marketId],
-    queryFn: () => getTimelineEvents(market ?? undefined)
+    queryFn: () => getTimelineEvents(market ?? undefined),
+    initialData: initialEvents
   });
 
   useEffect(() => {

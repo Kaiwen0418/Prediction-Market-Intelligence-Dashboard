@@ -105,9 +105,24 @@ class PriceHistoryMetaResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class TimelineEventResponse(BaseModel):
+    id: str
+    event_id: str | None = Field(default=None, alias="eventId")
+    timestamp: str
+    headline: str
+    source: str
+    category: str | None = None
+    impact_score: int = Field(alias="impactScore")
+    market_move: float = Field(alias="marketMove")
+    summary: str
+
+    model_config = {"populate_by_name": True}
+
+
 class MarketContextResponse(BaseModel):
     featured_market: FeaturedMarketResponse = Field(alias="featuredMarket")
     orderbook_summary: OrderbookSummaryResponse | None = Field(default=None, alias="orderbookSummary")
     price_history_meta: PriceHistoryMetaResponse = Field(alias="priceHistoryMeta")
+    timeline_events: list[TimelineEventResponse] = Field(default_factory=list, alias="timelineEvents")
 
     model_config = {"populate_by_name": True}

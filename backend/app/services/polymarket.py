@@ -15,6 +15,7 @@ from app.schemas.polymarket import (
     OrderbookLevel,
     OrderbookSummaryResponse,
     PriceHistoryMetaResponse,
+    TimelineEventResponse,
     TradePressureSummary,
     TradePrint,
 )
@@ -152,6 +153,87 @@ def _normalize_featured_market_from_event(payload: Any) -> FeaturedMarketRespons
     return sorted(candidates, key=lambda candidate: candidate.probability, reverse=True)[0]
 
 
+def _normalize_price_history_rows(payload: Any) -> list[tuple[str, float]]:
+    rows = (
+        payload
+        if isinstance(payload, list)
+        else payload.get("history", [])
+        if isinstance(payload, dict)
+        else []
+    )
+    normalized: list[tuple[str, float]] = []
+    if not isinstance(rows, list):
+        return normalized
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        timestamp_value = row.get("t", row.get("timestamp"))
+        price_value = _as_number(row.get("p", row.get("price")))
+        if price_value <= 0:
+            continue
+        if isinstance(timestamp_value, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp_value, tz=timezone.utc).isoformat()
+        elif isinstance(timestamp_value, str) and timestamp_value:
+            timestamp = timestamp_value
+        else:
+            continue
+        normalized.append((timestamp, price_value))
+    return normalized
+
+
+def _build_timeline_events(
+    event_id: str | None,
+    title: str,
+    history: list[tuple[str, float]],
+) -> list[TimelineEventResponse]:
+    if len(history) < 2:
+        return []
+
+    ranked_moves: list[tuple[int, float]] = []
+    for index in range(1, len(history)):
+        move = history[index][1] - history[index - 1][1]
+        ranked_moves.append((index, move))
+
+    ranked_moves.sort(key=lambda item: abs(item[1]), reverse=True)
+    selected: list[tuple[int, float]] = []
+    used_indices: set[int] = set()
+    for index, move in ranked_moves:
+        if index in used_indices or index - 1 in used_indices or index + 1 in used_indices:
+            continue
+        selected.append((index, move))
+        used_indices.add(index)
+        if len(selected) == 4:
+            break
+
+    selected.sort(key=lambda item: item[0])
+    events: list[TimelineEventResponse] = []
+    for rank, (index, move) in enumerate(selected):
+        timestamp, value = history[index]
+        direction = "up" if move > 0 else "down"
+        move_points = round(move * 100, 2)
+        events.append(
+            TimelineEventResponse(
+                id=f"{event_id or title}-{index}-{rank}",
+                eventId=event_id,
+                timestamp=timestamp,
+                headline=(
+                    f"{title} repriced {direction} by {abs(move_points):.1f} pts"
+                ),
+                source="Polymarket price history",
+                category="market",
+                impactScore=min(100, max(1, int(round(abs(move_points) * 4)))),
+                marketMove=move_points,
+                summary=(
+                    f"Automated market-context annotation derived from the largest one-step move in the cached price history. "
+                    f"Contract probability moved to {value * 100:.1f}% at this point."
+                ),
+            )
+        )
+
+    return events
+
+
 def _normalize_levels(value: Any) -> list[OrderbookLevel]:
     if not isinstance(value, list):
         return []
@@ -266,31 +348,14 @@ async def fetch_market_context(slug: str | None = None) -> MarketContextResponse
     )
 
     price_history_payload = await fetch_price_history(featured_market.token_id or featured_market.market_id)
-    history_rows = (
-        price_history_payload
-        if isinstance(price_history_payload, list)
-        else price_history_payload.get("history", [])
-        if isinstance(price_history_payload, dict)
-        else []
-    )
+    normalized_history = _normalize_price_history_rows(price_history_payload)
 
     start_timestamp: str | None = None
     end_timestamp: str | None = None
-    normalized_points = 0
-    if isinstance(history_rows, list):
-        normalized_timestamps: list[str] = []
-        for row in history_rows:
-            if not isinstance(row, dict):
-                continue
-            timestamp_value = row.get("t", row.get("timestamp"))
-            if isinstance(timestamp_value, (int, float)):
-                normalized_timestamps.append(datetime.fromtimestamp(timestamp_value, tz=timezone.utc).isoformat())
-            elif isinstance(timestamp_value, str) and timestamp_value:
-                normalized_timestamps.append(timestamp_value)
-        normalized_points = len(normalized_timestamps)
-        if normalized_timestamps:
-            start_timestamp = normalized_timestamps[0]
-            end_timestamp = normalized_timestamps[-1]
+    normalized_points = len(normalized_history)
+    if normalized_history:
+        start_timestamp = normalized_history[0][0]
+        end_timestamp = normalized_history[-1][0]
 
     return MarketContextResponse(
         featuredMarket=featured_market,
@@ -300,5 +365,10 @@ async def fetch_market_context(slug: str | None = None) -> MarketContextResponse
             points=normalized_points,
             startTimestamp=start_timestamp,
             endTimestamp=end_timestamp,
+        ),
+        timelineEvents=_build_timeline_events(
+            featured_market.event_id,
+            featured_market.title,
+            normalized_history,
         ),
     )
