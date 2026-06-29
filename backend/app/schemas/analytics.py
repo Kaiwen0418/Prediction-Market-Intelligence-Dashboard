@@ -34,9 +34,26 @@ class CorrelationResponse(BaseModel):
     strength: str
 
 
+class DivergenceResponse(BaseModel):
+    average_gap: float = Field(alias="averageGap")
+    max_gap: float = Field(alias="maxGap")
+    current_gap: float = Field(alias="currentGap")
+
+    model_config = {"populate_by_name": True}
+
+
+class RollingCorrelationResponse(BaseModel):
+    coefficient: float
+    window_size: int = Field(alias="windowSize")
+
+    model_config = {"populate_by_name": True}
+
+
 class AnalyticsSummaryResponse(BaseModel):
     lead_lag: LeadLagResponse = Field(alias="leadLag")
     correlation: CorrelationResponse
     volatility: VolatilityResponse
+    divergence: DivergenceResponse
+    rolling_correlation: RollingCorrelationResponse = Field(alias="rollingCorrelation")
 
     model_config = {"populate_by_name": True}

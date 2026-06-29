@@ -5,7 +5,13 @@ from typing import Any, Literal
 
 from fastapi import HTTPException
 
-from app.analytics.series import calculate_correlation, calculate_lead_lag, calculate_volatility
+from app.analytics.series import (
+    calculate_correlation,
+    calculate_divergence,
+    calculate_lead_lag,
+    calculate_rolling_correlation,
+    calculate_volatility,
+)
 from app.schemas.analytics import LeadLagRequest
 from app.schemas.research import PollPointResponse, ResearchStateSummaryResponse, TimePointResponse
 
@@ -108,6 +114,8 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
     lead_lag = calculate_lead_lag(analytics_payload)
     correlation = calculate_correlation(analytics_payload)
     volatility = calculate_volatility([point.value for point in market_series])
+    divergence = calculate_divergence(analytics_payload)
+    rolling_correlation = calculate_rolling_correlation(analytics_payload)
 
     return ResearchStateSummaryResponse(
         state=state,
@@ -115,14 +123,17 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
         party=party,
         summary=(
             f"FiveThirtyEight {party} state support matched against a cached Polymarket history snapshot for {state}, "
-            "with lead-lag, correlation, and volatility computed by the FastAPI + NumPy backend."
+            "with lead-lag, correlation, volatility, divergence, and rolling-correlation computed by the FastAPI + NumPy backend."
         ),
         analyticsSource="api",
+        researchSource="api",
         marketSeries=market_series,
         pollSeries=poll_series,
         leadLag=lead_lag,
         correlation=correlation,
         volatility=volatility,
+        divergence=divergence,
+        rollingCorrelation=rolling_correlation,
         sourceUrls=[
             "/data/state-party-support-2024.json",
             "/data/polymarket-history-2024.json",

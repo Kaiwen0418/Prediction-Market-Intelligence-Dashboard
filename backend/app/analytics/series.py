@@ -2,7 +2,14 @@ import math
 
 import numpy as np
 
-from app.schemas.analytics import CorrelationResponse, LeadLagRequest, LeadLagResponse, VolatilityResponse
+from app.schemas.analytics import (
+    CorrelationResponse,
+    DivergenceResponse,
+    LeadLagRequest,
+    LeadLagResponse,
+    RollingCorrelationResponse,
+    VolatilityResponse,
+)
 
 
 def _as_arrays(payload: LeadLagRequest) -> tuple[np.ndarray, np.ndarray]:
@@ -75,3 +82,28 @@ def calculate_correlation(payload: LeadLagRequest) -> CorrelationResponse:
     absolute = abs(coefficient)
     strength = "strong" if absolute > 0.75 else "moderate" if absolute > 0.4 else "weak"
     return CorrelationResponse(coefficient=round(coefficient, 3), strength=strength)
+
+
+def calculate_divergence(payload: LeadLagRequest) -> DivergenceResponse:
+    market, polling = _as_arrays(payload)
+    length = min(market.size, polling.size)
+    if length < 1:
+        return DivergenceResponse(averageGap=0.0, maxGap=0.0, currentGap=0.0)
+
+    gaps = np.abs(market[:length] - polling[:length])
+    return DivergenceResponse(
+        averageGap=round(float(np.mean(gaps) * 100), 2),
+        maxGap=round(float(np.max(gaps) * 100), 2),
+        currentGap=round(float(gaps[-1] * 100), 2),
+    )
+
+
+def calculate_rolling_correlation(payload: LeadLagRequest, window_size: int = 30) -> RollingCorrelationResponse:
+    market, polling = _as_arrays(payload)
+    length = min(market.size, polling.size)
+    if length < 2:
+        return RollingCorrelationResponse(coefficient=0.0, windowSize=min(window_size, max(length, 1)))
+
+    effective_window = min(window_size, length)
+    coefficient = _correlation(market[-effective_window:], polling[-effective_window:])
+    return RollingCorrelationResponse(coefficient=round(coefficient, 3), windowSize=effective_window)

@@ -56,11 +56,21 @@ export type LiveHistoryCase = {
   party: "Democrat" | "Republican";
   summary: string;
   analyticsSource: "api" | "local";
+  researchSource: "api" | "local";
   marketSeries: TimePoint[];
   pollSeries: PollPoint[];
   leadLag: LeadLagResult;
   correlation: CorrelationResult;
   volatility: VolatilityResult;
+  divergence: {
+    averageGap: number;
+    maxGap: number;
+    currentGap: number;
+  };
+  rollingCorrelation: {
+    coefficient: number;
+    windowSize: number;
+  };
   sourceUrls: string[];
 };
 
@@ -145,6 +155,10 @@ function historySourceKey(state: string, party: "Democrat" | "Republican") {
   return `history:${state}:${party}`;
 }
 
+function historyBackendSourceKey(state: string, party: "Democrat" | "Republican") {
+  return `history-backend:${state}:${party}`;
+}
+
 function describeRange(series: Array<{ timestamp: string }>) {
   if (!series.length) return "none";
   return `${series[0].timestamp} -> ${series.at(-1)?.timestamp ?? series[0].timestamp}`;
@@ -187,8 +201,10 @@ async function getLiveHistoryCasesFromBackend(
 ): Promise<LiveHistoryCase[]> {
   const cases = await Promise.all(
     stateRegistry.map(async (stateCase) => {
+      useDataSourceStore.getState().markPending(historyBackendSourceKey(stateCase.state, party));
       useDataSourceStore.getState().markPending(historySourceKey(stateCase.state, party));
       const result = await fetchBackendResearchSummary(stateCase.state, party);
+      useDataSourceStore.getState().markLive(historyBackendSourceKey(stateCase.state, party));
       useDataSourceStore.getState().markCurated(historySourceKey(stateCase.state, party));
       return result;
     }),
@@ -267,11 +283,14 @@ async function getLiveHistoryCasesLocal(
             ? `FiveThirtyEight ${party} state support matched against a pre-fetched Polymarket history snapshot for ${stateCase.state}, with lead-lag, correlation, and volatility computed by the FastAPI + NumPy backend.`
             : `FiveThirtyEight ${party} state support matched against a pre-fetched Polymarket history snapshot for ${stateCase.state}. Analytics fell back to the local TypeScript implementation because the backend summary endpoint was unavailable.`,
         analyticsSource: analytics.source,
+        researchSource: "local" as const,
         marketSeries,
         pollSeries,
         leadLag: analytics.summary.leadLag,
         correlation: analytics.summary.correlation,
         volatility: analytics.summary.volatility,
+        divergence: analytics.summary.divergence,
+        rollingCorrelation: analytics.summary.rollingCorrelation,
         sourceUrls: [
           STATE_SUPPORT_PUBLIC_URL,
           POLYMARKET_HISTORY_PUBLIC_URL
@@ -289,6 +308,10 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
       return await getLiveHistoryCasesFromBackend(party);
     } catch {
       stateRegistry.forEach((stateCase) => {
+        useDataSourceStore.getState().markFallback(historyBackendSourceKey(stateCase.state, party), {
+          stage: "reachability",
+          message: "FastAPI research summary route was unavailable; backend-owned research bundle could not be loaded",
+        });
         useDataSourceStore.getState().markFallback(historySourceKey(stateCase.state, party), {
           stage: "reachability",
           message: "FastAPI research summary route was unavailable; reverted to local history assembly",

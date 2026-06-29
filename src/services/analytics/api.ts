@@ -32,10 +32,34 @@ function toPayload(marketSeries: TimePoint[], pollSeries: PollPoint[]): Analytic
 }
 
 function fallbackAnalytics(marketSeries: TimePoint[], pollSeries: PollPoint[]): AnalyticsSummaryResult {
+  const length = Math.min(marketSeries.length, pollSeries.length);
+  const marketValues = marketSeries.slice(0, length).map((point) => point.value);
+  const pollValues = pollSeries.slice(0, length).map((point) => point.pollAverage);
+  const gaps = marketValues.map((value, index) => Math.abs(value - (pollValues[index] ?? value)));
+  const averageGap = gaps.length ? gaps.reduce((sum, value) => sum + value, 0) / gaps.length : 0;
+  const maxGap = gaps.length ? Math.max(...gaps) : 0;
+  const currentGap = gaps.length ? gaps.at(-1) ?? 0 : 0;
+  const rollingWindow = Math.min(30, length);
+
   return {
     leadLag: calculateLeadLag(marketSeries, pollSeries),
     correlation: calculateCorrelation(marketSeries, pollSeries),
     volatility: calculateVolatility(marketSeries),
+    divergence: {
+      averageGap: Number((averageGap * 100).toFixed(2)),
+      maxGap: Number((maxGap * 100).toFixed(2)),
+      currentGap: Number((currentGap * 100).toFixed(2)),
+    },
+    rollingCorrelation: {
+      coefficient:
+        rollingWindow >= 2
+          ? calculateCorrelation(
+              marketSeries.slice(-rollingWindow),
+              pollSeries.slice(-rollingWindow),
+            ).coefficient
+          : 0,
+      windowSize: rollingWindow || 1,
+    },
   };
 }
 

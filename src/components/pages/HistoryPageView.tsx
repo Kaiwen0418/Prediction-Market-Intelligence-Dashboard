@@ -60,7 +60,17 @@ export function HistoryPageView() {
     : {
         ...researchCase,
         analyticsSource: "local" as const,
+        researchSource: "local" as const,
+        divergence: {
+          averageGap: 0,
+          maxGap: 0,
+          currentGap: 0
+        },
         pollSeries,
+        rollingCorrelation: {
+          coefficient: researchCase.correlation.coefficient,
+          windowSize: Math.min(30, researchCase.marketSeries.length)
+        },
         summary: `${party} polling shown from cleaned public dataset; market series is fallback research data.`,
       };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
@@ -168,6 +178,7 @@ export function HistoryPageView() {
           <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             {["Arizona", "Georgia", "Michigan", "Pennsylvania", "Wisconsin"].map((state) => {
               const diagnostics = sourceDiagnostics[`history:${state}:${party}`];
+              const backendDiagnostics = sourceDiagnostics[`history-backend:${state}:${party}`];
               const checkedAt = diagnostics?.checkedAt;
 
               return (
@@ -178,6 +189,9 @@ export function HistoryPageView() {
                   <p className="metric-label">{state}</p>
                   <p className="mt-1 font-medium capitalize">
                     {diagnostics?.state ?? "pending"} · {diagnostics?.mode ?? "mock"}
+                  </p>
+                  <p className="mt-1 text-xs opacity-80 capitalize">
+                    backend {backendDiagnostics?.state ?? "pending"}
                   </p>
                   <p className="mt-1 text-xs opacity-80">
                     {checkedAt
@@ -194,7 +208,7 @@ export function HistoryPageView() {
         </section>
 
         <section className="border-t border-[var(--demo-card-divider)] pt-8">
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
             <div>
               <p className="metric-label">Lead-Lag</p>
               <p className="mt-3 text-2xl font-semibold text-slate-900">
@@ -208,9 +222,11 @@ export function HistoryPageView() {
               <p className="mt-2 text-sm text-slate-500">{activeCase.correlation.strength} relationship between market and polling series</p>
             </div>
             <div>
-              <p className="metric-label">Research Finding</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.state}</p>
-              <p className="mt-2 text-sm text-slate-500">{activeCase.summary}</p>
+              <p className="metric-label">Divergence</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.divergence.currentGap} pts</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Avg {activeCase.divergence.averageGap} pts · Max {activeCase.divergence.maxGap} pts
+              </p>
             </div>
             <div>
               <p className="metric-label">Volatility</p>
@@ -220,6 +236,18 @@ export function HistoryPageView() {
                 {activeCase.volatility.averageReturn} pts
               </p>
             </div>
+            <div>
+              <p className="metric-label">Rolling Corr</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.rollingCorrelation.coefficient}</p>
+              <p className="mt-2 text-sm text-slate-500">
+                {activeCase.rollingCorrelation.windowSize}-point trailing window
+              </p>
+            </div>
+          </div>
+          <div className="mt-5">
+            <p className="metric-label">Research Finding</p>
+            <p className="mt-3 text-xl font-semibold text-slate-900">{activeCase.state}</p>
+            <p className="mt-2 max-w-4xl text-sm text-slate-500">{activeCase.summary}</p>
           </div>
         </section>
 
@@ -248,6 +276,9 @@ export function HistoryPageView() {
           </p>
           <p className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-600">
             Analytics engine: {activeCase.analyticsSource === "api" ? "FastAPI + NumPy" : "local TypeScript fallback"}
+          </p>
+          <p className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-600">
+            Research bundle: {activeCase.researchSource === "api" ? "FastAPI state summary route" : "local frontend assembly"}
           </p>
           <div className="mt-6">
             <MarketPollChart marketSeries={activeCase.marketSeries} pollSeries={activeCase.pollSeries} />

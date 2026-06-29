@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field
 
-from app.schemas.analytics import CorrelationResponse, LeadLagResponse, VolatilityResponse
+from app.schemas.analytics import (
+    CorrelationResponse,
+    DivergenceResponse,
+    LeadLagResponse,
+    RollingCorrelationResponse,
+    VolatilityResponse,
+)
 
 
 class PollPointResponse(BaseModel):
@@ -27,11 +33,14 @@ class ResearchStateSummaryResponse(BaseModel):
     party: str
     summary: str
     analytics_source: str = Field(alias="analyticsSource")
+    research_source: str = Field(alias="researchSource")
     market_series: list[TimePointResponse] = Field(alias="marketSeries")
     poll_series: list[PollPointResponse] = Field(alias="pollSeries")
     lead_lag: LeadLagResponse = Field(alias="leadLag")
     correlation: CorrelationResponse
     volatility: VolatilityResponse
+    divergence: DivergenceResponse
+    rolling_correlation: RollingCorrelationResponse = Field(alias="rollingCorrelation")
     source_urls: list[str] = Field(alias="sourceUrls")
 
     model_config = {"populate_by_name": True}

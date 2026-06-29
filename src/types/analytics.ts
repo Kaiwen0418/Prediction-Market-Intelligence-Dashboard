@@ -15,6 +15,17 @@ export type CorrelationResult = {
   strength: "weak" | "moderate" | "strong";
 };
 
+export type DivergenceResult = {
+  averageGap: number;
+  maxGap: number;
+  currentGap: number;
+};
+
+export type RollingCorrelationResult = {
+  coefficient: number;
+  windowSize: number;
+};
+
 export type LiquidityMetrics = {
   totalBidDepth: number;
   totalAskDepth: number;
@@ -31,6 +42,8 @@ export type AnalyticsSummaryResult = {
   leadLag: LeadLagResult;
   correlation: CorrelationResult;
   volatility: VolatilityResult;
+  divergence: DivergenceResult;
+  rollingCorrelation: RollingCorrelationResult;
 };
 
 export type TradePressureResult = {
