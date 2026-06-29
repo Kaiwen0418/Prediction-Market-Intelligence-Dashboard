@@ -43,10 +43,24 @@ async def post_event_window(payload: EventWindowRequest) -> EventWindowResponse:
 
 @router.post("/summary", response_model=AnalyticsSummaryResponse)
 async def post_summary(payload: LeadLagRequest) -> AnalyticsSummaryResponse:
+    anchor_index = 0
+    if len(payload.market) > 1:
+        diffs = [abs(payload.market[index].value - payload.market[index - 1].value) for index in range(1, len(payload.market))]
+        if diffs:
+            anchor_index = diffs.index(max(diffs)) + 1
+
     return AnalyticsSummaryResponse(
         leadLag=calculate_lead_lag(payload),
         correlation=calculate_correlation(payload),
         volatility=calculate_volatility([point.value for point in payload.market]),
         divergence=calculate_divergence(payload),
         rollingCorrelation=calculate_rolling_correlation(payload),
+        eventWindow=calculate_event_window(
+            EventWindowRequest(
+                series=payload.market,
+                anchorIndex=anchor_index,
+                preWindow=3,
+                postWindow=3,
+            )
+        ),
     )

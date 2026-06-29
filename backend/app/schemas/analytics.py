@@ -59,6 +59,8 @@ class RollingCorrelationResponse(BaseModel):
 
 
 class EventWindowResponse(BaseModel):
+    anchor_index: int = Field(alias="anchorIndex")
+    anchor_timestamp: str = Field(alias="anchorTimestamp")
     pre_change: float = Field(alias="preChange")
     post_change: float = Field(alias="postChange")
     net_move: float = Field(alias="netMove")
@@ -74,5 +76,6 @@ class AnalyticsSummaryResponse(BaseModel):
     volatility: VolatilityResponse
     divergence: DivergenceResponse
     rolling_correlation: RollingCorrelationResponse = Field(alias="rollingCorrelation")
+    event_window: EventWindowResponse = Field(alias="eventWindow")
 
     model_config = {"populate_by_name": True}

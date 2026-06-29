@@ -61,6 +61,8 @@ class AnalyticsTestCase(unittest.TestCase):
         )
 
         result = calculate_event_window(payload)
+        self.assertEqual(result.anchor_index, 2)
+        self.assertEqual(result.anchor_timestamp, "2024-01-03T00:00:00.000Z")
         self.assertAlmostEqual(result.pre_change, 10.0, places=2)
         self.assertAlmostEqual(result.post_change, -5.0, places=2)
         self.assertAlmostEqual(result.net_move, 5.0, places=2)

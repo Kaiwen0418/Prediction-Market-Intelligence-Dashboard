@@ -40,6 +40,22 @@ function fallbackAnalytics(marketSeries: TimePoint[], pollSeries: PollPoint[]): 
   const maxGap = gaps.length ? Math.max(...gaps) : 0;
   const currentGap = gaps.length ? gaps.at(-1) ?? 0 : 0;
   const rollingWindow = Math.min(30, length);
+  const eventAnchorIndex =
+    marketValues.length > 1
+      ? marketValues
+          .slice(1)
+          .map((value, index) => Math.abs(value - marketValues[index]))
+          .reduce(
+            (bestIndex, current, index, deltas) =>
+              current > deltas[bestIndex] ? index : bestIndex,
+            0,
+          ) + 1
+      : 0;
+  const preIndex = Math.max(0, eventAnchorIndex - 3);
+  const postIndex = Math.min(Math.max(marketValues.length - 1, 0), eventAnchorIndex + 3);
+  const preBase = marketValues[preIndex] ?? 0;
+  const anchorValue = marketValues[eventAnchorIndex] ?? 0;
+  const postValue = marketValues[postIndex] ?? anchorValue;
 
   return {
     leadLag: calculateLeadLag(marketSeries, pollSeries),
@@ -59,6 +75,15 @@ function fallbackAnalytics(marketSeries: TimePoint[], pollSeries: PollPoint[]): 
             ).coefficient
           : 0,
       windowSize: rollingWindow || 1,
+    },
+    eventWindow: {
+      anchorIndex: eventAnchorIndex,
+      anchorTimestamp: marketSeries[eventAnchorIndex]?.timestamp ?? "",
+      preChange: Number(((anchorValue - preBase) * 100).toFixed(2)),
+      postChange: Number(((postValue - anchorValue) * 100).toFixed(2)),
+      netMove: Number(((postValue - preBase) * 100).toFixed(2)),
+      preWindow: 3,
+      postWindow: 3,
     },
   };
 }

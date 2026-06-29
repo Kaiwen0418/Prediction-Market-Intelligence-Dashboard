@@ -1,6 +1,7 @@
 import json
 from functools import lru_cache
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import HTTPException
@@ -8,12 +9,18 @@ from fastapi import HTTPException
 from app.analytics.series import (
     calculate_correlation,
     calculate_divergence,
+    calculate_event_window,
     calculate_lead_lag,
     calculate_rolling_correlation,
     calculate_volatility,
 )
-from app.schemas.analytics import LeadLagRequest
-from app.schemas.research import PollPointResponse, ResearchStateSummaryResponse, TimePointResponse
+from app.schemas.analytics import EventWindowRequest, LeadLagRequest
+from app.schemas.research import (
+    PollPointResponse,
+    ResearchProvenanceResponse,
+    ResearchStateSummaryResponse,
+    TimePointResponse,
+)
 
 Party = Literal["Democrat", "Republican"]
 
@@ -116,6 +123,20 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
     volatility = calculate_volatility([point.value for point in market_series])
     divergence = calculate_divergence(analytics_payload)
     rolling_correlation = calculate_rolling_correlation(analytics_payload)
+    market_values = [point.value for point in market_series]
+    if len(market_values) > 1:
+        deltas = [abs(market_values[index] - market_values[index - 1]) for index in range(1, len(market_values))]
+        anchor_index = deltas.index(max(deltas)) + 1
+    else:
+        anchor_index = 0
+    event_window = calculate_event_window(
+        EventWindowRequest(
+            series=[{"timestamp": point.timestamp, "value": point.value} for point in market_series],
+            anchorIndex=anchor_index,
+            preWindow=3,
+            postWindow=3,
+        )
+    )
 
     return ResearchStateSummaryResponse(
         state=state,
@@ -134,6 +155,12 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
         volatility=volatility,
         divergence=divergence,
         rollingCorrelation=rolling_correlation,
+        eventWindow=event_window,
+        provenance=ResearchProvenanceResponse(
+            computedAt=datetime.now(timezone.utc).isoformat(),
+            pollDatasetGeneratedAt=poll_dataset.get("generatedAt"),
+            marketDatasetGeneratedAt=market_dataset.get("generatedAt"),
+        ),
         sourceUrls=[
             "/data/state-party-support-2024.json",
             "/data/polymarket-history-2024.json",

@@ -115,6 +115,8 @@ def calculate_event_window(payload: EventWindowRequest) -> EventWindowResponse:
     series = np.array([point.value for point in payload.series], dtype=float)
     if series.size < 2:
         return EventWindowResponse(
+            anchorIndex=payload.anchor_index,
+            anchorTimestamp=payload.series[min(payload.anchor_index, max(len(payload.series) - 1, 0))].timestamp if payload.series else "",
             preChange=0.0,
             postChange=0.0,
             netMove=0.0,
@@ -135,6 +137,8 @@ def calculate_event_window(payload: EventWindowRequest) -> EventWindowResponse:
     net_move = float((post_value - pre_base) * 100)
 
     return EventWindowResponse(
+        anchorIndex=anchor,
+        anchorTimestamp=payload.series[anchor].timestamp,
         preChange=round(pre_change, 2),
         postChange=round(post_change, 2),
         netMove=round(net_move, 2),

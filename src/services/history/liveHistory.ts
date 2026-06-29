@@ -1,6 +1,6 @@
 import { getAnalyticsSummary } from "@/services/analytics/api";
 import { getExternalApiBaseUrl, withApiBase } from "@/services/api/base";
-import type { CorrelationResult, LeadLagResult, VolatilityResult } from "@/types/analytics";
+import type { CorrelationResult, EventWindowResult, LeadLagResult, VolatilityResult } from "@/types/analytics";
 import type { PollPoint } from "@/types/poll";
 import type { TimePoint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
@@ -70,6 +70,12 @@ export type LiveHistoryCase = {
   rollingCorrelation: {
     coefficient: number;
     windowSize: number;
+  };
+  eventWindow: EventWindowResult;
+  provenance?: {
+    computedAt: string;
+    pollDatasetGeneratedAt?: string | null;
+    marketDatasetGeneratedAt?: string | null;
   };
   sourceUrls: string[];
 };
@@ -291,6 +297,12 @@ async function getLiveHistoryCasesLocal(
         volatility: analytics.summary.volatility,
         divergence: analytics.summary.divergence,
         rollingCorrelation: analytics.summary.rollingCorrelation,
+        eventWindow: analytics.summary.eventWindow,
+        provenance: {
+          computedAt: new Date().toISOString(),
+          pollDatasetGeneratedAt: dataset.generatedAt,
+          marketDatasetGeneratedAt: polymarketHistoryDataset.generatedAt
+        },
         sourceUrls: [
           STATE_SUPPORT_PUBLIC_URL,
           POLYMARKET_HISTORY_PUBLIC_URL

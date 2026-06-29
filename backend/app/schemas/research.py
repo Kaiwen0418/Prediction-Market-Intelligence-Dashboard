@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from app.schemas.analytics import (
     CorrelationResponse,
     DivergenceResponse,
+    EventWindowResponse,
     LeadLagResponse,
     RollingCorrelationResponse,
     VolatilityResponse,
@@ -27,6 +28,14 @@ class TimePointResponse(BaseModel):
     value: float
 
 
+class ResearchProvenanceResponse(BaseModel):
+    computed_at: str = Field(alias="computedAt")
+    poll_dataset_generated_at: str | None = Field(default=None, alias="pollDatasetGeneratedAt")
+    market_dataset_generated_at: str | None = Field(default=None, alias="marketDatasetGeneratedAt")
+
+    model_config = {"populate_by_name": True}
+
+
 class ResearchStateSummaryResponse(BaseModel):
     state: str
     event_slug: str = Field(alias="eventSlug")
@@ -41,6 +50,8 @@ class ResearchStateSummaryResponse(BaseModel):
     volatility: VolatilityResponse
     divergence: DivergenceResponse
     rolling_correlation: RollingCorrelationResponse = Field(alias="rollingCorrelation")
+    event_window: EventWindowResponse = Field(alias="eventWindow")
+    provenance: ResearchProvenanceResponse
     source_urls: list[str] = Field(alias="sourceUrls")
 
     model_config = {"populate_by_name": True}

@@ -26,6 +26,16 @@ export type RollingCorrelationResult = {
   windowSize: number;
 };
 
+export type EventWindowResult = {
+  anchorIndex: number;
+  anchorTimestamp: string;
+  preChange: number;
+  postChange: number;
+  netMove: number;
+  preWindow: number;
+  postWindow: number;
+};
+
 export type LiquidityMetrics = {
   totalBidDepth: number;
   totalAskDepth: number;
@@ -44,6 +54,7 @@ export type AnalyticsSummaryResult = {
   volatility: VolatilityResult;
   divergence: DivergenceResult;
   rollingCorrelation: RollingCorrelationResult;
+  eventWindow: EventWindowResult;
 };
 
 export type TradePressureResult = {
