@@ -57,7 +57,12 @@ export function HistoryPageView() {
   const pollSeries = buildPollSeries(activeState, party);
   const activeCase = liveCase
     ? { ...liveCase, pollSeries }
-    : { ...researchCase, pollSeries, summary: `${party} polling shown from cleaned public dataset; market series is fallback research data.` };
+    : {
+        ...researchCase,
+        analyticsSource: "local" as const,
+        pollSeries,
+        summary: `${party} polling shown from cleaned public dataset; market series is fallback research data.`,
+      };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
   const usingLiveCases = Boolean(liveCase);
 
@@ -240,6 +245,9 @@ export function HistoryPageView() {
             {usingLiveCases
               ? `Data note: polling comes from a local cleaned public JSON resource derived from the referenced FiveThirtyEight CSV and uses ${party} support directly; market history comes from the matched ${party.toLowerCase()}-side Polymarket outcome routed through the app proxy at 1-day precision.`
               : "Static demo note: this page uses hardcoded research-style series for product presentation. It is informed by the paper's methodology and reported findings, but it is not a reproduction of the paper's raw underlying dataset."}
+          </p>
+          <p className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-600">
+            Analytics engine: {activeCase.analyticsSource === "api" ? "FastAPI + NumPy" : "local TypeScript fallback"}
           </p>
           <div className="mt-6">
             <MarketPollChart marketSeries={activeCase.marketSeries} pollSeries={activeCase.pollSeries} />

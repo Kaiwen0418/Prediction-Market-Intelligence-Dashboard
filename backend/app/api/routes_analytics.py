@@ -1,7 +1,13 @@
 from fastapi import APIRouter
 
 from app.analytics.series import calculate_correlation, calculate_lead_lag, calculate_volatility
-from app.schemas.analytics import CorrelationResponse, LeadLagRequest, LeadLagResponse, VolatilityResponse
+from app.schemas.analytics import (
+    AnalyticsSummaryResponse,
+    CorrelationResponse,
+    LeadLagRequest,
+    LeadLagResponse,
+    VolatilityResponse,
+)
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -19,3 +25,12 @@ async def post_correlation(payload: LeadLagRequest) -> CorrelationResponse:
 @router.post("/volatility", response_model=VolatilityResponse)
 async def post_volatility(payload: LeadLagRequest) -> VolatilityResponse:
     return calculate_volatility([point.value for point in payload.market])
+
+
+@router.post("/summary", response_model=AnalyticsSummaryResponse)
+async def post_summary(payload: LeadLagRequest) -> AnalyticsSummaryResponse:
+    return AnalyticsSummaryResponse(
+        leadLag=calculate_lead_lag(payload),
+        correlation=calculate_correlation(payload),
+        volatility=calculate_volatility([point.value for point in payload.market]),
+    )

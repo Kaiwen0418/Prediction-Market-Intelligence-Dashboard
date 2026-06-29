@@ -46,3 +46,4 @@ Environment variables:
 - `POST /api/analytics/lead-lag`
 - `POST /api/analytics/correlation`
 - `POST /api/analytics/volatility`
+- `POST /api/analytics/summary`

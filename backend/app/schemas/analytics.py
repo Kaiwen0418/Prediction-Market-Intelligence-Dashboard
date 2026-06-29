@@ -32,3 +32,11 @@ class VolatilityResponse(BaseModel):
 class CorrelationResponse(BaseModel):
     coefficient: float
     strength: str
+
+
+class AnalyticsSummaryResponse(BaseModel):
+    lead_lag: LeadLagResponse = Field(alias="leadLag")
+    correlation: CorrelationResponse
+    volatility: VolatilityResponse
+
+    model_config = {"populate_by_name": True}

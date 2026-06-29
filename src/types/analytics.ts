@@ -27,6 +27,12 @@ export type VolatilityResult = {
   averageReturn: number;
 };
 
+export type AnalyticsSummaryResult = {
+  leadLag: LeadLagResult;
+  correlation: CorrelationResult;
+  volatility: VolatilityResult;
+};
+
 export type TradePressureResult = {
   buyVolume: number;
   sellVolume: number;

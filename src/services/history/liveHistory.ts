@@ -1,6 +1,4 @@
-import { calculateCorrelation } from "@/analytics/correlation";
-import { calculateLeadLag } from "@/analytics/leadLag";
-import { calculateVolatility } from "@/analytics/volatility";
+import { getAnalyticsSummary } from "@/services/analytics/api";
 import type { CorrelationResult, LeadLagResult, VolatilityResult } from "@/types/analytics";
 import type { PollPoint } from "@/types/poll";
 import type { TimePoint } from "@/types/market";
@@ -56,6 +54,7 @@ export type LiveHistoryCase = {
   eventSlug: string;
   party: "Democrat" | "Republican";
   summary: string;
+  analyticsSource: "api" | "local";
   marketSeries: TimePoint[];
   pollSeries: PollPoint[];
   leadLag: LeadLagResult;
@@ -221,16 +220,22 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
         });
       }
 
+      const analytics = await getAnalyticsSummary(marketSeries, pollSeries);
+
       return {
         state: stateCase.state,
         eventSlug: stateCase.eventSlug,
         party,
-        summary: `FiveThirtyEight ${party} state support matched against a pre-fetched Polymarket history snapshot for ${stateCase.state}.`,
+        summary:
+          analytics.source === "api"
+            ? `FiveThirtyEight ${party} state support matched against a pre-fetched Polymarket history snapshot for ${stateCase.state}, with lead-lag, correlation, and volatility computed by the FastAPI + NumPy backend.`
+            : `FiveThirtyEight ${party} state support matched against a pre-fetched Polymarket history snapshot for ${stateCase.state}. Analytics fell back to the local TypeScript implementation because the backend summary endpoint was unavailable.`,
+        analyticsSource: analytics.source,
         marketSeries,
         pollSeries,
-        leadLag: calculateLeadLag(marketSeries, pollSeries),
-        correlation: calculateCorrelation(marketSeries, pollSeries),
-        volatility: calculateVolatility(marketSeries),
+        leadLag: analytics.summary.leadLag,
+        correlation: analytics.summary.correlation,
+        volatility: analytics.summary.volatility,
         sourceUrls: [
           STATE_SUPPORT_PUBLIC_URL,
           POLYMARKET_HISTORY_PUBLIC_URL
