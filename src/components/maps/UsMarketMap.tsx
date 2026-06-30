@@ -5,7 +5,7 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simp
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { getSpotlightState, inferSpotlightCodeFromMarket, SPOTLIGHT_STATES } from "@/components/maps/spotlightStates";
-import type { MarketSnapshot, OrderbookState, OrderbookSummary } from "@/types/market";
+import type { LiveMicrostructureMetrics, MarketSnapshot, OrderbookState, OrderbookSummary } from "@/types/market";
 import type { SourceDiagnostics } from "@/types/service";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 
@@ -13,6 +13,7 @@ type UsMarketMapProps = {
   market: MarketSnapshot;
   orderbook: OrderbookState;
   orderbookSummary?: OrderbookSummary | null;
+  liveMicrostructure?: LiveMicrostructureMetrics | null;
   selectedCode?: string | null;
   onSelectCode?: (code: string | null) => void;
   sources: {
@@ -24,7 +25,15 @@ type UsMarketMapProps = {
   };
 };
 
-export function UsMarketMap({ market, orderbook, orderbookSummary, selectedCode, onSelectCode, sources }: UsMarketMapProps) {
+export function UsMarketMap({
+  market,
+  orderbook,
+  orderbookSummary,
+  liveMicrostructure,
+  selectedCode,
+  onSelectCode,
+  sources
+}: UsMarketMapProps) {
   const defaultCode = useMemo(() => inferSpotlightCodeFromMarket(market), [market]);
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
@@ -144,6 +153,27 @@ export function UsMarketMap({ market, orderbook, orderbookSummary, selectedCode,
             (summary.liquidity.totalBidDepth + summary.liquidity.totalAskDepth)
           ).toFixed(3)
         );
+
+  const fallbackMicrostructure: LiveMicrostructureMetrics = {
+    microprice: summary.midPrice,
+    depthSkew: summary.liquidity.imbalance,
+    realizedVolatility: 0,
+    tradeIntensity:
+      summary.tradeCount > 0
+        ? Number(((summary.tradePressure.buyVolume + summary.tradePressure.sellVolume) / summary.tradeCount).toFixed(4))
+        : 0,
+    orderFlowImbalance:
+      summary.tradePressure.buyVolume + summary.tradePressure.sellVolume === 0
+        ? 0
+        : Number(
+            (
+              (summary.tradePressure.buyVolume - summary.tradePressure.sellVolume) /
+              (summary.tradePressure.buyVolume + summary.tradePressure.sellVolume)
+            ).toFixed(3)
+          )
+  };
+  const microstructure = liveMicrostructure ?? fallbackMicrostructure;
+  const showingBackendMetrics = Boolean(liveMicrostructure);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] lg:items-start xl:grid-cols-[3fr_1fr]">
@@ -294,6 +324,41 @@ export function UsMarketMap({ market, orderbook, orderbookSummary, selectedCode,
               {summary.bidLevels} / {summary.askLevels}
             </p>
             <p className="mt-1 text-sm text-slate-500">{summary.tradeCount} recent prints</p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <div className="flex items-center justify-between gap-3">
+            <p className="metric-label">NumPy Live Metrics</p>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              {showingBackendMetrics ? "backend stream" : "fallback estimate"}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Microprice weights the best bid and ask by near-touch depth. Order-flow imbalance and realized volatility
+            are computed from the backend live stream window and expose how aggressive the tape has become.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+              <p className="metric-label">Microprice</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{microstructure.microprice.toFixed(3)}</p>
+              <p className="mt-1 text-sm text-slate-500">vs {summary.midPrice.toFixed(3)} displayed mid</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+              <p className="metric-label">Depth Skew</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{(microstructure.depthSkew * 100).toFixed(1)}%</p>
+              <p className="mt-1 text-sm text-slate-500">signed pressure at top five levels</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+              <p className="metric-label">Realized Vol</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{microstructure.realizedVolatility.toFixed(4)}</p>
+              <p className="mt-1 text-sm text-slate-500">log-return shock over the live mid-price window</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
+              <p className="metric-label">Flow / Clip</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{(microstructure.orderFlowImbalance * 100).toFixed(1)}%</p>
+              <p className="mt-1 text-sm text-slate-500">imbalance · avg clip {microstructure.tradeIntensity.toFixed(1)}</p>
+            </div>
           </div>
         </div>
 

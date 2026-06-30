@@ -102,9 +102,18 @@ export type LiveStreamStatus = {
   error?: string | null;
 };
 
+export type LiveMicrostructureMetrics = {
+  microprice: number;
+  depthSkew: number;
+  realizedVolatility: number;
+  tradeIntensity: number;
+  orderFlowImbalance: number;
+};
+
 export type LiveMarketSnapshot = {
   status: LiveStreamStatus;
   orderbookSummary: OrderbookSummary | null;
+  microstructure?: LiveMicrostructureMetrics | null;
 };
 
 export type TimelineEvent = {

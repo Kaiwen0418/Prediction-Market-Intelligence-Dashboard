@@ -50,6 +50,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     (liveStreamMatchesMarket ? liveStream.snapshot?.orderbookSummary : null) ??
     marketContextQuery.data?.orderbookSummary ??
     orderbookSummaryQuery.data;
+  const liveMicrostructure = liveStreamMatchesMarket ? liveStream.snapshot?.microstructure ?? null : null;
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;
   const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
   const errorMessage = marketContextQuery.error instanceof Error
@@ -106,6 +107,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             market={market}
             orderbook={orderbook}
             orderbookSummary={resolvedOrderbookSummary}
+            liveMicrostructure={liveMicrostructure}
             selectedCode={selectedStateCode}
             onSelectCode={setSelectedStateCode}
             sources={{
