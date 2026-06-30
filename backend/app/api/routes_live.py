@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.schemas.live import LiveMarketSnapshotResponse, LiveStreamStatusResponse
@@ -11,23 +11,24 @@ router = APIRouter(prefix="/api/live", tags=["live"])
 
 
 @router.get("/status", response_model=LiveStreamStatusResponse)
-async def get_live_status() -> LiveStreamStatusResponse:
-    return await live_stream_manager.get_status()
+async def get_live_status(slug: str | None = Query(default=None)) -> LiveStreamStatusResponse:
+    return await live_stream_manager.get_status(slug)
 
 
 @router.get("/market-snapshot", response_model=LiveMarketSnapshotResponse)
-async def get_live_market_snapshot() -> LiveMarketSnapshotResponse:
-    return await live_stream_manager.get_snapshot()
+async def get_live_market_snapshot(slug: str | None = Query(default=None)) -> LiveMarketSnapshotResponse:
+    return await live_stream_manager.get_snapshot(slug)
 
 
 @router.get("/stream")
-async def stream_live_market(request: Request) -> StreamingResponse:
+async def stream_live_market(request: Request, slug: str | None = Query(default=None)) -> StreamingResponse:
     async def event_generator():
+        await live_stream_manager.ensure_stream(slug)
         while True:
             if await request.is_disconnected():
                 break
 
-            snapshot = await live_stream_manager.get_snapshot()
+            snapshot = await live_stream_manager.get_snapshot(slug)
             payload = snapshot.model_dump(by_alias=True)
             yield f"event: snapshot\ndata: {json.dumps(payload)}\n\n"
             await asyncio.sleep(1)

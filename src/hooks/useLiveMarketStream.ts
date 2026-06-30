@@ -12,7 +12,7 @@ type LiveMarketStreamState = {
 
 const STREAM_SOURCE_KEY = "live-stream";
 
-export function useLiveMarketStream() {
+export function useLiveMarketStream(slug?: string | null) {
   const [state, setState] = useState<LiveMarketStreamState>({
     snapshot: null,
     connected: false
@@ -20,14 +20,20 @@ export function useLiveMarketStream() {
 
   useEffect(() => {
     useDataSourceStore.getState().markPending(STREAM_SOURCE_KEY);
+    setState({
+      snapshot: null,
+      connected: false
+    });
 
-    const eventSource = new EventSource(withApiBase("/api/live/stream"));
+    const path = slug ? `/api/live/stream?slug=${encodeURIComponent(slug)}` : "/api/live/stream";
+    const eventSource = new EventSource(withApiBase(path));
 
     const handleSnapshot = (event: MessageEvent<string>) => {
       try {
         const snapshot = JSON.parse(event.data) as LiveMarketSnapshot;
         const hasSummary = Boolean(snapshot.orderbookSummary);
-        const isUsable = snapshot.status.enabled && snapshot.status.state === "connected" && hasSummary;
+        const matchesRequestedSlug = !slug || snapshot.status.marketSlug === slug;
+        const isUsable = snapshot.status.enabled && snapshot.status.state === "connected" && hasSummary && matchesRequestedSlug;
 
         setState({
           snapshot,
@@ -43,7 +49,7 @@ export function useLiveMarketStream() {
           stage: "payload",
           message:
             snapshot.status.error ??
-            `Live stream state=${snapshot.status.state}, summary=${hasSummary ? "present" : "missing"}`
+            `Live stream state=${snapshot.status.state}, summary=${hasSummary ? "present" : "missing"}, slug=${snapshot.status.marketSlug}`
         });
       } catch {
         useDataSourceStore.getState().markFailed(STREAM_SOURCE_KEY, {
@@ -68,7 +74,7 @@ export function useLiveMarketStream() {
       eventSource.removeEventListener("snapshot", handleSnapshot as EventListener);
       eventSource.close();
     };
-  }, []);
+  }, [slug]);
 
   return state;
 }

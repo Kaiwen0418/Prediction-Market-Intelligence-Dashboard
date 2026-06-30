@@ -37,7 +37,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     allowMockStreamFallback: !strictLive,
     enableRealtime: strictLive
   });
-  const liveStream = useLiveMarketStream();
+  const liveStream = useLiveMarketStream(selectedSlug ?? market?.slug);
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market, marketContextQuery.data?.timelineEvents);
@@ -45,7 +45,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const liveStreamMatchesMarket =
     Boolean(liveStream.snapshot?.orderbookSummary) &&
     Boolean(market?.slug) &&
-    liveStream.snapshot?.status.marketSlug === market?.slug;
+    liveStream.snapshot?.status.marketSlug === (selectedSlug ?? market?.slug);
   const resolvedOrderbookSummary =
     (liveStreamMatchesMarket ? liveStream.snapshot?.orderbookSummary : null) ??
     marketContextQuery.data?.orderbookSummary ??
