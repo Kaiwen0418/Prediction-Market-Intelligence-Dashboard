@@ -40,6 +40,23 @@ Use Polymarket websocket data to demonstrate:
 - initial snapshot + delta merge
 - in-memory orderbook state maintenance
 - realtime signal refresh independent from the frontend tab lifecycle
+- backend-owned fanout to the frontend instead of direct browser subscriptions
+
+### Backend-to-Frontend Realtime Transport
+
+Recommended rollout:
+
+1. backend consumes Polymarket WSS
+2. frontend reads backend snapshots
+3. frontend upgrades to backend `SSE`
+4. only add backend `WebSocket` if true bidirectional control is needed
+
+Why start with `SSE`:
+
+- one-way push matches the current UI need
+- simpler than maintaining a second websocket protocol
+- works well with FastAPI
+- still clearly demonstrates realtime backend delivery
 
 ### NumPy
 
@@ -99,6 +116,7 @@ Target:
 
 - derive metrics from stream-maintained orderbook state
 - compute metrics with NumPy
+- expose them through backend snapshots and SSE
 
 Metrics:
 
@@ -114,6 +132,7 @@ Frontend use:
 
 - right rail on `/market`
 - source freshness and stream latency display
+- live SSE updates without direct Polymarket browser subscriptions
 
 ### Phase 3: Historical Replay and Shock Analysis
 
@@ -166,9 +185,10 @@ Deliverables:
 
 1. Add backend live stream manager and status route.
 2. Maintain in-memory orderbook state from websocket events.
-3. Add NumPy microstructure summary from the live stream state.
-4. Move `/market` right rail to the backend live snapshot route.
-5. Add freshness / latency / reconnect diagnostics to the UI.
+3. Add backend `SSE` route for frontend realtime delivery.
+4. Add NumPy microstructure summary from the live stream state.
+5. Move `/market` right rail to the backend live snapshot / stream route.
+6. Add freshness / latency / reconnect diagnostics to the UI.
 
 ## Validation Checklist
 
@@ -179,6 +199,8 @@ Deliverables:
 - `/api/live/market-snapshot` returns:
   - stream status
   - summary or explicit empty-state payload
+- `/api/live/stream` emits valid SSE frames
+- closing the browser/client must not crash the backend stream manager
 
 ### Frontend
 

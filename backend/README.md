@@ -49,6 +49,7 @@ Environment variables:
 - `GET /api/polymarket/market-context`
 - `GET /api/live/status`
 - `GET /api/live/market-snapshot`
+- `GET /api/live/stream`
 - `GET /api/research/states/{state}/summary`
 - `POST /api/analytics/lead-lag`
 - `POST /api/analytics/correlation`
