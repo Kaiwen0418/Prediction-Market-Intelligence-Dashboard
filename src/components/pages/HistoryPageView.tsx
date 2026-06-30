@@ -7,6 +7,7 @@ import { RollingCorrelationChart } from "@/components/charts/RollingCorrelationC
 import { LoadingState } from "@/components/layout/LoadingState";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
+import { getShockWindows } from "@/services/analytics/api";
 import { getLiveHistoryCases } from "@/services/history/liveHistory";
 import supportDataset from "@/../public/data/state-party-support-2024.json";
 import { researchCases, researchDataSources } from "@/services/history/researchStatic";
@@ -124,6 +125,11 @@ export function HistoryPageView() {
       };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
   const usingLiveCases = Boolean(liveCase);
+  const shockWindowsQuery = useQuery({
+    queryKey: ["history-shock-windows", activeCase.state, party, activeCase.marketSeries.length],
+    queryFn: () => getShockWindows(activeCase.marketSeries, 7, 3),
+    enabled: activeCase.marketSeries.length >= 2
+  });
 
   useEffect(() => {
     if (!availableStates.includes(activeState)) {
@@ -319,6 +325,36 @@ export function HistoryPageView() {
             </div>
             <div className="mt-4">
               <RollingCorrelationChart rollingCorrelation={activeCase.rollingCorrelation} />
+            </div>
+          </div>
+          <div className="mt-8">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="metric-label">Shock Windows</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Largest {shockWindowsQuery.data?.summary.topK ?? 3} trailing {shockWindowsQuery.data?.summary.windowSize ?? 7}-day moves in the market path, ranked by absolute repricing and local volatility.
+                </p>
+              </div>
+              <p className="text-sm font-medium text-slate-700">
+                {shockWindowsQuery.data?.source === "api" ? "FastAPI + NumPy" : "local fallback"}
+              </p>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {(shockWindowsQuery.data?.summary.windows ?? []).map((window, index) => (
+                <div key={`${window.anchorTimestamp}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="metric-label">Window {index + 1}</p>
+                  <p className="mt-2 text-xl font-semibold text-slate-900">
+                    {window.netMove >= 0 ? "+" : ""}
+                    {window.netMove} pts
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {window.startTimestamp.slice(0, 10)} to {window.endTimestamp.slice(0, 10)}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Abs move {window.absoluteMove} pts · local vol {window.localVolatility}%
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
           <div className="mt-5">
