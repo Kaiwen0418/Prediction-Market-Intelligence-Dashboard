@@ -5,6 +5,13 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simp
 import { LiveReplaySparkline } from "@/components/charts/LiveReplaySparkline";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
+import {
+  buildBackendHealthDetail,
+  buildBackendHealthLine,
+  buildSourceDotTitle,
+  getReplaySourceLabel,
+  getSourceDotColorClass
+} from "@/components/maps/liveRailDiagnostics";
 import { getSpotlightState, inferSpotlightCodeFromMarket, SPOTLIGHT_STATES } from "@/components/maps/spotlightStates";
 import type {
   LiveDegradation,
@@ -150,20 +157,8 @@ export function UsMarketMap({
     { diagnostics: sources.trades, label: "trades" }
   ];
 
-  const backendHealthLine = liveReadiness
-    ? [
-        `Backend ${liveReadiness.state}`,
-        `${liveRegistryHealth?.connectedStreams ?? 0}/${liveRegistryHealth?.registrySize ?? 0} connected`,
-        liveDegradation ? `${liveDegradation.issueCount} issue${liveDegradation.issueCount === 1 ? "" : "s"}` : null
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : "Backend health pending";
-  const backendHealthDetail =
-    liveDegradation?.issues[0]?.summary ??
-    liveReadiness?.checks.find((check) => check.state !== "ready")?.detail ??
-    liveReadiness?.checks[0]?.detail ??
-    "Readiness checks have not completed yet.";
+  const backendHealthLine = buildBackendHealthLine(liveReadiness, liveDegradation, liveRegistryHealth);
+  const backendHealthDetail = buildBackendHealthDetail(liveReadiness, liveDegradation);
 
   const summary = orderbookSummary ?? {
     bestBid: orderbook.bids[0]?.price ?? 0,
@@ -310,21 +305,21 @@ export function UsMarketMap({
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           {sourceDots.map(({ diagnostics, label }) => {
-            const colorClass =
-              diagnostics?.state === "live"
-                ? "bg-emerald-500"
-                : diagnostics?.state === "fallback"
-                  ? "bg-amber-400"
-                  : diagnostics?.state === "failed"
-                    ? "bg-rose-500"
-                    : "bg-slate-300";
-            const detail = diagnostics?.issues[0]?.message ?? "Not checked yet";
-            const checked = diagnostics?.checkedAt ? relativeTime(diagnostics.checkedAt) : "not checked";
+            const colorClass = getSourceDotColorClass(diagnostics?.state);
+            const title = buildSourceDotTitle(
+              label,
+              diagnostics
+                ? {
+                    ...diagnostics,
+                    checkedAt: diagnostics.checkedAt ? relativeTime(diagnostics.checkedAt) : "not checked"
+                  }
+                : undefined
+            );
 
             return (
               <span
                 key={label}
-                title={`${label}: ${diagnostics?.state ?? "pending"} · ${diagnostics?.mode ?? "mock"} · ${checked} · ${detail}`}
+                title={title}
                 className={`h-2.5 w-2.5 rounded-full ${colorClass}`}
               />
             );
@@ -347,7 +342,7 @@ export function UsMarketMap({
           <div className="flex items-center justify-between gap-3">
             <p className="metric-label">Live Replay</p>
             <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-              {liveReplay ? `${liveReplay.sampleCount} samples · ${liveReplay.source ?? "stream"}` : "pending"}
+              {getReplaySourceLabel(liveReplay)}
             </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">

@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test:ui-smoke": "tsx --test tests/ui/**/*.test.ts",
     "typecheck": "tsc --noEmit",
     "generate:state-support": "node scripts/generate-state-party-support.mjs",
     "generate:polymarket-history": "node scripts/generate-polymarket-history.mjs"
@@ -36,6 +37,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.20.5",
     "typescript": "^5.8.2"
   }
 }

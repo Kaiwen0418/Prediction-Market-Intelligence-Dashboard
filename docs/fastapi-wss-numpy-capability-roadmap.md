@@ -236,6 +236,7 @@ Deliverables:
    Status: completed via `/api/live/readiness` and `/api/live/degradation`, with the market rail now consuming the backend health summary.
 5. Add cross-state small-multiple research charts to increase page information density.
 6. Add UI-level smoke coverage for source diagnostics and stream degradation states.
+   Status: completed for the market rail formatter layer; CI now runs targeted smoke assertions for replay source labels, backend health summaries, and source-dot state mapping.
 
 ## Validation Checklist
 
