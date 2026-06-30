@@ -183,12 +183,12 @@ Deliverables:
 
 ## Immediate Next Tasks
 
-1. Add TTL / LRU cleanup for per-slug live stream registry.
-2. Surface backend microstructure metrics in the `/market` right rail.
-3. Add rolling shock / volatility windows from cached price history.
-4. Persist sampled live metrics for short replay and debugging.
-5. Add route-level tests for `slug`-scoped SSE and snapshot contracts.
-6. Add structured stream logs and reconnect reason reporting.
+1. Surface `/api/live/replay` in the frontend as a microstructure sparkline or debug overlay.
+2. Add rolling shock / volatility windows from cached price history.
+3. Add historical replay fixtures so analytics outputs are testable without live connectivity.
+4. Add readiness and degradation routes that summarize live-stream health across registry entries.
+5. Persist sampled live metrics to a lightweight store if longer replay windows become necessary.
+6. Add UI-level smoke coverage for source diagnostics and stream degradation states.
 
 ## Validation Checklist
 

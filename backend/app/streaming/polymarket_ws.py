@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,8 @@ from app.schemas.live import (
 )
 from app.schemas.polymarket import OrderbookSummaryResponse
 from app.services.polymarket import fetch_featured_market, normalize_featured_market_from_event
+
+logger = logging.getLogger("app.live_stream")
 
 
 def utc_now() -> datetime:
@@ -182,6 +185,8 @@ class ManagedMarketStream:
     message_count: int = 0
     reconnect_count: int = 0
     error: str | None = None
+    last_error_at: str | None = None
+    last_disconnect_reason: str | None = None
     state: str = "idle"
     task: asyncio.Task[None] | None = None
     last_accessed_at: str = field(default_factory=iso_now)
@@ -209,6 +214,10 @@ class ManagedMarketStream:
             messageCount=self.message_count,
             reconnectCount=self.reconnect_count,
             latencyMs=latency_ms,
+            sampleCount=len(self.book.samples) if self.book else 0,
+            lastSampledAt=self.book.samples[-1].timestamp if self.book and self.book.samples else None,
+            lastErrorAt=self.last_error_at,
+            lastDisconnectReason=self.last_disconnect_reason,
             error=self.error,
         )
 
@@ -228,6 +237,7 @@ class PolymarketLiveStreamManager:
         if self._cleanup_task is None or self._cleanup_task.done():
             self._cleanup_task = asyncio.create_task(self._run_cleanup_loop(), name="polymarket-live-stream-cleanup")
         await self.ensure_stream(settings.featured_market_slug)
+        self._log_event("manager_started", featured_slug=settings.featured_market_slug)
 
     async def stop(self) -> None:
         self._stop_requested = True
@@ -252,6 +262,7 @@ class PolymarketLiveStreamManager:
                     pass
             stream.task = None
             stream.state = "stopped"
+        self._log_event("manager_stopped", cleared_streams=len(streams))
 
     async def ensure_stream(self, slug: str | None = None) -> ManagedMarketStream:
         settings = get_settings()
@@ -264,9 +275,11 @@ class PolymarketLiveStreamManager:
             if stream is None:
                 stream = ManagedMarketStream(requested_slug=requested_slug)
                 self._registry[requested_slug] = stream
+                self._log_event("stream_registered", requested_slug=requested_slug, registry_size=len(self._registry))
             stream.last_accessed_at = iso_now()
             if settings.live_stream_enabled and (stream.task is None or stream.task.done()):
                 stream.task = asyncio.create_task(self._run_stream(stream), name=f"polymarket-live-stream:{requested_slug}")
+                self._log_event("stream_task_started", requested_slug=requested_slug)
             elif not settings.live_stream_enabled:
                 stream.state = "disabled"
             await self._trim_registry_unlocked()
@@ -332,6 +345,7 @@ class PolymarketLiveStreamManager:
         evictable_slugs = [slug for slug, _ in ranked[:excess]]
         for slug in evictable_slugs:
             asyncio.create_task(self._remove_stream(slug), name=f"polymarket-live-stream-evict:{slug}")
+            self._log_event("stream_eviction_scheduled", requested_slug=slug, registry_size=len(self._registry), limit=limit)
 
     async def _remove_stream(self, slug: str) -> None:
         async with self._registry_lock:
@@ -346,6 +360,7 @@ class PolymarketLiveStreamManager:
                 pass
         stream.task = None
         stream.state = "stopped"
+        self._log_event("stream_removed", requested_slug=slug, reason=stream.last_disconnect_reason or "cleanup")
 
     def _is_stream_stale(self, stream: ManagedMarketStream, ttl_seconds: int) -> bool:
         ttl_seconds = max(ttl_seconds, 30)
@@ -373,6 +388,7 @@ class PolymarketLiveStreamManager:
             stream.market_id = market.market_id
             stream.token_id = market.token_id
             stream.book = LiveOrderbookState(market_id=market.market_id, token_id=market.token_id)
+            stream.last_disconnect_reason = None
 
         return market.slug, market.market_id, market.token_id
 
@@ -382,6 +398,7 @@ class PolymarketLiveStreamManager:
             try:
                 async with stream.lock:
                     stream.state = "preparing"
+                self._log_event("stream_preparing", requested_slug=stream.requested_slug)
 
                 resolved_slug, market_id, token_id = await self._prepare_stream_market(stream)
 
@@ -403,18 +420,38 @@ class PolymarketLiveStreamManager:
                         stream.connected_at = iso_now()
                         stream.state = "connected"
                         stream.error = None
+                        stream.last_disconnect_reason = None
+                    self._log_event(
+                        "stream_connected",
+                        requested_slug=stream.requested_slug,
+                        resolved_slug=resolved_slug,
+                        market_id=market_id,
+                        token_id=token_id,
+                    )
 
                     async for raw_message in socket:
                         if self._stop_requested:
+                            async with stream.lock:
+                                stream.last_disconnect_reason = "manager_stop_requested"
                             break
                         await self._handle_message(stream, raw_message)
             except asyncio.CancelledError:
+                async with stream.lock:
+                    stream.last_disconnect_reason = "task_cancelled"
                 raise
             except Exception as exc:
                 async with stream.lock:
                     stream.state = "error"
                     stream.error = str(exc)
+                    stream.last_error_at = iso_now()
+                    stream.last_disconnect_reason = str(exc)
                     stream.reconnect_count += 1
+                self._log_event(
+                    "stream_error",
+                    requested_slug=stream.requested_slug,
+                    reconnect_count=stream.reconnect_count,
+                    error=str(exc),
+                )
                 await asyncio.sleep(min(2 * max(stream.reconnect_count, 1), 15))
 
     async def _handle_message(self, stream: ManagedMarketStream, raw_message: str | bytes) -> None:
@@ -435,6 +472,17 @@ class PolymarketLiveStreamManager:
                 stream.last_event_type = str(event.get("event_type", "")) or stream.last_event_type
                 stream.last_message_at = str(event.get("timestamp") or iso_now())
                 stream.message_count += 1
+                if stream.message_count in {1, 10, 100} or stream.message_count % 500 == 0:
+                    self._log_event(
+                        "stream_progress",
+                        requested_slug=stream.requested_slug,
+                        message_count=stream.message_count,
+                        last_event_type=stream.last_event_type,
+                    )
+
+    def _log_event(self, event: str, **payload: Any) -> None:
+        message = {"event": event, "component": "polymarket_live_stream", **payload}
+        logger.info(json.dumps(message, sort_keys=True))
 
 
 live_stream_manager = PolymarketLiveStreamManager()

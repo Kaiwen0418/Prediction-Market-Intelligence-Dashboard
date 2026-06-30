@@ -38,6 +38,10 @@ class LiveStreamStatusResponse(BaseModel):
     message_count: int = Field(alias="messageCount")
     reconnect_count: int = Field(alias="reconnectCount")
     latency_ms: int | None = Field(default=None, alias="latencyMs")
+    sample_count: int = Field(default=0, alias="sampleCount")
+    last_sampled_at: str | None = Field(default=None, alias="lastSampledAt")
+    last_error_at: str | None = Field(default=None, alias="lastErrorAt")
+    last_disconnect_reason: str | None = Field(default=None, alias="lastDisconnectReason")
     error: str | None = None
 
     model_config = {"populate_by_name": True}

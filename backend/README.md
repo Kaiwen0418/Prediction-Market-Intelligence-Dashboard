@@ -61,6 +61,15 @@ The live-stream registry is bounded and self-cleaning:
 - the featured slug is kept warm
 - additional slug streams are evicted when the registry exceeds `LIVE_STREAM_MAX_MARKETS`
 - idle non-featured streams are removed after `LIVE_STREAM_IDLE_TTL_SECONDS`
+
+Live status metadata now includes:
+
+- `sampleCount`
+- `lastSampledAt`
+- `lastErrorAt`
+- `lastDisconnectReason`
+
+The stream manager also emits structured JSON log lines for registration, connection, progress, eviction, cleanup, and reconnect errors.
 - `GET /api/research/states/{state}/summary`
 - `POST /api/analytics/lead-lag`
 - `POST /api/analytics/correlation`
