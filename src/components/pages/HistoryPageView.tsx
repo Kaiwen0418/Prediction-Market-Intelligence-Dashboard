@@ -6,6 +6,7 @@ import { DivergenceGapChart } from "@/components/charts/DivergenceGapChart";
 import { MarketPollChart } from "@/components/charts/MarketPollChart";
 import { RollingCorrelationChart } from "@/components/charts/RollingCorrelationChart";
 import { RollingVolatilityChart } from "@/components/charts/RollingVolatilityChart";
+import { StateMetricSmallMultiples } from "@/components/charts/StateMetricSmallMultiples";
 import { LoadingState } from "@/components/layout/LoadingState";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
@@ -127,6 +128,14 @@ export function HistoryPageView() {
       };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
   const usingLiveCases = Boolean(liveCase);
+  const comparisonCases = (liveHistoryQuery.data ?? [])
+    .filter((item) => availableStates.includes(item.state))
+    .map((item) => ({
+      state: item.state,
+      volatility: item.volatility.realizedVolatility,
+      divergence: item.divergence.currentGap,
+      correlation: item.correlation.coefficient,
+    }));
   const shockWindowsQuery = useQuery({
     queryKey: ["history-shock-windows", activeCase.state, party, activeCase.marketSeries.length],
     queryFn: () => getShockWindows(activeCase.marketSeries, 7, 3),
@@ -268,6 +277,19 @@ export function HistoryPageView() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        <section className="border-t border-[var(--demo-card-divider)] pt-8">
+          <div>
+            <p className="metric-label">Cross-State Parameters</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Small multiples across battleground states</h2>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-500">
+              This panel compresses the current parameter state across all tracked states so the page reads like a research surface rather than a single-case report.
+            </p>
+            <div className="mt-6">
+              <StateMetricSmallMultiples data={comparisonCases} />
+            </div>
           </div>
         </section>
 
