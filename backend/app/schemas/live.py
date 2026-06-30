@@ -61,3 +61,19 @@ class LiveReplayResponse(BaseModel):
     sample_count: int = Field(alias="sampleCount")
 
     model_config = {"populate_by_name": True}
+
+
+class LiveRegistryHealthResponse(BaseModel):
+    enabled: bool
+    state: str
+    featured_slug: str = Field(alias="featuredSlug")
+    registry_size: int = Field(alias="registrySize")
+    connected_streams: int = Field(alias="connectedStreams")
+    error_streams: int = Field(alias="errorStreams")
+    stale_streams: int = Field(alias="staleStreams")
+    disabled_streams: int = Field(alias="disabledStreams")
+    max_markets: int = Field(alias="maxMarkets")
+    idle_ttl_seconds: int = Field(alias="idleTtlSeconds")
+    streams: list[LiveStreamStatusResponse]
+
+    model_config = {"populate_by_name": True}

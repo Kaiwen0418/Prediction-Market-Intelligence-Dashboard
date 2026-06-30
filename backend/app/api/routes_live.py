@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.schemas.live import LiveMarketSnapshotResponse, LiveReplayResponse, LiveStreamStatusResponse
+from app.schemas.live import LiveMarketSnapshotResponse, LiveRegistryHealthResponse, LiveReplayResponse, LiveStreamStatusResponse
 from app.streaming.polymarket_ws import live_stream_manager
 
 router = APIRouter(prefix="/api/live", tags=["live"])
@@ -13,6 +13,11 @@ router = APIRouter(prefix="/api/live", tags=["live"])
 @router.get("/status", response_model=LiveStreamStatusResponse)
 async def get_live_status(slug: str | None = Query(default=None)) -> LiveStreamStatusResponse:
     return await live_stream_manager.get_status(slug)
+
+
+@router.get("/registry-health", response_model=LiveRegistryHealthResponse)
+async def get_live_registry_health() -> LiveRegistryHealthResponse:
+    return await live_stream_manager.get_registry_health()
 
 
 @router.get("/market-snapshot", response_model=LiveMarketSnapshotResponse)

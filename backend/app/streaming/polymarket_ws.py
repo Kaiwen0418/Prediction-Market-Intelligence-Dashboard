@@ -15,6 +15,7 @@ from app.analytics.microstructure import (
 )
 from app.core.config import get_settings
 from app.schemas.live import (
+    LiveRegistryHealthResponse,
     LiveMarketSnapshotResponse,
     LiveMetricSampleResponse,
     LiveReplayResponse,
@@ -311,6 +312,55 @@ class PolymarketLiveStreamManager:
                 samples=samples,
                 sampleCount=len(samples),
             )
+
+    async def get_registry_health(self) -> LiveRegistryHealthResponse:
+        settings = get_settings()
+        async with self._registry_lock:
+            streams = list(self._registry.values())
+
+        statuses: list[LiveStreamStatusResponse] = []
+        connected_streams = 0
+        error_streams = 0
+        stale_streams = 0
+        disabled_streams = 0
+
+        for stream in streams:
+            async with stream.lock:
+                status = stream.build_status(settings.live_stream_enabled)
+                statuses.append(status)
+                if status.state == "connected":
+                    connected_streams += 1
+                if status.state == "error":
+                    error_streams += 1
+                if status.state == "disabled":
+                    disabled_streams += 1
+                if self._is_stream_stale(stream, settings.live_stream_idle_ttl_seconds):
+                    stale_streams += 1
+
+        if not settings.live_stream_enabled:
+            state = "disabled"
+        elif error_streams and connected_streams == 0:
+            state = "degraded"
+        elif stale_streams or error_streams:
+            state = "warning"
+        elif connected_streams:
+            state = "healthy"
+        else:
+            state = "starting"
+
+        return LiveRegistryHealthResponse(
+            enabled=settings.live_stream_enabled,
+            state=state,
+            featuredSlug=settings.featured_market_slug,
+            registrySize=len(streams),
+            connectedStreams=connected_streams,
+            errorStreams=error_streams,
+            staleStreams=stale_streams,
+            disabledStreams=disabled_streams,
+            maxMarkets=settings.live_stream_max_markets,
+            idleTtlSeconds=settings.live_stream_idle_ttl_seconds,
+            streams=statuses,
+        )
 
     async def _run_cleanup_loop(self) -> None:
         settings = get_settings()
