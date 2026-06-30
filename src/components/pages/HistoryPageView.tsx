@@ -2,8 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { DivergenceGapChart } from "@/components/charts/DivergenceGapChart";
 import { MarketPollChart } from "@/components/charts/MarketPollChart";
 import { RollingCorrelationChart } from "@/components/charts/RollingCorrelationChart";
+import { RollingVolatilityChart } from "@/components/charts/RollingVolatilityChart";
 import { LoadingState } from "@/components/layout/LoadingState";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
@@ -325,6 +327,36 @@ export function HistoryPageView() {
             </div>
             <div className="mt-4">
               <RollingCorrelationChart rollingCorrelation={activeCase.rollingCorrelation} />
+            </div>
+          </div>
+          <div className="mt-8 grid gap-6 xl:grid-cols-2">
+            <div>
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="metric-label">Rolling Volatility Path</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Trailing market volatility regime. This reveals whether repricing is compressing or accelerating into event windows.
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-slate-700">{activeCase.volatility.realizedVolatility}%</p>
+              </div>
+              <div className="mt-4">
+                <RollingVolatilityChart series={activeCase.marketSeries} />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="metric-label">Signed Divergence Path</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Positive values mean the market prices the selected party above polling. Negative values mean PM is discounting the polling average.
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-slate-700">{activeCase.divergence.currentGap} pts</p>
+              </div>
+              <div className="mt-4">
+                <DivergenceGapChart marketSeries={activeCase.marketSeries} pollSeries={activeCase.pollSeries} />
+              </div>
             </div>
           </div>
           <div className="mt-8">
