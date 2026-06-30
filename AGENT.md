@@ -56,10 +56,28 @@ Use the checked-in `.env.example` as the frontend baseline. Keep local secrets i
 1. Branch from `dev` unless the task is a production hotfix.
 2. Implement the change.
 3. Run the minimum local checks that match the touched surface.
-4. Open or update a PR into `dev`.
-5. After merge to `dev`, verify preview deployment and smoke checks.
-6. Promote `dev` to `main` with a dedicated PR.
-7. After merge to `main`, verify production deployment.
+4. Prefer a single intentional commit for the current batch of work unless the task explicitly needs a split history.
+5. Push the branch immediately after the commit.
+6. Use `gh` CLI to inspect the GitHub Actions state for the pushed commit before reporting completion.
+7. Open or update a PR into `dev`.
+8. After merge to `dev`, verify preview deployment and browser smoke checks.
+9. Promote `dev` to `main` with a dedicated PR.
+10. After merge to `main`, verify production deployment and browser smoke checks.
+
+Required post-commit GitHub Actions checks:
+
+- `gh run list --limit 5`
+- `gh run view <run-id> --log-failed` when any job is not green
+- Do not claim completion until the relevant `CI` and deploy workflows are either:
+  - passing, or
+  - explicitly documented as still running / blocked
+
+Required post-commit browser checks:
+
+- Open the deployed page or local preview in the browser.
+- Confirm the touched route renders without a client-side exception.
+- Confirm the primary interaction path for the touched surface still works.
+- If a client-side exception appears, fix it before closing the task.
 
 ## Mandatory Validation
 
@@ -108,6 +126,7 @@ Run these after merging into `dev` and again after promoting to `main`.
   - Party toggle works.
   - Coverage line renders.
   - Rolling correlation chart renders when aligned data exists.
+  - Additional analytical overlays and parameter charts render without client-side exceptions.
 
 ### Data-source diagnostics
 
