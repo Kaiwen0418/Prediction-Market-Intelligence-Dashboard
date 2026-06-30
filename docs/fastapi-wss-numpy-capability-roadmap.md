@@ -183,12 +183,12 @@ Deliverables:
 
 ## Immediate Next Tasks
 
-1. Add backend live stream manager and status route.
-2. Maintain in-memory orderbook state from websocket events.
-3. Add backend `SSE` route for frontend realtime delivery.
-4. Add NumPy microstructure summary from the live stream state.
-5. Move `/market` right rail to the backend live snapshot / stream route.
-6. Add freshness / latency / reconnect diagnostics to the UI.
+1. Add TTL / LRU cleanup for per-slug live stream registry.
+2. Surface backend microstructure metrics in the `/market` right rail.
+3. Add rolling shock / volatility windows from cached price history.
+4. Persist sampled live metrics for short replay and debugging.
+5. Add route-level tests for `slug`-scoped SSE and snapshot contracts.
+6. Add structured stream logs and reconnect reason reporting.
 
 ## Validation Checklist
 

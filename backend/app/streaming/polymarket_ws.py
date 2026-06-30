@@ -7,7 +7,11 @@ from typing import Any
 
 import websockets
 
-from app.analytics.microstructure import calculate_liquidity_summary, calculate_trade_pressure_summary
+from app.analytics.microstructure import (
+    calculate_liquidity_summary,
+    calculate_live_microstructure_metrics,
+    calculate_trade_pressure_summary,
+)
 from app.core.config import get_settings
 from app.schemas.live import LiveMarketSnapshotResponse, LiveStreamStatusResponse
 from app.schemas.polymarket import OrderbookSummaryResponse
@@ -40,9 +44,17 @@ class LiveOrderbookState:
     bids: list[tuple[float, float]] = field(default_factory=list)
     asks: list[tuple[float, float]] = field(default_factory=list)
     trades: deque[tuple[str, float]] = field(default_factory=lambda: deque(maxlen=50))
+    mid_prices: deque[float] = field(default_factory=lambda: deque(maxlen=120))
     updated_at: str = field(default_factory=iso_now)
     last_event_type: str | None = None
     tick_size: float = 0.01
+
+    def _record_mid_price(self) -> None:
+        best_bid = self.bids[0][0] if self.bids else 0.0
+        best_ask = self.asks[0][0] if self.asks else 0.0
+        mid_price = (best_bid + best_ask) / 2 if best_bid and best_ask else best_bid or best_ask
+        if mid_price > 0:
+            self.mid_prices.append(mid_price)
 
     def apply(self, event: dict[str, Any]) -> None:
         event_type = str(event.get("event_type", ""))
@@ -60,6 +72,7 @@ class LiveOrderbookState:
                 for level in event.get("asks", [])
                 if isinstance(level, dict) and as_number(level.get("price")) > 0 and as_number(level.get("size")) > 0
             ]
+            self._record_mid_price()
             return
 
         if event_type == "price_change":
@@ -80,6 +93,7 @@ class LiveOrderbookState:
                     self.asks[0] = (best_ask, ask_size)
                 else:
                     self.asks = [(best_ask, 0.0)]
+            self._record_mid_price()
             return
 
         if event_type == "last_trade_price":
@@ -113,6 +127,14 @@ class LiveOrderbookState:
             tradeCount=len(self.trades),
             liquidity=liquidity,
             tradePressure=trade_pressure,
+        )
+
+    def to_microstructure(self):
+        return calculate_live_microstructure_metrics(
+            self.bids,
+            self.asks,
+            list(self.trades),
+            list(self.mid_prices),
         )
 
 
@@ -214,7 +236,8 @@ class PolymarketLiveStreamManager:
         async with stream.lock:
             status = stream.build_status(get_settings().live_stream_enabled)
             summary = stream.book.to_summary() if stream.book and (stream.book.bids or stream.book.asks or stream.book.trades) else None
-            return LiveMarketSnapshotResponse(status=status, orderbookSummary=summary)
+            microstructure = stream.book.to_microstructure() if stream.book and (stream.book.bids or stream.book.asks) else None
+            return LiveMarketSnapshotResponse(status=status, orderbookSummary=summary, microstructure=microstructure)
 
     async def _prepare_stream_market(self, stream: ManagedMarketStream) -> tuple[str, str, str]:
         featured_event = await fetch_featured_market(stream.requested_slug)

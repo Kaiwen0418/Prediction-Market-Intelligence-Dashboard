@@ -3,6 +3,16 @@ from pydantic import BaseModel, Field
 from app.schemas.polymarket import OrderbookSummaryResponse
 
 
+class LiveMicrostructureMetricsResponse(BaseModel):
+    microprice: float
+    depth_skew: float = Field(alias="depthSkew")
+    realized_volatility: float = Field(alias="realizedVolatility")
+    trade_intensity: float = Field(alias="tradeIntensity")
+    order_flow_imbalance: float = Field(alias="orderFlowImbalance")
+
+    model_config = {"populate_by_name": True}
+
+
 class LiveStreamStatusResponse(BaseModel):
     enabled: bool
     state: str
@@ -23,5 +33,6 @@ class LiveStreamStatusResponse(BaseModel):
 class LiveMarketSnapshotResponse(BaseModel):
     status: LiveStreamStatusResponse
     orderbook_summary: OrderbookSummaryResponse | None = Field(default=None, alias="orderbookSummary")
+    microstructure: LiveMicrostructureMetricsResponse | None = None
 
     model_config = {"populate_by_name": True}
