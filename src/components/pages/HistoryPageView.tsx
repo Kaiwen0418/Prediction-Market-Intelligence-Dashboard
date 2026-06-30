@@ -7,6 +7,7 @@ import { MarketPollChart } from "@/components/charts/MarketPollChart";
 import { RollingCorrelationChart } from "@/components/charts/RollingCorrelationChart";
 import { RollingVolatilityChart } from "@/components/charts/RollingVolatilityChart";
 import { StateMetricSmallMultiples } from "@/components/charts/StateMetricSmallMultiples";
+import { StateSignalMatrix } from "@/components/charts/StateSignalMatrix";
 import { LoadingState } from "@/components/layout/LoadingState";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
@@ -132,6 +133,7 @@ export function HistoryPageView() {
     .filter((item) => availableStates.includes(item.state))
     .map((item) => ({
       state: item.state,
+      leadLagDays: item.leadLag.lagDays,
       volatility: item.volatility.realizedVolatility,
       divergence: item.divergence.currentGap,
       correlation: item.correlation.coefficient,
@@ -289,6 +291,15 @@ export function HistoryPageView() {
             </p>
             <div className="mt-6">
               <StateMetricSmallMultiples data={comparisonCases} />
+            </div>
+            <div className="mt-6">
+              <p className="metric-label">State Signal Matrix</p>
+              <p className="mt-2 max-w-4xl text-sm leading-7 text-slate-500">
+                Heat-style matrix for the latest cross-state parameter snapshot. It compresses relative signal strength into a compact comparative surface.
+              </p>
+              <div className="mt-4">
+                <StateSignalMatrix data={comparisonCases} />
+              </div>
             </div>
           </div>
         </section>
