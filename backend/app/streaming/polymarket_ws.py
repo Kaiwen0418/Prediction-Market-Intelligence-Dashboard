@@ -13,7 +13,12 @@ from app.analytics.microstructure import (
     calculate_trade_pressure_summary,
 )
 from app.core.config import get_settings
-from app.schemas.live import LiveMarketSnapshotResponse, LiveStreamStatusResponse
+from app.schemas.live import (
+    LiveMarketSnapshotResponse,
+    LiveMetricSampleResponse,
+    LiveReplayResponse,
+    LiveStreamStatusResponse,
+)
 from app.schemas.polymarket import OrderbookSummaryResponse
 from app.services.polymarket import fetch_featured_market, normalize_featured_market_from_event
 
@@ -45,6 +50,9 @@ class LiveOrderbookState:
     asks: list[tuple[float, float]] = field(default_factory=list)
     trades: deque[tuple[str, float]] = field(default_factory=lambda: deque(maxlen=50))
     mid_prices: deque[float] = field(default_factory=lambda: deque(maxlen=120))
+    samples: deque[LiveMetricSampleResponse] = field(
+        default_factory=lambda: deque(maxlen=max(get_settings().live_stream_metrics_history_limit, 20))
+    )
     updated_at: str = field(default_factory=iso_now)
     last_event_type: str | None = None
     tick_size: float = 0.01
@@ -55,6 +63,22 @@ class LiveOrderbookState:
         mid_price = (best_bid + best_ask) / 2 if best_bid and best_ask else best_bid or best_ask
         if mid_price > 0:
             self.mid_prices.append(mid_price)
+
+    def _record_sample(self) -> None:
+        summary = self.to_summary()
+        microstructure = self.to_microstructure()
+        self.samples.append(
+            LiveMetricSampleResponse(
+                timestamp=self.updated_at,
+                midPrice=summary.mid_price,
+                spreadBps=summary.liquidity.spread_bps,
+                microprice=microstructure.microprice,
+                depthSkew=microstructure.depth_skew,
+                realizedVolatility=microstructure.realized_volatility,
+                tradeIntensity=microstructure.trade_intensity,
+                orderFlowImbalance=microstructure.order_flow_imbalance,
+            )
+        )
 
     def apply(self, event: dict[str, Any]) -> None:
         event_type = str(event.get("event_type", ""))
@@ -73,6 +97,7 @@ class LiveOrderbookState:
                 if isinstance(level, dict) and as_number(level.get("price")) > 0 and as_number(level.get("size")) > 0
             ]
             self._record_mid_price()
+            self._record_sample()
             return
 
         if event_type == "price_change":
@@ -94,6 +119,7 @@ class LiveOrderbookState:
                 else:
                     self.asks = [(best_ask, 0.0)]
             self._record_mid_price()
+            self._record_sample()
             return
 
         if event_type == "last_trade_price":
@@ -102,6 +128,8 @@ class LiveOrderbookState:
             if price > 0 and size > 0:
                 side = "sell" if str(event.get("side", "")).lower() == "sell" else "buy"
                 self.trades.appendleft((side, size))
+                if self.bids or self.asks:
+                    self._record_sample()
             return
 
         if event_type == "tick_size_change":
@@ -136,6 +164,10 @@ class LiveOrderbookState:
             list(self.trades),
             list(self.mid_prices),
         )
+
+    def to_replay_samples(self, limit: int) -> list[LiveMetricSampleResponse]:
+        bounded_limit = max(limit, 1)
+        return list(self.samples)[-bounded_limit:]
 
 
 @dataclass
@@ -254,6 +286,18 @@ class PolymarketLiveStreamManager:
             summary = stream.book.to_summary() if stream.book and (stream.book.bids or stream.book.asks or stream.book.trades) else None
             microstructure = stream.book.to_microstructure() if stream.book and (stream.book.bids or stream.book.asks) else None
             return LiveMarketSnapshotResponse(status=status, orderbookSummary=summary, microstructure=microstructure)
+
+    async def get_replay(self, slug: str | None = None, limit: int = 60) -> LiveReplayResponse:
+        stream = await self.ensure_stream(slug)
+        async with stream.lock:
+            stream.last_accessed_at = iso_now()
+            status = stream.build_status(get_settings().live_stream_enabled)
+            samples = stream.book.to_replay_samples(limit) if stream.book else []
+            return LiveReplayResponse(
+                status=status,
+                samples=samples,
+                sampleCount=len(samples),
+            )
 
     async def _run_cleanup_loop(self) -> None:
         settings = get_settings()

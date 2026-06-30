@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     live_stream_max_markets: int = 6
     live_stream_idle_ttl_seconds: int = 300
     live_stream_cleanup_interval_seconds: int = 60
+    live_stream_metrics_history_limit: int = 240
     allow_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",

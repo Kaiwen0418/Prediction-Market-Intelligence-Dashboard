@@ -40,6 +40,7 @@ Environment variables:
 - `LIVE_STREAM_MAX_MARKETS=6`
 - `LIVE_STREAM_IDLE_TTL_SECONDS=300`
 - `LIVE_STREAM_CLEANUP_INTERVAL_SECONDS=60`
+- `LIVE_STREAM_METRICS_HISTORY_LIMIT=240`
 - `ALLOW_ORIGINS=["https://your-vercel-app.vercel.app"]`
 
 ## Current endpoints
@@ -52,6 +53,7 @@ Environment variables:
 - `GET /api/polymarket/market-context`
 - `GET /api/live/status`
 - `GET /api/live/market-snapshot`
+- `GET /api/live/replay`
 - `GET /api/live/stream`
 
 The live-stream registry is bounded and self-cleaning:
