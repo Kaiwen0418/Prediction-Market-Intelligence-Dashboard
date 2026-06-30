@@ -1,0 +1,195 @@
+# FastAPI + WSS + NumPy Capability Roadmap
+
+## Goal
+
+Build the project into a Polymarket-only market intelligence system where:
+
+- `FastAPI` owns aggregation, normalization, caching, and service contracts
+- `WSS` owns realtime market-state ingestion
+- `NumPy` owns time-series and microstructure analytics
+
+The frontend should progressively become a presentation layer over backend-owned market context.
+
+## Capability Map
+
+### FastAPI
+
+Use FastAPI to demonstrate:
+
+- upstream API aggregation
+- typed response contracts
+- service-layer orchestration
+- background tasks and lifecycle management
+- cached dataset loading
+- debug and health surfaces
+
+Target backend-owned routes:
+
+- `/api/polymarket/market-context`
+- `/api/polymarket/orderbook-summary`
+- `/api/live/status`
+- `/api/live/market-snapshot`
+- `/api/research/states/{state}/summary`
+
+### WSS
+
+Use Polymarket websocket data to demonstrate:
+
+- long-lived backend connection management
+- reconnect and heartbeat handling
+- initial snapshot + delta merge
+- in-memory orderbook state maintenance
+- realtime signal refresh independent from the frontend tab lifecycle
+
+### NumPy
+
+Use NumPy to demonstrate:
+
+- lead-lag and correlation
+- rolling correlation
+- volatility and shock windows
+- orderbook imbalance and trade pressure
+- microprice / spread regime / liquidity concentration
+- market-derived event annotation
+
+## Product Surfaces
+
+### `/market`
+
+Primary showcase for:
+
+- live market context
+- realtime orderbook state
+- market-derived annotations
+- WSS health and freshness
+- microstructure signals
+
+### `/history`
+
+Primary showcase for:
+
+- historical analytics
+- state-by-state research comparison
+- event windows and rolling metrics
+- cached research bundle served by FastAPI
+
+## Delivery Phases
+
+### Phase 1: Backend Live Stream Foundation
+
+Target:
+
+- FastAPI background manager for Polymarket WSS
+- subscribe to the featured market token
+- maintain connection status and latest event metadata
+- expose:
+  - `/api/live/status`
+  - `/api/live/market-snapshot`
+
+Deliverables:
+
+- backend stream manager
+- startup / shutdown lifecycle hooks
+- stream status schema
+- live debug route
+
+### Phase 2: Realtime Microstructure Analytics
+
+Target:
+
+- derive metrics from stream-maintained orderbook state
+- compute metrics with NumPy
+
+Metrics:
+
+- spread
+- best bid / best ask / mid
+- total bid depth / total ask depth
+- imbalance
+- trade pressure
+- microprice
+- recent realized volatility
+
+Frontend use:
+
+- right rail on `/market`
+- source freshness and stream latency display
+
+### Phase 3: Historical Replay and Shock Analysis
+
+Target:
+
+- replay historical contract path through backend-owned contracts
+- automatic market-derived event extraction
+
+Deliverables:
+
+- replay route
+- shock route
+- rolling analytics overlays
+- event window summaries
+
+### Phase 4: Unified Intelligence Context
+
+Target:
+
+- one route should drive most of `/market`
+
+Suggested contract:
+
+- `featuredMarket`
+- `orderbookSummary`
+- `priceHistoryMeta`
+- `timelineEvents`
+- `liveStreamStatus`
+- `freshness`
+- `sourceDiagnostics`
+
+### Phase 5: Production-Grade Operations
+
+Target:
+
+- caching and refresh metadata
+- structured logging
+- replay fixtures
+- stronger backend tests
+- better deploy observability
+
+Deliverables:
+
+- readiness vs health checks
+- stream reconnect counters
+- last successful refresh metadata
+- route-level regression tests
+
+## Immediate Next Tasks
+
+1. Add backend live stream manager and status route.
+2. Maintain in-memory orderbook state from websocket events.
+3. Add NumPy microstructure summary from the live stream state.
+4. Move `/market` right rail to the backend live snapshot route.
+5. Add freshness / latency / reconnect diagnostics to the UI.
+
+## Validation Checklist
+
+### Backend
+
+- `/health` returns `ok`
+- `/api/live/status` responds even if the stream is disconnected
+- `/api/live/market-snapshot` returns:
+  - stream status
+  - summary or explicit empty-state payload
+
+### Frontend
+
+- `/market` still renders if stream routes are unavailable
+- source diagnostics clearly distinguish:
+  - REST context
+  - websocket status
+  - fallback state
+
+## Notes
+
+- Keep Polymarket as the only upstream for the live market surface.
+- Prefer backend aggregation over adding more frontend orchestration.
+- When analytics semantics change, update both backend tests and frontend fallback wording.

@@ -34,6 +34,9 @@ Environment variables:
 
 - `APP_ENV=production`
 - `FEATURED_MARKET_SLUG=california-governor-election-2026`
+- `POLYMARKET_WS_URL=wss://ws-subscriptions-clob.polymarket.com/ws/market`
+- `LIVE_STREAM_ENABLED=true`
+- `LIVE_STREAM_INITIAL_DUMP=true`
 - `ALLOW_ORIGINS=["https://your-vercel-app.vercel.app"]`
 
 ## Current endpoints
@@ -43,6 +46,9 @@ Environment variables:
 - `GET /api/polymarket/orderbook`
 - `GET /api/polymarket/price-history`
 - `GET /api/polymarket/trades`
+- `GET /api/polymarket/market-context`
+- `GET /api/live/status`
+- `GET /api/live/market-snapshot`
 - `GET /api/research/states/{state}/summary`
 - `POST /api/analytics/lead-lag`
 - `POST /api/analytics/correlation`

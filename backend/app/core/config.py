@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"
     featured_market_slug: str = "california-governor-election-2026"
+    polymarket_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+    live_stream_enabled: bool = True
+    live_stream_initial_dump: bool = True
     allow_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",

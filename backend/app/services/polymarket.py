@@ -105,7 +105,10 @@ def _first_string(values: list[Any]) -> str | None:
     return None
 
 
-def _normalize_featured_market_from_event(payload: Any) -> FeaturedMarketResponse:
+def normalize_featured_market_from_event(payload: Any) -> FeaturedMarketResponse:
+    if isinstance(payload, list):
+        payload = payload[0] if payload else None
+
     if not isinstance(payload, dict):
         raise HTTPException(status_code=502, detail="Featured market payload was not an object")
 
@@ -339,7 +342,7 @@ async def fetch_orderbook_summary(token_id: str) -> OrderbookSummaryResponse:
 
 async def fetch_market_context(slug: str | None = None) -> MarketContextResponse:
     featured_event = await fetch_featured_market(slug)
-    featured_market = _normalize_featured_market_from_event(featured_event)
+    featured_market = normalize_featured_market_from_event(featured_event)
 
     orderbook_summary = (
         await fetch_orderbook_summary(featured_market.token_id)
