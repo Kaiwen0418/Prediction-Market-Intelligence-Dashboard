@@ -15,10 +15,14 @@ from app.analytics.microstructure import (
 )
 from app.core.config import get_settings
 from app.schemas.live import (
+    LiveDegradationIssueResponse,
+    LiveDegradationResponse,
     LiveRegistryHealthResponse,
     LiveMarketSnapshotResponse,
     LiveMetricSampleResponse,
     LiveReplayResponse,
+    LiveReadinessCheckResponse,
+    LiveReadinessResponse,
     LiveStreamStatusResponse,
 )
 from app.schemas.polymarket import OrderbookSummaryResponse
@@ -360,6 +364,164 @@ class PolymarketLiveStreamManager:
             maxMarkets=settings.live_stream_max_markets,
             idleTtlSeconds=settings.live_stream_idle_ttl_seconds,
             streams=statuses,
+        )
+
+    async def get_readiness(self) -> LiveReadinessResponse:
+        settings = get_settings()
+        health = await self.get_registry_health()
+        featured_status = next((status for status in health.streams if status.market_slug == health.featured_slug), None)
+        checks: list[LiveReadinessCheckResponse] = []
+
+        if not settings.live_stream_enabled:
+            checks.append(
+                LiveReadinessCheckResponse(
+                    name="manager",
+                    state="disabled",
+                    detail="Live stream manager is disabled by configuration.",
+                )
+            )
+            return LiveReadinessResponse(
+                ready=False,
+                state="disabled",
+                featuredSlug=health.featured_slug,
+                checks=checks,
+            )
+
+        checks.append(
+            LiveReadinessCheckResponse(
+                name="registry",
+                state="ready" if health.registry_size > 0 else "starting",
+                detail=f"Registry has {health.registry_size} tracked stream(s); {health.connected_streams} connected.",
+            )
+        )
+
+        if featured_status is None:
+            checks.append(
+                LiveReadinessCheckResponse(
+                    name="featured-stream",
+                    state="starting",
+                    detail=f"Featured slug {health.featured_slug} is not registered yet.",
+                )
+            )
+            return LiveReadinessResponse(
+                ready=False,
+                state="starting",
+                featuredSlug=health.featured_slug,
+                checks=checks,
+            )
+
+        featured_stream_state = "ready" if featured_status.state == "connected" else featured_status.state
+        checks.append(
+            LiveReadinessCheckResponse(
+                name="featured-stream",
+                state=featured_stream_state,
+                detail=(
+                    f"Featured stream state={featured_status.state}, messages={featured_status.message_count}, "
+                    f"reconnects={featured_status.reconnect_count}."
+                ),
+            )
+        )
+
+        sample_ready = featured_status.sample_count > 0
+        checks.append(
+            LiveReadinessCheckResponse(
+                name="sampling",
+                state="ready" if sample_ready else "warming",
+                detail=(
+                    f"Replay sample count={featured_status.sample_count}, last sample="
+                    f"{featured_status.last_sampled_at or 'none'}."
+                ),
+            )
+        )
+
+        latency_ready = featured_status.latency_ms is None or featured_status.latency_ms <= 60_000
+        checks.append(
+            LiveReadinessCheckResponse(
+                name="freshness",
+                state="ready" if latency_ready else "stale",
+                detail=(
+                    f"Last message={featured_status.last_message_at or 'none'}, latency="
+                    f"{featured_status.latency_ms if featured_status.latency_ms is not None else 'unknown'}ms."
+                ),
+            )
+        )
+
+        ready = featured_status.state == "connected" and sample_ready and latency_ready
+        if ready:
+            state = "ready"
+        elif featured_status.state == "error":
+            state = "degraded"
+        else:
+            state = "warming"
+
+        return LiveReadinessResponse(
+            ready=ready,
+            state=state,
+            featuredSlug=health.featured_slug,
+            checks=checks,
+        )
+
+    async def get_degradation_summary(self) -> LiveDegradationResponse:
+        settings = get_settings()
+        health = await self.get_registry_health()
+        issues: list[LiveDegradationIssueResponse] = []
+
+        if not settings.live_stream_enabled:
+            issues.append(
+                LiveDegradationIssueResponse(
+                    code="stream_manager_disabled",
+                    severity="warning",
+                    summary="Live stream manager is disabled, so market rail data cannot warm up.",
+                    detail="Set LIVE_STREAM_ENABLED=true to enable backend-owned stream ingestion.",
+                )
+            )
+
+        for status in health.streams:
+            if status.state == "error":
+                issues.append(
+                    LiveDegradationIssueResponse(
+                        code="stream_error",
+                        severity="critical",
+                        streamSlug=status.market_slug,
+                        summary=f"Stream {status.market_slug} is in error state.",
+                        detail=status.error or status.last_disconnect_reason or "Unknown stream failure.",
+                    )
+                )
+                continue
+
+            if status.state == "connected" and status.sample_count == 0:
+                issues.append(
+                    LiveDegradationIssueResponse(
+                        code="sampling_not_ready",
+                        severity="warning",
+                        streamSlug=status.market_slug,
+                        summary=f"Stream {status.market_slug} has not produced replay samples yet.",
+                        detail="The connection is open but the backend replay window is still warming up.",
+                    )
+                )
+
+            if status.latency_ms is not None and status.latency_ms > 60_000:
+                issues.append(
+                    LiveDegradationIssueResponse(
+                        code="stream_stale",
+                        severity="warning",
+                        streamSlug=status.market_slug,
+                        summary=f"Stream {status.market_slug} is stale.",
+                        detail=f"Last message latency is {status.latency_ms}ms.",
+                    )
+                )
+
+        if not issues:
+            state = "healthy"
+        elif any(issue.severity == "critical" for issue in issues):
+            state = "degraded"
+        else:
+            state = "warning"
+
+        return LiveDegradationResponse(
+            state=state,
+            issueCount=len(issues),
+            issues=issues,
         )
 
     async def _run_cleanup_loop(self) -> None:

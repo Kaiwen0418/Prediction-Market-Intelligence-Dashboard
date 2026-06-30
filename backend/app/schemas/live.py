@@ -77,3 +77,36 @@ class LiveRegistryHealthResponse(BaseModel):
     streams: list[LiveStreamStatusResponse]
 
     model_config = {"populate_by_name": True}
+
+
+class LiveReadinessCheckResponse(BaseModel):
+    name: str
+    state: str
+    detail: str
+
+
+class LiveReadinessResponse(BaseModel):
+    ready: bool
+    state: str
+    featured_slug: str = Field(alias="featuredSlug")
+    checks: list[LiveReadinessCheckResponse]
+
+    model_config = {"populate_by_name": True}
+
+
+class LiveDegradationIssueResponse(BaseModel):
+    code: str
+    severity: str
+    summary: str
+    stream_slug: str | None = Field(default=None, alias="streamSlug")
+    detail: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class LiveDegradationResponse(BaseModel):
+    state: str
+    issue_count: int = Field(alias="issueCount")
+    issues: list[LiveDegradationIssueResponse]
+
+    model_config = {"populate_by_name": True}

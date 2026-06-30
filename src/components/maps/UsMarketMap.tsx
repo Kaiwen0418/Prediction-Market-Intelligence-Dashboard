@@ -6,7 +6,16 @@ import { LiveReplaySparkline } from "@/components/charts/LiveReplaySparkline";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { getSpotlightState, inferSpotlightCodeFromMarket, SPOTLIGHT_STATES } from "@/components/maps/spotlightStates";
-import type { LiveMicrostructureMetrics, LiveReplay, MarketSnapshot, OrderbookState, OrderbookSummary } from "@/types/market";
+import type {
+  LiveDegradation,
+  LiveMicrostructureMetrics,
+  LiveReadiness,
+  LiveRegistryHealth,
+  LiveReplay,
+  MarketSnapshot,
+  OrderbookState,
+  OrderbookSummary
+} from "@/types/market";
 import type { SourceDiagnostics } from "@/types/service";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 
@@ -16,12 +25,18 @@ type UsMarketMapProps = {
   orderbookSummary?: OrderbookSummary | null;
   liveMicrostructure?: LiveMicrostructureMetrics | null;
   liveReplay?: LiveReplay | null;
+  liveReadiness?: LiveReadiness | null;
+  liveDegradation?: LiveDegradation | null;
+  liveRegistryHealth?: LiveRegistryHealth | null;
   selectedCode?: string | null;
   onSelectCode?: (code: string | null) => void;
   sources: {
     featuredMarket?: SourceDiagnostics;
     liveStream?: SourceDiagnostics;
     liveReplay?: SourceDiagnostics;
+    liveReadiness?: SourceDiagnostics;
+    liveDegradation?: SourceDiagnostics;
+    liveRegistry?: SourceDiagnostics;
     orderbook?: SourceDiagnostics;
     orderbookSummary?: SourceDiagnostics;
     trades?: SourceDiagnostics;
@@ -34,6 +49,9 @@ export function UsMarketMap({
   orderbookSummary,
   liveMicrostructure,
   liveReplay,
+  liveReadiness,
+  liveDegradation,
+  liveRegistryHealth,
   selectedCode,
   onSelectCode,
   sources
@@ -124,10 +142,28 @@ export function UsMarketMap({
     { diagnostics: sources.featuredMarket, label: "featured" },
     { diagnostics: sources.liveStream, label: "stream" },
     { diagnostics: sources.liveReplay, label: "replay" },
+    { diagnostics: sources.liveReadiness, label: "ready" },
+    { diagnostics: sources.liveDegradation, label: "degrade" },
+    { diagnostics: sources.liveRegistry, label: "registry" },
     { diagnostics: sources.orderbookSummary, label: "summary" },
     { diagnostics: sources.orderbook, label: "orderbook" },
     { diagnostics: sources.trades, label: "trades" }
   ];
+
+  const backendHealthLine = liveReadiness
+    ? [
+        `Backend ${liveReadiness.state}`,
+        `${liveRegistryHealth?.connectedStreams ?? 0}/${liveRegistryHealth?.registrySize ?? 0} connected`,
+        liveDegradation ? `${liveDegradation.issueCount} issue${liveDegradation.issueCount === 1 ? "" : "s"}` : null
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "Backend health pending";
+  const backendHealthDetail =
+    liveDegradation?.issues[0]?.summary ??
+    liveReadiness?.checks.find((check) => check.state !== "ready")?.detail ??
+    liveReadiness?.checks[0]?.detail ??
+    "Readiness checks have not completed yet.";
 
   const summary = orderbookSummary ?? {
     bestBid: orderbook.bids[0]?.price ?? 0,
@@ -295,6 +331,10 @@ export function UsMarketMap({
           })}
           <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Source status</span>
         </div>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          {backendHealthLine}
+          <span className="text-slate-400"> — {backendHealthDetail}</span>
+        </p>
 
         {/* Depth chart only renders once the parent grid actually has a right panel (lg+).
             Below lg, the layout collapses to a single column and stacking the depth chart

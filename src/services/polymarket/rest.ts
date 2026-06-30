@@ -1,4 +1,15 @@
-import type { LiveReplay, MarketContext, MarketSnapshot, OrderbookState, OrderbookSummary, TimePoint, TradePrint } from "@/types/market";
+import type {
+  LiveDegradation,
+  LiveReadiness,
+  LiveRegistryHealth,
+  LiveReplay,
+  MarketContext,
+  MarketSnapshot,
+  OrderbookState,
+  OrderbookSummary,
+  TimePoint,
+  TradePrint
+} from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 import { withApiBase } from "@/services/api/base";
 import { polymarketConfig } from "./config";
@@ -261,6 +272,87 @@ export async function fetchLiveReplay(slug?: string, limit = 60): Promise<LiveRe
     return payload;
   } catch {
     recordFallback("live-replay", "reachability", "Live replay request failed");
+    return null;
+  }
+}
+
+export async function fetchLiveRegistryHealth(): Promise<LiveRegistryHealth | null> {
+  const url = withApiBase("/api/live/registry-health");
+
+  try {
+    const payload = await requestJson<LiveRegistryHealth>(url);
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      typeof payload.state !== "string" ||
+      typeof payload.registrySize !== "number" ||
+      !Array.isArray(payload.streams)
+    ) {
+      recordFallback("live-registry", "payload", "Live registry health payload was malformed");
+      return null;
+    }
+    recordLive("live-registry");
+    return payload;
+  } catch {
+    recordFallback("live-registry", "reachability", "Live registry health request failed");
+    return null;
+  }
+}
+
+export async function fetchLiveReadiness(): Promise<LiveReadiness | null> {
+  const url = withApiBase("/api/live/readiness");
+
+  try {
+    const payload = await requestJson<LiveReadiness>(url);
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      typeof payload.ready !== "boolean" ||
+      typeof payload.state !== "string" ||
+      !Array.isArray(payload.checks)
+    ) {
+      recordFallback("live-readiness", "payload", "Live readiness payload was malformed");
+      return null;
+    }
+    if (payload.ready) {
+      recordLive("live-readiness");
+    } else {
+      recordFallback("live-readiness", "payload", `Readiness state is ${payload.state}`);
+    }
+    return payload;
+  } catch {
+    recordFallback("live-readiness", "reachability", "Live readiness request failed");
+    return null;
+  }
+}
+
+export async function fetchLiveDegradation(): Promise<LiveDegradation | null> {
+  const url = withApiBase("/api/live/degradation");
+
+  try {
+    const payload = await requestJson<LiveDegradation>(url);
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      typeof payload.state !== "string" ||
+      typeof payload.issueCount !== "number" ||
+      !Array.isArray(payload.issues)
+    ) {
+      recordFallback("live-degradation", "payload", "Live degradation payload was malformed");
+      return null;
+    }
+    if (payload.issueCount === 0) {
+      recordLive("live-degradation");
+    } else {
+      recordFallback(
+        "live-degradation",
+        "payload",
+        payload.issues[0]?.summary ?? `Live degradation state is ${payload.state}`
+      );
+    }
+    return payload;
+  } catch {
+    recordFallback("live-degradation", "reachability", "Live degradation request failed");
     return null;
   }
 }

@@ -10,6 +10,7 @@ import { TopNav } from "@/components/navigation/TopNav";
 import { useMarketContext } from "@/hooks/useMarketContext";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useLiveReplay } from "@/hooks/useLiveReplay";
+import { useLiveSystemHealth } from "@/hooks/useLiveSystemHealth";
 import { useLiveMarketStream } from "@/hooks/useLiveMarketStream";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
@@ -40,6 +41,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   });
   const liveStream = useLiveMarketStream(selectedSlug ?? market?.slug);
   const liveReplayQuery = useLiveReplay(selectedSlug ?? market?.slug, 48);
+  const liveSystemHealth = useLiveSystemHealth();
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market, marketContextQuery.data?.timelineEvents);
@@ -121,10 +123,16 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
               featuredMarket: sources["market-context"] ?? sources["featured-market"],
               liveStream: sources["live-stream"],
               liveReplay: sources["live-replay"],
+              liveReadiness: sources["live-readiness"],
+              liveDegradation: sources["live-degradation"],
+              liveRegistry: sources["live-registry"],
               orderbookSummary: sources["market-context"] ?? sources["orderbook-summary"],
               orderbook: sources.orderbook,
               trades: sources.trades
             }}
+            liveReadiness={liveSystemHealth.readinessQuery.data ?? null}
+            liveDegradation={liveSystemHealth.degradationQuery.data ?? null}
+            liveRegistryHealth={liveSystemHealth.registryHealthQuery.data ?? null}
           />
         </div>
       </section>

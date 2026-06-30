@@ -4,10 +4,15 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.schemas.live import (
+    LiveDegradationIssueResponse,
+    LiveDegradationResponse,
     LiveMarketSnapshotResponse,
     LiveMetricSampleResponse,
     LiveMicrostructureMetricsResponse,
+    LiveReadinessCheckResponse,
+    LiveReadinessResponse,
     LiveReplayResponse,
+    LiveRegistryHealthResponse,
     LiveStreamStatusResponse,
 )
 from app.schemas.polymarket import (
@@ -23,6 +28,9 @@ class LiveRoutesTestCase(unittest.TestCase):
         self.original_start = live_stream_manager.start
         self.original_stop = live_stream_manager.stop
         self.original_get_status = live_stream_manager.get_status
+        self.original_get_readiness = live_stream_manager.get_readiness
+        self.original_get_degradation_summary = live_stream_manager.get_degradation_summary
+        self.original_get_registry_health = live_stream_manager.get_registry_health
         self.original_get_snapshot = live_stream_manager.get_snapshot
         self.original_get_replay = live_stream_manager.get_replay
 
@@ -116,9 +124,56 @@ class LiveRoutesTestCase(unittest.TestCase):
                 sampleCount=len(samples),
             )
 
+        async def fake_get_readiness() -> LiveReadinessResponse:
+            return LiveReadinessResponse(
+                ready=True,
+                state="ready",
+                featuredSlug="california-governor-election-2026",
+                checks=[
+                    LiveReadinessCheckResponse(
+                        name="featured-stream",
+                        state="ready",
+                        detail="Featured stream is connected and replay sampling is active.",
+                    )
+                ],
+            )
+
+        async def fake_get_degradation_summary() -> LiveDegradationResponse:
+            return LiveDegradationResponse(
+                state="warning",
+                issueCount=1,
+                issues=[
+                    LiveDegradationIssueResponse(
+                        code="sampling_not_ready",
+                        severity="warning",
+                        streamSlug="california-governor-election-2026",
+                        summary="Replay window is warming up.",
+                        detail="Connected stream has not emitted enough samples yet.",
+                    )
+                ],
+            )
+
+        async def fake_get_registry_health() -> LiveRegistryHealthResponse:
+            return LiveRegistryHealthResponse(
+                enabled=True,
+                state="healthy",
+                featuredSlug="california-governor-election-2026",
+                registrySize=1,
+                connectedStreams=1,
+                errorStreams=0,
+                staleStreams=0,
+                disabledStreams=0,
+                maxMarkets=6,
+                idleTtlSeconds=300,
+                streams=[await fake_get_status("california-governor-election-2026")],
+            )
+
         live_stream_manager.start = fake_start
         live_stream_manager.stop = fake_stop
         live_stream_manager.get_status = fake_get_status
+        live_stream_manager.get_readiness = fake_get_readiness
+        live_stream_manager.get_degradation_summary = fake_get_degradation_summary
+        live_stream_manager.get_registry_health = fake_get_registry_health
         live_stream_manager.get_snapshot = fake_get_snapshot
         live_stream_manager.get_replay = fake_get_replay
 
@@ -126,6 +181,9 @@ class LiveRoutesTestCase(unittest.TestCase):
         live_stream_manager.start = self.original_start
         live_stream_manager.stop = self.original_stop
         live_stream_manager.get_status = self.original_get_status
+        live_stream_manager.get_readiness = self.original_get_readiness
+        live_stream_manager.get_degradation_summary = self.original_get_degradation_summary
+        live_stream_manager.get_registry_health = self.original_get_registry_health
         live_stream_manager.get_snapshot = self.original_get_snapshot
         live_stream_manager.get_replay = self.original_get_replay
 
@@ -149,6 +207,28 @@ class LiveRoutesTestCase(unittest.TestCase):
         self.assertAlmostEqual(payload["orderbookSummary"]["midPrice"], 0.50, places=3)
         self.assertAlmostEqual(payload["microstructure"]["microprice"], 0.501, places=3)
         self.assertAlmostEqual(payload["microstructure"]["tradeIntensity"], 24.5, places=3)
+
+    def test_readiness_route_returns_backend_checks(self) -> None:
+        with TestClient(app) as client:
+            response = client.get("/api/live/readiness")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ready"])
+        self.assertEqual(payload["state"], "ready")
+        self.assertEqual(payload["featuredSlug"], "california-governor-election-2026")
+        self.assertEqual(payload["checks"][0]["name"], "featured-stream")
+
+    def test_degradation_route_returns_issue_summary(self) -> None:
+        with TestClient(app) as client:
+            response = client.get("/api/live/degradation")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["state"], "warning")
+        self.assertEqual(payload["issueCount"], 1)
+        self.assertEqual(payload["issues"][0]["code"], "sampling_not_ready")
+        self.assertEqual(payload["issues"][0]["streamSlug"], "california-governor-election-2026")
 
     def test_replay_route_respects_limit(self) -> None:
         with TestClient(app) as client:

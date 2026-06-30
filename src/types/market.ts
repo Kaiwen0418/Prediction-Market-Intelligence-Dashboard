@@ -133,6 +133,47 @@ export type LiveReplay = {
   sampleCount: number;
 };
 
+export type LiveRegistryHealth = {
+  enabled: boolean;
+  state: string;
+  featuredSlug: string;
+  registrySize: number;
+  connectedStreams: number;
+  errorStreams: number;
+  staleStreams: number;
+  disabledStreams: number;
+  maxMarkets: number;
+  idleTtlSeconds: number;
+  streams: LiveStreamStatus[];
+};
+
+export type LiveReadinessCheck = {
+  name: string;
+  state: string;
+  detail: string;
+};
+
+export type LiveReadiness = {
+  ready: boolean;
+  state: string;
+  featuredSlug: string;
+  checks: LiveReadinessCheck[];
+};
+
+export type LiveDegradationIssue = {
+  code: string;
+  severity: string;
+  summary: string;
+  streamSlug?: string | null;
+  detail?: string | null;
+};
+
+export type LiveDegradation = {
+  state: string;
+  issueCount: number;
+  issues: LiveDegradationIssue[];
+};
+
 export type TimelineEvent = {
   id: string;
   eventId?: string;
