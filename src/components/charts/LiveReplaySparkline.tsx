@@ -1,9 +1,9 @@
 "use client";
 
 import type { EChartsOption } from "echarts";
-import { format, parseISO } from "date-fns";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import type { LiveMetricSample } from "@/types/market";
+import { formatTimestamp } from "@/utils/time";
 import { ReactECharts } from "./ChartContainer";
 
 type LiveReplaySparklineProps = {
@@ -42,7 +42,7 @@ export function LiveReplaySparkline({ samples, height = 180 }: LiveReplaySparkli
     xAxis: {
       type: "category",
       boundaryGap: false,
-      data: samples.map((sample) => format(parseISO(sample.timestamp), "HH:mm:ss")),
+      data: samples.map((sample) => formatTimestamp(sample.timestamp, "HH:mm:ss")),
       axisLine: { lineStyle: { color: subtleColor } },
       axisTick: { show: false },
       axisLabel: {

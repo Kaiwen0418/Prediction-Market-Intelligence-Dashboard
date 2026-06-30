@@ -1,8 +1,8 @@
 "use client";
 
 import type { EChartsOption } from "echarts";
-import { format, parseISO } from "date-fns";
 import type { RollingCorrelationResult } from "@/types/analytics";
+import { formatTimestamp } from "@/utils/time";
 import { ReactECharts } from "./ChartContainer";
 
 type RollingCorrelationChartProps = {
@@ -35,7 +35,7 @@ export function RollingCorrelationChart({ rollingCorrelation }: RollingCorrelati
     xAxis: {
       type: "category",
       boundaryGap: false,
-      data: points.map((point) => format(parseISO(point.timestamp), "MMM d")),
+      data: points.map((point) => formatTimestamp(point.timestamp, "MMM d")),
       axisLabel: {
         color: "#64748b",
         showMinLabel: true,

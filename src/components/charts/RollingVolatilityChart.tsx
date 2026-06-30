@@ -1,8 +1,8 @@
 "use client";
 
 import type { EChartsOption } from "echarts";
-import { format, parseISO } from "date-fns";
 import type { TimePoint } from "@/types/market";
+import { formatTimestamp } from "@/utils/time";
 import { ReactECharts } from "./ChartContainer";
 
 type RollingVolatilityChartProps = {
@@ -61,7 +61,7 @@ export function RollingVolatilityChart({ series, windowSize = 14 }: RollingVolat
     xAxis: {
       type: "category",
       boundaryGap: false,
-      data: points.map((point) => format(parseISO(point.timestamp), "MMM d")),
+      data: points.map((point) => formatTimestamp(point.timestamp, "MMM d")),
       axisLabel: {
         color: "#64748b",
         showMinLabel: true,
