@@ -1,10 +1,10 @@
 "use client";
 
 import type { EChartsOption } from "echarts";
-import { format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import type { TimePoint, TimelineEvent } from "@/types/market";
+import { formatTimestamp } from "@/utils/time";
 import { ReactECharts } from "./ChartContainer";
 
 type PolymarketHistoryChartProps = {
@@ -168,7 +168,7 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
       xAxis: {
         type: "category",
         boundaryGap: false,
-        data: sortedSeries.map((point) => format(parseISO(point.timestamp), "MMM d")),
+        data: sortedSeries.map((point) => formatTimestamp(point.timestamp, "MMM d")),
         axisLine: { lineStyle: { color: subtleColor } },
         axisTick: { show: false },
         axisLabel: {
@@ -403,7 +403,7 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
                     {formatWhaleAmount(whale.amountUsd)} {whale.outcome}
                   </p>
                   <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">
-                    {format(parseISO(whale.timestamp), "MMM d, yyyy · HH:mm 'UTC'")}
+                    {formatTimestamp(whale.timestamp, "MMM d, yyyy · HH:mm 'UTC'")}
                   </p>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-slate-600">
