@@ -59,6 +59,7 @@ class LiveReplayResponse(BaseModel):
     status: LiveStreamStatusResponse
     samples: list[LiveMetricSampleResponse]
     sample_count: int = Field(alias="sampleCount")
+    source: str = "stream"
 
     model_config = {"populate_by_name": True}
 

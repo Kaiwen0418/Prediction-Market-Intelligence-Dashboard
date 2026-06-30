@@ -347,12 +347,12 @@ export function UsMarketMap({
           <div className="flex items-center justify-between gap-3">
             <p className="metric-label">Live Replay</p>
             <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-              {liveReplay ? `${liveReplay.sampleCount} samples` : "pending"}
+              {liveReplay ? `${liveReplay.sampleCount} samples · ${liveReplay.source ?? "stream"}` : "pending"}
             </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Short-window replay of backend-cached mid price versus microprice. This is sampled from the FastAPI stream
-            manager, not reconstructed in the browser.
+            manager when available and falls back to a deterministic backend fixture while the live replay window is still warming up.
           </p>
           <div className="mt-4">
             <LiveReplaySparkline samples={liveReplay?.samples ?? []} />

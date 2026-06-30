@@ -268,7 +268,11 @@ export async function fetchLiveReplay(slug?: string, limit = 60): Promise<LiveRe
       recordFallback("live-replay", "payload", "Live replay payload was malformed");
       return null;
     }
-    recordLive("live-replay");
+    if (payload.source === "fixture") {
+      useDataSourceStore.getState().markCurated("live-replay");
+    } else {
+      recordLive("live-replay");
+    }
     return payload;
   } catch {
     recordFallback("live-replay", "reachability", "Live replay request failed");

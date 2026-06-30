@@ -122,6 +122,7 @@ class LiveRoutesTestCase(unittest.TestCase):
                 status=await fake_get_status(selected_slug),
                 samples=samples,
                 sampleCount=len(samples),
+                source="stream",
             )
 
         async def fake_get_readiness() -> LiveReadinessResponse:

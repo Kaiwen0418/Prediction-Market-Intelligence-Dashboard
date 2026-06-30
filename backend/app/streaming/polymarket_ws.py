@@ -26,6 +26,7 @@ from app.schemas.live import (
     LiveStreamStatusResponse,
 )
 from app.schemas.polymarket import OrderbookSummaryResponse
+from app.services.live_replay_fixtures import build_replay_fixture_response
 from app.services.polymarket import fetch_featured_market, normalize_featured_market_from_event
 
 logger = logging.getLogger("app.live_stream")
@@ -311,10 +312,13 @@ class PolymarketLiveStreamManager:
             stream.last_accessed_at = iso_now()
             status = stream.build_status(get_settings().live_stream_enabled)
             samples = stream.book.to_replay_samples(limit) if stream.book else []
+            if not samples:
+                return build_replay_fixture_response(status, status.market_slug, limit)
             return LiveReplayResponse(
                 status=status,
                 samples=samples,
                 sampleCount=len(samples),
+                source="stream",
             )
 
     async def get_registry_health(self) -> LiveRegistryHealthResponse:

@@ -231,6 +231,7 @@ Deliverables:
 1. Overlay top shock windows directly on the market/poll history chart.
 2. Add rolling volatility and signed divergence charts to `/history`.
 3. Add historical replay fixtures so analytics outputs are testable without live connectivity.
+   Status: completed for `/api/live/replay` via deterministic backend fixtures keyed by slug; frontend diagnostics distinguish `fixture` from `stream`.
 4. Add readiness and degradation routes that summarize live-stream health across registry entries.
    Status: completed via `/api/live/readiness` and `/api/live/degradation`, with the market rail now consuming the backend health summary.
 5. Add cross-state small-multiple research charts to increase page information density.

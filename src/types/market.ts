@@ -131,6 +131,7 @@ export type LiveReplay = {
   status: LiveStreamStatus;
   samples: LiveMetricSample[];
   sampleCount: number;
+  source?: "stream" | "fixture";
 };
 
 export type LiveRegistryHealth = {
