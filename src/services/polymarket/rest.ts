@@ -1,4 +1,4 @@
-import type { MarketContext, MarketSnapshot, OrderbookState, OrderbookSummary, TimePoint, TradePrint } from "@/types/market";
+import type { LiveReplay, MarketContext, MarketSnapshot, OrderbookState, OrderbookSummary, TimePoint, TradePrint } from "@/types/market";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 import { withApiBase } from "@/services/api/base";
 import { polymarketConfig } from "./config";
@@ -235,6 +235,32 @@ export async function fetchMarketContextLive(slug?: string): Promise<MarketConte
     return payload;
   } catch {
     recordFallback("market-context", "reachability", "Market context request failed");
+    return null;
+  }
+}
+
+export async function fetchLiveReplay(slug?: string, limit = 60): Promise<LiveReplay | null> {
+  const url = withApiBase(
+    slug
+      ? `/api/live/replay?slug=${encodeURIComponent(slug)}&limit=${limit}`
+      : `/api/live/replay?limit=${limit}`
+  );
+
+  try {
+    const payload = await requestJson<LiveReplay>(url);
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      typeof payload.sampleCount !== "number" ||
+      !Array.isArray(payload.samples)
+    ) {
+      recordFallback("live-replay", "payload", "Live replay payload was malformed");
+      return null;
+    }
+    recordLive("live-replay");
+    return payload;
+  } catch {
+    recordFallback("live-replay", "reachability", "Live replay request failed");
     return null;
   }
 }

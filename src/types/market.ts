@@ -110,10 +110,27 @@ export type LiveMicrostructureMetrics = {
   orderFlowImbalance: number;
 };
 
+export type LiveMetricSample = {
+  timestamp: string;
+  midPrice: number;
+  spreadBps: number;
+  microprice: number;
+  depthSkew: number;
+  realizedVolatility: number;
+  tradeIntensity: number;
+  orderFlowImbalance: number;
+};
+
 export type LiveMarketSnapshot = {
   status: LiveStreamStatus;
   orderbookSummary: OrderbookSummary | null;
   microstructure?: LiveMicrostructureMetrics | null;
+};
+
+export type LiveReplay = {
+  status: LiveStreamStatus;
+  samples: LiveMetricSample[];
+  sampleCount: number;
 };
 
 export type TimelineEvent = {

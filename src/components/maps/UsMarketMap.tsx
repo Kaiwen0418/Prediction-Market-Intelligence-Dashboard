@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
+import { LiveReplaySparkline } from "@/components/charts/LiveReplaySparkline";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { getSpotlightState, inferSpotlightCodeFromMarket, SPOTLIGHT_STATES } from "@/components/maps/spotlightStates";
-import type { LiveMicrostructureMetrics, MarketSnapshot, OrderbookState, OrderbookSummary } from "@/types/market";
+import type { LiveMicrostructureMetrics, LiveReplay, MarketSnapshot, OrderbookState, OrderbookSummary } from "@/types/market";
 import type { SourceDiagnostics } from "@/types/service";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 
@@ -14,11 +15,13 @@ type UsMarketMapProps = {
   orderbook: OrderbookState;
   orderbookSummary?: OrderbookSummary | null;
   liveMicrostructure?: LiveMicrostructureMetrics | null;
+  liveReplay?: LiveReplay | null;
   selectedCode?: string | null;
   onSelectCode?: (code: string | null) => void;
   sources: {
     featuredMarket?: SourceDiagnostics;
     liveStream?: SourceDiagnostics;
+    liveReplay?: SourceDiagnostics;
     orderbook?: SourceDiagnostics;
     orderbookSummary?: SourceDiagnostics;
     trades?: SourceDiagnostics;
@@ -30,6 +33,7 @@ export function UsMarketMap({
   orderbook,
   orderbookSummary,
   liveMicrostructure,
+  liveReplay,
   selectedCode,
   onSelectCode,
   sources
@@ -119,6 +123,7 @@ export function UsMarketMap({
   const sourceDots = [
     { diagnostics: sources.featuredMarket, label: "featured" },
     { diagnostics: sources.liveStream, label: "stream" },
+    { diagnostics: sources.liveReplay, label: "replay" },
     { diagnostics: sources.orderbookSummary, label: "summary" },
     { diagnostics: sources.orderbook, label: "orderbook" },
     { diagnostics: sources.trades, label: "trades" }
@@ -296,6 +301,22 @@ export function UsMarketMap({
             beneath the map looks broken — so we hide it entirely in that range. */}
         <div className="mt-6 hidden lg:block">
           <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
+        </div>
+
+        <div className="mt-6">
+          <div className="flex items-center justify-between gap-3">
+            <p className="metric-label">Live Replay</p>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              {liveReplay ? `${liveReplay.sampleCount} samples` : "pending"}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Short-window replay of backend-cached mid price versus microprice. This is sampled from the FastAPI stream
+            manager, not reconstructed in the browser.
+          </p>
+          <div className="mt-4">
+            <LiveReplaySparkline samples={liveReplay?.samples ?? []} />
+          </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">

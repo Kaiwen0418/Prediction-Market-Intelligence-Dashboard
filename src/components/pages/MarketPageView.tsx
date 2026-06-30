@@ -9,6 +9,7 @@ import { UsMarketMap } from "@/components/maps/UsMarketMap";
 import { TopNav } from "@/components/navigation/TopNav";
 import { useMarketContext } from "@/hooks/useMarketContext";
 import { useMarketData } from "@/hooks/useMarketData";
+import { useLiveReplay } from "@/hooks/useLiveReplay";
 import { useLiveMarketStream } from "@/hooks/useLiveMarketStream";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
@@ -38,6 +39,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     enableRealtime: strictLive
   });
   const liveStream = useLiveMarketStream(selectedSlug ?? market?.slug);
+  const liveReplayQuery = useLiveReplay(selectedSlug ?? market?.slug, 48);
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market, marketContextQuery.data?.timelineEvents);
@@ -51,6 +53,10 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     marketContextQuery.data?.orderbookSummary ??
     orderbookSummaryQuery.data;
   const liveMicrostructure = liveStreamMatchesMarket ? liveStream.snapshot?.microstructure ?? null : null;
+  const liveReplay =
+    liveReplayQuery.data && liveReplayQuery.data.status.marketSlug === (selectedSlug ?? market?.slug)
+      ? liveReplayQuery.data
+      : null;
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;
   const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
   const errorMessage = marketContextQuery.error instanceof Error
@@ -108,11 +114,13 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             orderbook={orderbook}
             orderbookSummary={resolvedOrderbookSummary}
             liveMicrostructure={liveMicrostructure}
+            liveReplay={liveReplay}
             selectedCode={selectedStateCode}
             onSelectCode={setSelectedStateCode}
             sources={{
               featuredMarket: sources["market-context"] ?? sources["featured-market"],
               liveStream: sources["live-stream"],
+              liveReplay: sources["live-replay"],
               orderbookSummary: sources["market-context"] ?? sources["orderbook-summary"],
               orderbook: sources.orderbook,
               trades: sources.trades
