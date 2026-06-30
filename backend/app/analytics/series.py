@@ -11,6 +11,9 @@ from app.schemas.analytics import (
     LeadLagResponse,
     RollingCorrelationPointResponse,
     RollingCorrelationResponse,
+    ShockWindowRequest,
+    ShockWindowResponse,
+    ShockWindowSummaryResponse,
     VolatilityResponse,
 )
 
@@ -172,4 +175,52 @@ def calculate_event_window(payload: EventWindowRequest) -> EventWindowResponse:
         netMove=round(net_move, 2),
         preWindow=payload.pre_window,
         postWindow=payload.post_window,
+    )
+
+
+def calculate_shock_windows(payload: ShockWindowRequest) -> ShockWindowSummaryResponse:
+    values = np.array([point.value for point in payload.series], dtype=float)
+    if values.size < 2:
+        return ShockWindowSummaryResponse(windowSize=payload.window_size, topK=payload.top_k, windows=[])
+
+    effective_window = min(payload.window_size, values.size)
+    ranked: list[ShockWindowResponse] = []
+
+    for anchor in range(effective_window - 1, values.size):
+        start_index = max(0, anchor - effective_window + 1)
+        window_values = values[start_index : anchor + 1]
+        if window_values.size < 2:
+            continue
+        returns = np.diff(window_values)
+        net_move = float((window_values[-1] - window_values[0]) * 100)
+        absolute_move = float(abs(net_move))
+        local_volatility = float(np.std(returns) * math.sqrt(365) * 100)
+        ranked.append(
+            ShockWindowResponse(
+                anchorIndex=anchor,
+                anchorTimestamp=payload.series[anchor].timestamp,
+                startTimestamp=payload.series[start_index].timestamp,
+                endTimestamp=payload.series[anchor].timestamp,
+                netMove=round(net_move, 2),
+                absoluteMove=round(absolute_move, 2),
+                localVolatility=round(local_volatility, 2),
+            )
+        )
+
+    ranked.sort(key=lambda window: (window.absolute_move, window.local_volatility), reverse=True)
+
+    deduped: list[ShockWindowResponse] = []
+    used_anchors: set[int] = set()
+    for window in ranked:
+        if window.anchor_index in used_anchors:
+            continue
+        deduped.append(window)
+        used_anchors.add(window.anchor_index)
+        if len(deduped) == payload.top_k:
+            break
+
+    return ShockWindowSummaryResponse(
+        windowSize=effective_window,
+        topK=payload.top_k,
+        windows=deduped,
     )

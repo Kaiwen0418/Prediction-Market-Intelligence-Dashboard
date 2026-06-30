@@ -6,6 +6,7 @@ from app.analytics.series import (
     calculate_event_window,
     calculate_lead_lag,
     calculate_rolling_correlation,
+    calculate_shock_windows,
     calculate_volatility,
 )
 from app.schemas.analytics import (
@@ -15,6 +16,8 @@ from app.schemas.analytics import (
     EventWindowResponse,
     LeadLagRequest,
     LeadLagResponse,
+    ShockWindowRequest,
+    ShockWindowSummaryResponse,
     VolatilityResponse,
 )
 
@@ -39,6 +42,11 @@ async def post_volatility(payload: LeadLagRequest) -> VolatilityResponse:
 @router.post("/event-window", response_model=EventWindowResponse)
 async def post_event_window(payload: EventWindowRequest) -> EventWindowResponse:
     return calculate_event_window(payload)
+
+
+@router.post("/shock-windows", response_model=ShockWindowSummaryResponse)
+async def post_shock_windows(payload: ShockWindowRequest) -> ShockWindowSummaryResponse:
+    return calculate_shock_windows(payload)
 
 
 @router.post("/summary", response_model=AnalyticsSummaryResponse)

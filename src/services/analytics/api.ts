@@ -2,7 +2,7 @@ import { calculateCorrelation } from "@/analytics/correlation";
 import { calculateLeadLag } from "@/analytics/leadLag";
 import { calculateVolatility } from "@/analytics/volatility";
 import { withApiBase } from "@/services/api/base";
-import type { AnalyticsSummaryResult } from "@/types/analytics";
+import type { AnalyticsSummaryResult, ShockWindowSummaryResult } from "@/types/analytics";
 import type { TimePoint } from "@/types/market";
 import type { PollPoint } from "@/types/poll";
 
@@ -138,6 +138,89 @@ export async function getAnalyticsSummary(
     return {
       source: "local",
       summary: fallbackAnalytics(marketSeries, pollSeries),
+    };
+  }
+}
+
+function fallbackShockWindows(marketSeries: TimePoint[], windowSize = 7, topK = 3): ShockWindowSummaryResult {
+  const effectiveWindow = Math.min(windowSize, marketSeries.length);
+  if (marketSeries.length < 2) {
+    return { windowSize: effectiveWindow, topK, windows: [] };
+  }
+
+  const ranked = Array.from({ length: marketSeries.length - effectiveWindow + 1 }, (_, offset) => {
+    const window = marketSeries.slice(offset, offset + effectiveWindow);
+    const returns = window.slice(1).map((point, index) => point.value - window[index].value);
+    const avg = returns.length ? returns.reduce((sum, value) => sum + value, 0) / returns.length : 0;
+    const variance =
+      returns.length > 1
+        ? returns.reduce((sum, value) => sum + (value - avg) ** 2, 0) / returns.length
+        : 0;
+    const localVolatility = Math.sqrt(variance) * Math.sqrt(365) * 100;
+    const netMove = (window.at(-1)?.value ?? 0) - (window[0]?.value ?? 0);
+    return {
+      anchorIndex: offset + effectiveWindow - 1,
+      anchorTimestamp: window.at(-1)?.timestamp ?? "",
+      startTimestamp: window[0]?.timestamp ?? "",
+      endTimestamp: window.at(-1)?.timestamp ?? "",
+      netMove: Number((netMove * 100).toFixed(2)),
+      absoluteMove: Number((Math.abs(netMove) * 100).toFixed(2)),
+      localVolatility: Number(localVolatility.toFixed(2)),
+    };
+  });
+
+  ranked.sort((left, right) => right.absoluteMove - left.absoluteMove || right.localVolatility - left.localVolatility);
+  return {
+    windowSize: effectiveWindow,
+    topK,
+    windows: ranked.slice(0, topK),
+  };
+}
+
+export async function getShockWindows(
+  marketSeries: TimePoint[],
+  windowSize = 7,
+  topK = 3,
+): Promise<{ source: "api" | "local"; summary: ShockWindowSummaryResult }> {
+  if (marketSeries.length < 2) {
+    return {
+      source: "local",
+      summary: fallbackShockWindows(marketSeries, windowSize, topK),
+    };
+  }
+
+  const apiUrl = withApiBase("/api/analytics/shock-windows");
+  if (apiUrl === "/api/analytics/shock-windows") {
+    return {
+      source: "local",
+      summary: fallbackShockWindows(marketSeries, windowSize, topK),
+    };
+  }
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        series: marketSeries.map((point) => ({ timestamp: point.timestamp, value: point.value })),
+        windowSize,
+        topK,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Shock windows request failed: ${response.status}`);
+    }
+
+    const summary = (await response.json()) as ShockWindowSummaryResult;
+    return { source: "api", summary };
+  } catch {
+    return {
+      source: "local",
+      summary: fallbackShockWindows(marketSeries, windowSize, topK),
     };
   }
 }

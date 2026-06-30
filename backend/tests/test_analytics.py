@@ -6,9 +6,10 @@ from app.analytics.series import (
     calculate_event_window,
     calculate_lead_lag,
     calculate_rolling_correlation,
+    calculate_shock_windows,
     calculate_volatility,
 )
-from app.schemas.analytics import EventWindowRequest, LeadLagRequest, NumericSeriesPoint
+from app.schemas.analytics import EventWindowRequest, LeadLagRequest, NumericSeriesPoint, ShockWindowRequest
 
 
 def make_point(index: int, value: float) -> NumericSeriesPoint:
@@ -104,6 +105,20 @@ class AnalyticsTestCase(unittest.TestCase):
 
         self.assertIn(correlation.strength, {"weak", "moderate", "strong"})
         self.assertGreaterEqual(volatility.realized_volatility, 0.0)
+
+    def test_shock_windows_rank_largest_recent_windows(self) -> None:
+        payload = ShockWindowRequest(
+            series=[make_point(index, value) for index, value in enumerate([0.40, 0.42, 0.41, 0.55, 0.57, 0.50, 0.61])],
+            windowSize=3,
+            topK=2,
+        )
+
+        result = calculate_shock_windows(payload)
+        self.assertEqual(result.window_size, 3)
+        self.assertEqual(result.top_k, 2)
+        self.assertEqual(len(result.windows), 2)
+        self.assertGreaterEqual(result.windows[0].absolute_move, result.windows[1].absolute_move)
+        self.assertEqual(result.windows[0].anchor_timestamp, "2024-01-07T00:00:00.000Z")
 
 
 if __name__ == "__main__":

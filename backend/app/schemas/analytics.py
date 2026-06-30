@@ -15,6 +15,14 @@ class EventWindowRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ShockWindowRequest(BaseModel):
+    series: list[NumericSeriesPoint]
+    window_size: int = Field(default=7, alias="windowSize", ge=2, le=60)
+    top_k: int = Field(default=3, alias="topK", ge=1, le=10)
+
+    model_config = {"populate_by_name": True}
+
+
 class LeadLagRequest(BaseModel):
     market: list[NumericSeriesPoint]
     polling: list[NumericSeriesPoint]
@@ -72,6 +80,31 @@ class EventWindowResponse(BaseModel):
     net_move: float = Field(alias="netMove")
     pre_window: int = Field(alias="preWindow")
     post_window: int = Field(alias="postWindow")
+
+    model_config = {"populate_by_name": True}
+
+
+class ShockWindowPointResponse(BaseModel):
+    timestamp: str
+    value: float
+
+
+class ShockWindowResponse(BaseModel):
+    anchor_index: int = Field(alias="anchorIndex")
+    anchor_timestamp: str = Field(alias="anchorTimestamp")
+    start_timestamp: str = Field(alias="startTimestamp")
+    end_timestamp: str = Field(alias="endTimestamp")
+    net_move: float = Field(alias="netMove")
+    absolute_move: float = Field(alias="absoluteMove")
+    local_volatility: float = Field(alias="localVolatility")
+
+    model_config = {"populate_by_name": True}
+
+
+class ShockWindowSummaryResponse(BaseModel):
+    window_size: int = Field(alias="windowSize")
+    top_k: int = Field(alias="topK")
+    windows: list[ShockWindowResponse] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
 

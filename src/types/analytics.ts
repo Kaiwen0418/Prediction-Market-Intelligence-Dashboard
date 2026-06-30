@@ -61,6 +61,22 @@ export type AnalyticsSummaryResult = {
   eventWindow: EventWindowResult;
 };
 
+export type ShockWindowResult = {
+  anchorIndex: number;
+  anchorTimestamp: string;
+  startTimestamp: string;
+  endTimestamp: string;
+  netMove: number;
+  absoluteMove: number;
+  localVolatility: number;
+};
+
+export type ShockWindowSummaryResult = {
+  windowSize: number;
+  topK: number;
+  windows: ShockWindowResult[];
+};
+
 export type TradePressureResult = {
   buyVolume: number;
   sellVolume: number;
