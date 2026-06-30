@@ -9,6 +9,7 @@ import { UsMarketMap } from "@/components/maps/UsMarketMap";
 import { TopNav } from "@/components/navigation/TopNav";
 import { useMarketContext } from "@/hooks/useMarketContext";
 import { useMarketData } from "@/hooks/useMarketData";
+import { useLiveMarketStream } from "@/hooks/useLiveMarketStream";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
 import { useTimelineData } from "@/hooks/useTimelineData";
@@ -36,11 +37,19 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     allowMockStreamFallback: !strictLive,
     enableRealtime: strictLive
   });
+  const liveStream = useLiveMarketStream();
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market, marketContextQuery.data?.timelineEvents);
   const deferredEvents = useDeferredValue(timelineQuery.data ?? []);
-  const resolvedOrderbookSummary = marketContextQuery.data?.orderbookSummary ?? orderbookSummaryQuery.data;
+  const liveStreamMatchesMarket =
+    Boolean(liveStream.snapshot?.orderbookSummary) &&
+    Boolean(market?.slug) &&
+    liveStream.snapshot?.status.marketSlug === market?.slug;
+  const resolvedOrderbookSummary =
+    (liveStreamMatchesMarket ? liveStream.snapshot?.orderbookSummary : null) ??
+    marketContextQuery.data?.orderbookSummary ??
+    orderbookSummaryQuery.data;
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;
   const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
   const errorMessage = marketContextQuery.error instanceof Error
@@ -101,6 +110,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             onSelectCode={setSelectedStateCode}
             sources={{
               featuredMarket: sources["market-context"] ?? sources["featured-market"],
+              liveStream: sources["live-stream"],
               orderbookSummary: sources["market-context"] ?? sources["orderbook-summary"],
               orderbook: sources.orderbook,
               trades: sources.trades

@@ -17,6 +17,7 @@ type UsMarketMapProps = {
   onSelectCode?: (code: string | null) => void;
   sources: {
     featuredMarket?: SourceDiagnostics;
+    liveStream?: SourceDiagnostics;
     orderbook?: SourceDiagnostics;
     orderbookSummary?: SourceDiagnostics;
     trades?: SourceDiagnostics;
@@ -108,6 +109,7 @@ export function UsMarketMap({ market, orderbook, orderbookSummary, selectedCode,
 
   const sourceDots = [
     { diagnostics: sources.featuredMarket, label: "featured" },
+    { diagnostics: sources.liveStream, label: "stream" },
     { diagnostics: sources.orderbookSummary, label: "summary" },
     { diagnostics: sources.orderbook, label: "orderbook" },
     { diagnostics: sources.trades, label: "trades" }

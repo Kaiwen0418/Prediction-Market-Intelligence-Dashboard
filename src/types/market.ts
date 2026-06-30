@@ -87,6 +87,26 @@ export type MarketContext = {
   timelineEvents: TimelineEvent[];
 };
 
+export type LiveStreamStatus = {
+  enabled: boolean;
+  state: string;
+  marketSlug: string;
+  marketId?: string | null;
+  tokenId?: string | null;
+  connectedAt?: string | null;
+  lastMessageAt?: string | null;
+  lastEventType?: string | null;
+  messageCount: number;
+  reconnectCount: number;
+  latencyMs?: number | null;
+  error?: string | null;
+};
+
+export type LiveMarketSnapshot = {
+  status: LiveStreamStatus;
+  orderbookSummary: OrderbookSummary | null;
+};
+
 export type TimelineEvent = {
   id: string;
   eventId?: string;
