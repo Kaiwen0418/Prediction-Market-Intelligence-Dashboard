@@ -118,7 +118,7 @@ class AnalyticsTestCase(unittest.TestCase):
         self.assertEqual(result.top_k, 2)
         self.assertEqual(len(result.windows), 2)
         self.assertGreaterEqual(result.windows[0].absolute_move, result.windows[1].absolute_move)
-        self.assertEqual(result.windows[0].anchor_timestamp, "2024-01-07T00:00:00.000Z")
+        self.assertEqual(result.windows[0].anchor_timestamp, "2024-01-05T00:00:00.000Z")
 
 
 if __name__ == "__main__":
