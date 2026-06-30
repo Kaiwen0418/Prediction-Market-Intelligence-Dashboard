@@ -89,6 +89,51 @@ Primary showcase for:
 - state-by-state research comparison
 - event windows and rolling metrics
 - cached research bundle served by FastAPI
+- dense parameter views that expose how each metric evolves instead of only reporting final summary values
+
+## Frontend Visualization Expansion
+
+The next roadmap layer is not new raw data sources first. It is higher information density per page.
+
+### Design Direction
+
+Move away from isolated KPI cards toward compact analytical surfaces:
+
+- rolling volatility paths
+- market-vs-poll gap paths
+- shock window overlays directly on price series
+- liquidity / spread regime sparklines
+- replay microstructure panels
+- small-multiple state comparison charts
+
+### Frontend Chart Families
+
+Add these progressively:
+
+1. `Rolling Volatility Chart`
+   - input: historical market series
+   - output: trailing realized volatility path
+   - use: detect compression vs breakout regimes
+
+2. `Gap Path Chart`
+   - input: aligned market and polling series
+   - output: signed market-minus-poll gap over time
+   - use: show whether PM is persistently above or below polling
+
+3. `Shock Overlay`
+   - input: top shock windows from backend
+   - output: highlighted windows on the main market/poll chart
+   - use: connect event windows to visible repricing periods
+
+4. `Microstructure Replay Panel`
+   - input: `/api/live/replay`
+   - output: mid price, microprice, spread, flow imbalance, trade intensity
+   - use: make backend sampling visible in the UI
+
+5. `Cross-State Small Multiples`
+   - input: backend research summaries for multiple states
+   - output: compact comparison charts for volatility, divergence, correlation
+   - use: present a research dashboard instead of a single-state narrative
 
 ## Delivery Phases
 
@@ -183,11 +228,11 @@ Deliverables:
 
 ## Immediate Next Tasks
 
-1. Surface `/api/live/replay` in the frontend as a microstructure sparkline or debug overlay.
-2. Add rolling shock / volatility windows from cached price history.
+1. Overlay top shock windows directly on the market/poll history chart.
+2. Add rolling volatility and signed divergence charts to `/history`.
 3. Add historical replay fixtures so analytics outputs are testable without live connectivity.
 4. Add readiness and degradation routes that summarize live-stream health across registry entries.
-5. Persist sampled live metrics to a lightweight store if longer replay windows become necessary.
+5. Add cross-state small-multiple research charts to increase page information density.
 6. Add UI-level smoke coverage for source diagnostics and stream degradation states.
 
 ## Validation Checklist
