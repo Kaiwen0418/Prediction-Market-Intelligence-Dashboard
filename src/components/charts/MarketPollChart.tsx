@@ -3,7 +3,7 @@
 import type { EChartsOption } from "echarts";
 import { addDays, format, isValid, parseISO } from "date-fns";
 import type { TimePoint } from "@/types/market";
-import type { EventWindowResult } from "@/types/analytics";
+import type { EventWindowResult, ShockWindowResult } from "@/types/analytics";
 import type { PollPoint } from "@/types/poll";
 import { formatTimestamp } from "@/utils/time";
 import { ReactECharts } from "./ChartContainer";
@@ -12,6 +12,7 @@ type MarketPollChartProps = {
   marketSeries: TimePoint[];
   pollSeries: PollPoint[];
   eventWindow?: EventWindowResult;
+  shockWindows?: ShockWindowResult[];
 };
 
 function toDateKey(timestamp: string) {
@@ -36,7 +37,7 @@ function buildDayRange(start: string, end: string) {
   return days;
 }
 
-export function MarketPollChart({ marketSeries, pollSeries, eventWindow }: MarketPollChartProps) {
+export function MarketPollChart({ marketSeries, pollSeries, eventWindow, shockWindows = [] }: MarketPollChartProps) {
   const normalizedMarketByDay = new Map<string, number>();
   for (const point of marketSeries) {
     const dayKey = toDateKey(point.timestamp);
@@ -78,6 +79,26 @@ export function MarketPollChart({ marketSeries, pollSeries, eventWindow }: Marke
   const anchorDay = eventWindow?.anchorTimestamp ? toDateKey(eventWindow.anchorTimestamp) : null;
   const anchorIndex = anchorDay ? timeline.indexOf(anchorDay) : -1;
   const anchorValue = anchorIndex >= 0 ? marketData[anchorIndex] : null;
+  const shockWindowAreas = shockWindows
+    .map((window, index) => {
+      const startDay = toDateKey(window.startTimestamp);
+      const endDay = toDateKey(window.endTimestamp);
+      if (!startDay || !endDay) return null;
+
+      const startIndex = timeline.indexOf(startDay);
+      const endIndex = timeline.indexOf(endDay);
+      if (startIndex < 0 || endIndex < 0) return null;
+
+      return {
+        name: `Shock Window ${index + 1}`,
+        startIndex,
+        endIndex,
+        itemStyle: {
+          color: index === 0 ? "rgba(190, 24, 93, 0.12)" : index === 1 ? "rgba(245, 158, 11, 0.10)" : "rgba(59, 130, 246, 0.08)"
+        }
+      };
+    })
+    .filter((window): window is NonNullable<typeof window> => window !== null);
   const chartKey = `${timeline[0] ?? "empty"}:${timeline.at(-1) ?? "empty"}:${marketSeries.length}:${pollSeries.length}:${yAxisMin}:${yAxisMax}`;
 
   const option: EChartsOption = {
@@ -138,6 +159,18 @@ export function MarketPollChart({ marketSeries, pollSeries, eventWindow }: Marke
                   width: 1.5
                 },
                 data: [{ xAxis: anchorIndex }]
+              }
+            : undefined,
+        markArea:
+          shockWindowAreas.length
+            ? {
+                silent: true,
+                data: shockWindowAreas.map((window) => [
+                  window,
+                  {
+                    xAxis: window.endIndex,
+                  }
+                ])
               }
             : undefined,
         markPoint:

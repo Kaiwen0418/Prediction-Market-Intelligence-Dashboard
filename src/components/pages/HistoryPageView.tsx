@@ -449,6 +449,7 @@ export function HistoryPageView() {
               eventWindow={activeCase.eventWindow}
               marketSeries={activeCase.marketSeries}
               pollSeries={activeCase.pollSeries}
+              shockWindows={shockWindowsQuery.data?.summary.windows ?? []}
             />
           </div>
         </section>
