@@ -37,6 +37,9 @@ Environment variables:
 - `POLYMARKET_WS_URL=wss://ws-subscriptions-clob.polymarket.com/ws/market`
 - `LIVE_STREAM_ENABLED=true`
 - `LIVE_STREAM_INITIAL_DUMP=true`
+- `LIVE_STREAM_MAX_MARKETS=6`
+- `LIVE_STREAM_IDLE_TTL_SECONDS=300`
+- `LIVE_STREAM_CLEANUP_INTERVAL_SECONDS=60`
 - `ALLOW_ORIGINS=["https://your-vercel-app.vercel.app"]`
 
 ## Current endpoints
@@ -50,6 +53,12 @@ Environment variables:
 - `GET /api/live/status`
 - `GET /api/live/market-snapshot`
 - `GET /api/live/stream`
+
+The live-stream registry is bounded and self-cleaning:
+
+- the featured slug is kept warm
+- additional slug streams are evicted when the registry exceeds `LIVE_STREAM_MAX_MARKETS`
+- idle non-featured streams are removed after `LIVE_STREAM_IDLE_TTL_SECONDS`
 - `GET /api/research/states/{state}/summary`
 - `POST /api/analytics/lead-lag`
 - `POST /api/analytics/correlation`

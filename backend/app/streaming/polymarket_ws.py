@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import websockets
@@ -152,6 +152,7 @@ class ManagedMarketStream:
     error: str | None = None
     state: str = "idle"
     task: asyncio.Task[None] | None = None
+    last_accessed_at: str = field(default_factory=iso_now)
     book: LiveOrderbookState | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -185,18 +186,29 @@ class PolymarketLiveStreamManager:
         self._registry: dict[str, ManagedMarketStream] = {}
         self._registry_lock = asyncio.Lock()
         self._stop_requested = False
+        self._cleanup_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         settings = get_settings()
         self._stop_requested = False
         if not settings.live_stream_enabled:
             return
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._run_cleanup_loop(), name="polymarket-live-stream-cleanup")
         await self.ensure_stream(settings.featured_market_slug)
 
     async def stop(self) -> None:
         self._stop_requested = True
+        if self._cleanup_task:
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+        self._cleanup_task = None
         async with self._registry_lock:
             streams = list(self._registry.values())
+            self._registry.clear()
         for stream in streams:
             if stream.task:
                 stream.task.cancel()
@@ -220,24 +232,91 @@ class PolymarketLiveStreamManager:
             if stream is None:
                 stream = ManagedMarketStream(requested_slug=requested_slug)
                 self._registry[requested_slug] = stream
+            stream.last_accessed_at = iso_now()
             if settings.live_stream_enabled and (stream.task is None or stream.task.done()):
                 stream.task = asyncio.create_task(self._run_stream(stream), name=f"polymarket-live-stream:{requested_slug}")
             elif not settings.live_stream_enabled:
                 stream.state = "disabled"
+            await self._trim_registry_unlocked()
         return stream
 
     async def get_status(self, slug: str | None = None) -> LiveStreamStatusResponse:
         stream = await self.ensure_stream(slug)
         async with stream.lock:
+            stream.last_accessed_at = iso_now()
             return stream.build_status(get_settings().live_stream_enabled)
 
     async def get_snapshot(self, slug: str | None = None) -> LiveMarketSnapshotResponse:
         stream = await self.ensure_stream(slug)
         async with stream.lock:
+            stream.last_accessed_at = iso_now()
             status = stream.build_status(get_settings().live_stream_enabled)
             summary = stream.book.to_summary() if stream.book and (stream.book.bids or stream.book.asks or stream.book.trades) else None
             microstructure = stream.book.to_microstructure() if stream.book and (stream.book.bids or stream.book.asks) else None
             return LiveMarketSnapshotResponse(status=status, orderbookSummary=summary, microstructure=microstructure)
+
+    async def _run_cleanup_loop(self) -> None:
+        settings = get_settings()
+        while not self._stop_requested:
+            try:
+                await asyncio.sleep(max(settings.live_stream_cleanup_interval_seconds, 5))
+                async with self._registry_lock:
+                    stale_slugs = [
+                        slug
+                        for slug, stream in self._registry.items()
+                        if self._is_stream_stale(stream, settings.live_stream_idle_ttl_seconds)
+                    ]
+
+                for slug in stale_slugs:
+                    await self._remove_stream(slug)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                await asyncio.sleep(5)
+
+    async def _trim_registry_unlocked(self) -> None:
+        settings = get_settings()
+        limit = max(settings.live_stream_max_markets, 1)
+        if len(self._registry) <= limit:
+            return
+
+        ranked = sorted(
+            self._registry.items(),
+            key=lambda item: self._parse_iso_or_min(item[1].last_accessed_at),
+        )
+        excess = len(self._registry) - limit
+        evictable_slugs = [slug for slug, _ in ranked[:excess]]
+        for slug in evictable_slugs:
+            asyncio.create_task(self._remove_stream(slug), name=f"polymarket-live-stream-evict:{slug}")
+
+    async def _remove_stream(self, slug: str) -> None:
+        async with self._registry_lock:
+            stream = self._registry.pop(slug, None)
+        if stream is None:
+            return
+        if stream.task:
+            stream.task.cancel()
+            try:
+                await stream.task
+            except asyncio.CancelledError:
+                pass
+        stream.task = None
+        stream.state = "stopped"
+
+    def _is_stream_stale(self, stream: ManagedMarketStream, ttl_seconds: int) -> bool:
+        ttl_seconds = max(ttl_seconds, 30)
+        last_accessed = self._parse_iso_or_min(stream.last_accessed_at)
+        cutoff = utc_now() - timedelta(seconds=ttl_seconds)
+        featured_slug = get_settings().featured_market_slug.strip()
+        return stream.requested_slug != featured_slug and last_accessed < cutoff
+
+    def _parse_iso_or_min(self, value: str | None) -> datetime:
+        if not value:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return datetime.min.replace(tzinfo=timezone.utc)
 
     async def _prepare_stream_market(self, stream: ManagedMarketStream) -> tuple[str, str, str]:
         featured_event = await fetch_featured_market(stream.requested_slug)
