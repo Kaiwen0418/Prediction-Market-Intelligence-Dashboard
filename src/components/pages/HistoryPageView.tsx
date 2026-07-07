@@ -3,9 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { DivergenceGapChart } from "@/components/charts/DivergenceGapChart";
+import { EventWindowBarChart } from "@/components/charts/EventWindowBarChart";
 import { MarketPollChart } from "@/components/charts/MarketPollChart";
 import { RollingCorrelationChart } from "@/components/charts/RollingCorrelationChart";
 import { RollingVolatilityChart } from "@/components/charts/RollingVolatilityChart";
+import { ShockWindowBarChart } from "@/components/charts/ShockWindowBarChart";
 import { StateMetricSmallMultiples } from "@/components/charts/StateMetricSmallMultiples";
 import { StateSignalMatrix } from "@/components/charts/StateSignalMatrix";
 import { LoadingState } from "@/components/layout/LoadingState";
@@ -322,65 +324,59 @@ export function HistoryPageView() {
         </section>
 
         <section className="border-t border-[var(--demo-card-divider)] pt-8">
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-6">
-            <div>
-              <p className="metric-label">Lead-Lag</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">
-                {activeCase.leadLag.lagDays === 0 ? "Sync" : `${Math.abs(activeCase.leadLag.lagDays)}d`}
-              </p>
-              <p className="mt-2 text-sm text-slate-500">{activeCase.leadLag.interpretation}</p>
-            </div>
-            <div>
-              <p className="metric-label">Correlation</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{String(activeCase.correlation.coefficient)}</p>
-              <p className="mt-2 text-sm text-slate-500">{activeCase.correlation.strength} relationship between market and polling series</p>
-            </div>
-            <div>
-              <p className="metric-label">Divergence</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.divergence.currentGap} pts</p>
-              <p className="mt-2 text-sm text-slate-500">
-                Avg {activeCase.divergence.averageGap} pts · Max {activeCase.divergence.maxGap} pts
-              </p>
-            </div>
-            <div>
-              <p className="metric-label">Volatility</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.volatility.realizedVolatility}%</p>
-              <p className="mt-2 text-sm text-slate-500">
-                Average return {activeCase.volatility.averageReturn > 0 ? "+" : ""}
-                {activeCase.volatility.averageReturn} pts
-              </p>
-            </div>
-            <div>
-              <p className="metric-label">Rolling Corr</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.rollingCorrelation.coefficient}</p>
-              <p className="mt-2 text-sm text-slate-500">
-                {activeCase.rollingCorrelation.windowSize}-point trailing window
-              </p>
-            </div>
-            <div>
-              <p className="metric-label">Event Window</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{activeCase.eventWindow.netMove} pts</p>
-              <p className="mt-2 text-sm text-slate-500">
-                -{activeCase.eventWindow.preWindow} / +{activeCase.eventWindow.postWindow} around shock point
-              </p>
-            </div>
+          <div>
+            <p className="metric-label">Analytical Summary</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Regime, repricing, and event response</h2>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-500">
+              This section shifts the page away from isolated KPI figures and toward continuous analytical surfaces. The emphasis is on how alignment, volatility, and repricing evolve across the full market path.
+            </p>
           </div>
-          <div className="mt-8">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="metric-label">Rolling Correlation Path</p>
-                <p className="mt-2 text-sm text-slate-500">
-                  FastAPI computes a trailing {activeCase.rollingCorrelation.windowSize}-day alignment score after date-matching the market and polling series.
+          <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
+            <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="metric-label">Rolling Correlation Path</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    FastAPI computes a trailing {activeCase.rollingCorrelation.windowSize}-day alignment score after date-matching the market and polling series.
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-slate-700">{activeCase.rollingCorrelation.coefficient}</p>
+              </div>
+              <div className="mt-4">
+                <RollingCorrelationChart rollingCorrelation={activeCase.rollingCorrelation} />
+              </div>
+            </div>
+            <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="metric-label">Lead-Lag + Event Window</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    The lag offset gives the structural timing relationship; the event window shows how sharply the market repriced before and after the main shock.
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-slate-700">
+                  {activeCase.leadLag.lagDays === 0 ? "Sync" : `${Math.abs(activeCase.leadLag.lagDays)}d`}
                 </p>
               </div>
-              <p className="text-sm font-medium text-slate-700">{activeCase.rollingCorrelation.coefficient}</p>
-            </div>
-            <div className="mt-4">
-              <RollingCorrelationChart rollingCorrelation={activeCase.rollingCorrelation} />
+              <div className="mt-4">
+                <EventWindowBarChart eventWindow={activeCase.eventWindow} />
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+                  <p className="metric-label">Lead-Lag Interpretation</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{activeCase.leadLag.interpretation}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+                  <p className="metric-label">Window Geometry</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    -{activeCase.eventWindow.preWindow} / +{activeCase.eventWindow.postWindow} around {activeCase.eventWindow.anchorTimestamp.slice(0, 10)}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="mt-8 grid gap-6 xl:grid-cols-2">
-            <div>
+            <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <p className="metric-label">Rolling Volatility Path</p>
@@ -394,7 +390,7 @@ export function HistoryPageView() {
                 <RollingVolatilityChart series={activeCase.marketSeries} />
               </div>
             </div>
-            <div>
+            <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <p className="metric-label">Signed Divergence Path</p>
@@ -407,28 +403,52 @@ export function HistoryPageView() {
               <div className="mt-4">
                 <DivergenceGapChart marketSeries={activeCase.marketSeries} pollSeries={activeCase.pollSeries} />
               </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+                  <p className="metric-label">Current</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{activeCase.divergence.currentGap} pts</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+                  <p className="metric-label">Average</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{activeCase.divergence.averageGap} pts</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+                  <p className="metric-label">Maximum</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{activeCase.divergence.maxGap} pts</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mt-8">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="metric-label">Shock Windows</p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Largest {shockWindowsQuery.data?.summary.topK ?? 3} trailing {shockWindowsQuery.data?.summary.windowSize ?? 7}-day moves in the market path, ranked by absolute repricing and local volatility.
+          <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+            <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="metric-label">Shock Windows</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Largest {shockWindowsQuery.data?.summary.topK ?? 3} trailing {shockWindowsQuery.data?.summary.windowSize ?? 7}-day moves in the market path, ranked by absolute repricing and local volatility.
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-slate-700">
+                  {shockWindowsQuery.data?.source === "api" ? "FastAPI + NumPy" : "local fallback"}
                 </p>
               </div>
-              <p className="text-sm font-medium text-slate-700">
-                {shockWindowsQuery.data?.source === "api" ? "FastAPI + NumPy" : "local fallback"}
-              </p>
+              <div className="mt-4">
+                <ShockWindowBarChart windows={shockWindowsQuery.data?.summary.windows ?? []} />
+              </div>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3">
               {(shockWindowsQuery.data?.summary.windows ?? []).map((window, index) => (
-                <div key={`${window.anchorTimestamp}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="metric-label">Window {index + 1}</p>
-                  <p className="mt-2 text-xl font-semibold text-slate-900">
-                    {window.netMove >= 0 ? "+" : ""}
-                    {window.netMove} pts
-                  </p>
+                <div key={`${window.anchorTimestamp}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="metric-label">Window {index + 1}</p>
+                      <p className="mt-2 text-lg font-semibold text-slate-900">
+                        {window.netMove >= 0 ? "+" : ""}
+                        {window.netMove} pts
+                      </p>
+                    </div>
+                    <p className="text-xs uppercase tracking-[0.12em] text-slate-500">{window.startTimestamp.slice(5, 10)}</p>
+                  </div>
                   <p className="mt-2 text-sm text-slate-500">
                     {window.startTimestamp.slice(0, 10)} to {window.endTimestamp.slice(0, 10)}
                   </p>
