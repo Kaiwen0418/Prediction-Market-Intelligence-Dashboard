@@ -71,6 +71,7 @@ Live status metadata now includes:
 
 The stream manager also emits structured JSON log lines for registration, connection, progress, eviction, cleanup, and reconnect errors.
 - `GET /api/research/states/{state}/summary`
+- `GET /api/research/states/overview`
 - `POST /api/analytics/lead-lag`
 - `POST /api/analytics/correlation`
 - `POST /api/analytics/volatility`

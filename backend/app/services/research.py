@@ -16,6 +16,8 @@ from app.analytics.series import (
 )
 from app.schemas.analytics import EventWindowRequest, LeadLagRequest
 from app.schemas.research import (
+    ResearchOverviewItemResponse,
+    ResearchOverviewResponse,
     ResearchCoverageResponse,
     ResearchHighlightsResponse,
     ResearchNarrativeResponse,
@@ -226,4 +228,30 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
             "/data/state-party-support-2024.json",
             "/data/polymarket-history-2024.json",
         ],
+    )
+
+
+def get_research_overview(party: Party) -> ResearchOverviewResponse:
+    items: list[ResearchOverviewItemResponse] = []
+    for state in STATE_REGISTRY:
+        summary = get_research_summary(state, party)
+        items.append(
+            ResearchOverviewItemResponse(
+                state=summary.state,
+                eventSlug=summary.event_slug,
+                party=summary.party,
+                leadLagDays=summary.lead_lag.lag_days,
+                correlation=summary.correlation.coefficient,
+                divergence=summary.divergence.current_gap,
+                volatility=summary.volatility.realized_volatility,
+                alignedPoints=summary.coverage.aligned_points,
+            )
+        )
+
+    items.sort(key=lambda item: item.state)
+    return ResearchOverviewResponse(
+        party=party,
+        computedAt=datetime.now(timezone.utc).isoformat(),
+        source="api",
+        items=items,
     )

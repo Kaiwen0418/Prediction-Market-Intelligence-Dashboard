@@ -97,6 +97,24 @@ export type LiveHistoryCase = {
   sourceUrls: string[];
 };
 
+export type LiveHistoryOverviewItem = {
+  state: string;
+  eventSlug: string;
+  party: "Democrat" | "Republican";
+  leadLagDays: number;
+  correlation: number;
+  divergence: number;
+  volatility: number;
+  alignedPoints: number;
+};
+
+export type LiveHistoryOverview = {
+  party: "Democrat" | "Republican";
+  computedAt: string;
+  source: "api";
+  items: LiveHistoryOverviewItem[];
+};
+
 const STATE_SUPPORT_PUBLIC_URL = "/data/state-party-support-2024.json";
 const POLYMARKET_HISTORY_PUBLIC_URL = "/data/polymarket-history-2024.json";
 
@@ -242,6 +260,25 @@ async function fetchBackendResearchSummary(state: string, party: "Democrat" | "R
   return payload;
 }
 
+async function fetchBackendResearchOverview(
+  party: "Democrat" | "Republican",
+): Promise<LiveHistoryOverview> {
+  const response = await fetch(
+    withApiBase(`/api/research/states/overview?party=${encodeURIComponent(party)}`),
+    {
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Research overview request failed: ${response.status}`);
+  }
+
+  return (await response.json()) as LiveHistoryOverview;
+}
+
 async function getLiveHistoryCasesFromBackend(
   party: "Democrat" | "Republican" = "Republican",
 ): Promise<LiveHistoryCase[]> {
@@ -385,4 +422,25 @@ export async function getLiveHistoryCases(party: "Democrat" | "Republican" = "Re
   }
 
   return getLiveHistoryCasesLocal(party);
+}
+
+export async function getLiveHistoryOverview(
+  party: "Democrat" | "Republican" = "Republican",
+): Promise<LiveHistoryOverview | null> {
+  if (!getExternalApiBaseUrl()) {
+    return null;
+  }
+
+  try {
+    useDataSourceStore.getState().markPending(`history-overview-backend:${party}`);
+    const overview = await fetchBackendResearchOverview(party);
+    useDataSourceStore.getState().markLive(`history-overview-backend:${party}`);
+    return overview;
+  } catch {
+    useDataSourceStore.getState().markFallback(`history-overview-backend:${party}`, {
+      stage: "reachability",
+      message: "FastAPI research overview route was unavailable; reverted to per-state frontend aggregation",
+    });
+    return null;
+  }
 }

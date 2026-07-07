@@ -12,7 +12,7 @@ import { LoadingState } from "@/components/layout/LoadingState";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
 import { getShockWindows } from "@/services/analytics/api";
-import { getLiveHistoryCases } from "@/services/history/liveHistory";
+import { getLiveHistoryCases, getLiveHistoryOverview } from "@/services/history/liveHistory";
 import supportDataset from "@/../public/data/state-party-support-2024.json";
 import { researchCases, researchDataSources } from "@/services/history/researchStatic";
 
@@ -76,6 +76,10 @@ export function HistoryPageView() {
     queryKey: ["history-live-cases", party],
     queryFn: () => getLiveHistoryCases(party)
   });
+  const overviewQuery = useQuery({
+    queryKey: ["history-overview", party],
+    queryFn: () => getLiveHistoryOverview(party)
+  });
   const sourceDiagnostics = useSourceDiagnostics();
 
   const availableStates = ["Arizona", "Georgia", "Michigan", "Pennsylvania", "Wisconsin"];
@@ -129,15 +133,25 @@ export function HistoryPageView() {
       };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
   const usingLiveCases = Boolean(liveCase);
-  const comparisonCases = (liveHistoryQuery.data ?? [])
-    .filter((item) => availableStates.includes(item.state))
-    .map((item) => ({
-      state: item.state,
-      leadLagDays: item.leadLag.lagDays,
-      volatility: item.volatility.realizedVolatility,
-      divergence: item.divergence.currentGap,
-      correlation: item.correlation.coefficient,
-    }));
+  const comparisonCases = overviewQuery.data?.items?.length
+    ? overviewQuery.data.items
+        .filter((item) => availableStates.includes(item.state))
+        .map((item) => ({
+          state: item.state,
+          leadLagDays: item.leadLagDays,
+          volatility: item.volatility,
+          divergence: item.divergence,
+          correlation: item.correlation,
+        }))
+    : (liveHistoryQuery.data ?? [])
+        .filter((item) => availableStates.includes(item.state))
+        .map((item) => ({
+          state: item.state,
+          leadLagDays: item.leadLag.lagDays,
+          volatility: item.volatility.realizedVolatility,
+          divergence: item.divergence.currentGap,
+          correlation: item.correlation.coefficient,
+        }));
   const shockWindowsQuery = useQuery({
     queryKey: ["history-shock-windows", activeCase.state, party, activeCase.marketSeries.length],
     queryFn: () => getShockWindows(activeCase.marketSeries, 7, 3),
@@ -288,6 +302,9 @@ export function HistoryPageView() {
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">Small multiples across battleground states</h2>
             <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-500">
               This panel compresses the current parameter state across all tracked states so the page reads like a research surface rather than a single-case report.
+            </p>
+            <p className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-600">
+              Cross-state source: {overviewQuery.data ? "FastAPI overview route" : "frontend aggregated state summaries"}
             </p>
             <div className="mt-6">
               <StateMetricSmallMultiples data={comparisonCases} />

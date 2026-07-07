@@ -85,3 +85,25 @@ class ResearchStateSummaryResponse(BaseModel):
     source_urls: list[str] = Field(alias="sourceUrls")
 
     model_config = {"populate_by_name": True}
+
+
+class ResearchOverviewItemResponse(BaseModel):
+    state: str
+    event_slug: str = Field(alias="eventSlug")
+    party: str
+    lead_lag_days: int = Field(alias="leadLagDays")
+    correlation: float
+    divergence: float
+    volatility: float
+    aligned_points: int = Field(alias="alignedPoints")
+
+    model_config = {"populate_by_name": True}
+
+
+class ResearchOverviewResponse(BaseModel):
+    party: str
+    computed_at: str = Field(alias="computedAt")
+    source: str = "api"
+    items: list[ResearchOverviewItemResponse]
+
+    model_config = {"populate_by_name": True}
