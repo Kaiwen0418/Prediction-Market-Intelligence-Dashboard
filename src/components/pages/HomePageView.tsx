@@ -17,8 +17,8 @@ export function HomePageView() {
         </>
       }
       footerLabel="Vision & Thesis"
-      footerLeft="MarketFlow reimagines prediction markets as intelligence networks, fusing real-time pricing, liquidity analytics, and event catalysts into a cohesive interface that decodes market psychology and collective foresight."
-      footerRight="Evolving from guided demos to autonomous monitoring, MarketFlow charts a course toward democratizing predictive intelligence—envisioning AI-enhanced forecasting, global market integration, and community-driven decision tools that empower societies to anticipate and shape the future."
+      footerLeft="MarketFlow turns Polymarket contracts into an observable market system: state-level navigation, live order-book depth, backend-streamed microstructure, and annotated probability history in one research surface."
+      footerRight="The longer-term thesis is an open predictive-intelligence layer that measures information arrival, liquidity regimes, and event impact across markets—then exposes those signals through reproducible FastAPI and NumPy analytics."
       showHero
     >
       <div className="product-demo-market">

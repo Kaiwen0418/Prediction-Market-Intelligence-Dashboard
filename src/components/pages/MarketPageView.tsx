@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useState } from "react";
 import { PolymarketHistoryChart } from "@/components/charts/PolymarketHistoryChart";
+import { MicrostructureReplayChart } from "@/components/charts/MicrostructureReplayChart";
 import { ErrorState } from "@/components/layout/ErrorState";
 import { LoadingState } from "@/components/layout/LoadingState";
 import { getSpotlightState } from "@/components/maps/spotlightStates";
@@ -134,6 +135,27 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             liveDegradation={liveSystemHealth.degradationQuery.data ?? null}
             liveRegistryHealth={liveSystemHealth.registryHealthQuery.data ?? null}
           />
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--demo-card-divider)] pt-8">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="metric-label">Microstructure Replay</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">
+              Liquidity and order flow through time
+            </h2>
+          </div>
+          <p className="text-sm leading-6 text-slate-500 md:max-w-[320px] md:text-right">
+            {liveReplay?.sampleCount ?? 0} samples · {liveReplay?.source ?? "warming up"} · FastAPI + NumPy
+          </p>
+        </div>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:leading-7">
+          Four synchronized windows separate price discovery from execution cost and directional pressure. Together they
+          show whether a probability move is supported by liquidity, aggressive flow, or a short-lived volatility shock.
+        </p>
+        <div className="mt-6">
+          <MicrostructureReplayChart samples={liveReplay?.samples ?? []} />
         </div>
       </section>
 

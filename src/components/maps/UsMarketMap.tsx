@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
-import { LiveReplaySparkline } from "@/components/charts/LiveReplaySparkline";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import {
@@ -338,84 +337,42 @@ export function UsMarketMap({
           <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
           <div className="flex items-center justify-between gap-3">
-            <p className="metric-label">Live Replay</p>
+            <p className="metric-label">Market Snapshot</p>
             <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
               {getReplaySourceLabel(liveReplay)}
             </span>
           </div>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Short-window replay of backend-cached mid price versus microprice. This is sampled from the FastAPI stream
-            manager when available and falls back to a deterministic backend fixture while the live replay window is still warming up.
+          <div className="mt-3 divide-y divide-[var(--demo-card-divider)] text-sm">
+            <div className="flex items-baseline justify-between gap-4 py-2.5">
+              <span className="text-slate-500">Mid / microprice</span>
+              <span className="font-semibold text-slate-900">
+                {summary.midPrice.toFixed(3)} / {microstructure.microprice.toFixed(3)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-4 py-2.5">
+              <span className="text-slate-500">Spread / depth skew</span>
+              <span className="font-semibold text-slate-900">
+                {summary.liquidity.spreadBps.toFixed(1)} bps / {(microstructure.depthSkew * 100).toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-4 py-2.5">
+              <span className="text-slate-500">Flow / volatility</span>
+              <span className="font-semibold text-slate-900">
+                {(microstructure.orderFlowImbalance * 100).toFixed(1)}% / {microstructure.realizedVolatility.toFixed(4)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-4 py-2.5">
+              <span className="text-slate-500">Depth / activity</span>
+              <span className="font-semibold text-slate-900">
+                {summary.liquidity.totalBidDepth.toFixed(0)} / {summary.liquidity.totalAskDepth.toFixed(0)} · {microstructure.tradeIntensity.toFixed(1)}
+              </span>
+            </div>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            {showingBackendMetrics ? "Computed from the active FastAPI stream window." : "Estimated from the latest REST snapshot."}
           </p>
-          <div className="mt-4">
-            <LiveReplaySparkline samples={liveReplay?.samples ?? []} />
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-            <p className="metric-label">Mid / Spread</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{summary.midPrice.toFixed(3)}</p>
-            <p className="mt-1 text-sm text-slate-500">{summary.liquidity.spreadBps} bps spread</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-            <p className="metric-label">Pressure</p>
-            <p className="mt-1 text-lg font-semibold capitalize text-slate-900">{summary.tradePressure.pressure}</p>
-            <p className="mt-1 text-sm text-slate-500">Ratio {summary.tradePressure.ratio.toFixed(2)}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-            <p className="metric-label">Bid / Ask Depth</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {summary.liquidity.totalBidDepth.toFixed(0)} / {summary.liquidity.totalAskDepth.toFixed(0)}
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {(summary.liquidity.imbalance * 100).toFixed(1)}% imbalance
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-            <p className="metric-label">Levels / Trades</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {summary.bidLevels} / {summary.askLevels}
-            </p>
-            <p className="mt-1 text-sm text-slate-500">{summary.tradeCount} recent prints</p>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <div className="flex items-center justify-between gap-3">
-            <p className="metric-label">NumPy Live Metrics</p>
-            <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-              {showingBackendMetrics ? "backend stream" : "fallback estimate"}
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Microprice weights the best bid and ask by near-touch depth. Order-flow imbalance and realized volatility
-            are computed from the backend live stream window and expose how aggressive the tape has become.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-              <p className="metric-label">Microprice</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{microstructure.microprice.toFixed(3)}</p>
-              <p className="mt-1 text-sm text-slate-500">vs {summary.midPrice.toFixed(3)} displayed mid</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-              <p className="metric-label">Depth Skew</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{(microstructure.depthSkew * 100).toFixed(1)}%</p>
-              <p className="mt-1 text-sm text-slate-500">signed pressure at top five levels</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-              <p className="metric-label">Realized Vol</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{microstructure.realizedVolatility.toFixed(4)}</p>
-              <p className="mt-1 text-sm text-slate-500">log-return shock over the live mid-price window</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 px-4 py-3">
-              <p className="metric-label">Flow / Clip</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{(microstructure.orderFlowImbalance * 100).toFixed(1)}%</p>
-              <p className="mt-1 text-sm text-slate-500">imbalance · avg clip {microstructure.tradeIntensity.toFixed(1)}</p>
-            </div>
-          </div>
         </div>
 
         {selectedState ? (

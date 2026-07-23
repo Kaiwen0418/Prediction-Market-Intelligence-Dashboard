@@ -229,7 +229,9 @@ Deliverables:
 ## Immediate Next Tasks
 
 1. Overlay top shock windows directly on the market/poll history chart.
+   Status: completed with shock-window context in the chart-first research summary and ranked shock-window visualization.
 2. Add rolling volatility and signed divergence charts to `/history`.
+   Status: completed with dedicated rolling volatility, signed divergence, event-window, and correlation surfaces.
 3. Add historical replay fixtures so analytics outputs are testable without live connectivity.
    Status: completed for `/api/live/replay` via deterministic backend fixtures keyed by slug; frontend diagnostics distinguish `fixture` from `stream`.
 4. Add readiness and degradation routes that summarize live-stream health across registry entries.
@@ -238,6 +240,21 @@ Deliverables:
    Status: completed with a backend-owned `/api/research/states/overview` route that now drives the research-page cross-state panels before falling back to frontend aggregation.
 6. Add UI-level smoke coverage for source diagnostics and stream degradation states.
    Status: completed for the market rail formatter layer; CI now runs targeted smoke assertions for replay source labels, backend health summaries, and source-dot state mapping.
+7. Replace homepage KPI grids with time-varying microstructure charts.
+   Status: completed with synchronized replay panels for fair-price pressure, spread cost, depth/flow imbalance, and realized volatility.
+
+## Expanded Product Backlog
+
+The next iteration should increase analytical depth without introducing unrelated upstream data sources:
+
+1. Add liquidity-regime classification (`deep`, `balanced`, `thin`, `stressed`) and render regime bands behind replay charts.
+2. Add WSS operations telemetry for message rate, latency, reconnects, and stale-window duration.
+3. Add a multi-market comparison workspace with normalized probability, volatility, liquidity, and flow paths.
+4. Add event-impact confidence bands and pre/post significance estimates to the research page.
+5. Replace placeholder price-history annotations with backend-matched Polymarket event metadata.
+6. Add source-quality scoring based on freshness, continuity, fallback use, and sample density.
+7. Add chart accessibility: keyboard inspection, tabular data summaries, and reduced-motion behavior.
+8. Add screenshot-based responsive regression coverage for the homepage and research analytical grids.
 
 ## Validation Checklist
 

@@ -14,12 +14,19 @@ function coerceDate(input: string | number | Date): Date | null {
     return null;
   }
 
-  const isoDate = parseISO(input);
+  const normalizedInput = input.trim();
+  if (/^\d{10,13}$/.test(normalizedInput)) {
+    const epochValue = Number(normalizedInput);
+    const epochDate = new Date(normalizedInput.length === 10 ? epochValue * 1000 : epochValue);
+    return isValid(epochDate) ? epochDate : null;
+  }
+
+  const isoDate = parseISO(normalizedInput);
   if (isValid(isoDate)) {
     return isoDate;
   }
 
-  const nativeDate = new Date(input);
+  const nativeDate = new Date(normalizedInput);
   return isValid(nativeDate) ? nativeDate : null;
 }
 
