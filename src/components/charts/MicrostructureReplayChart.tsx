@@ -71,7 +71,10 @@ export function MicrostructureReplayChart({ samples }: MicrostructureReplayChart
     name,
     type: "line" as const,
     data,
-    showSymbol: false,
+    showSymbol: samples.length <= 2,
+    symbol: "circle",
+    symbolSize: 7,
+    itemStyle: { color },
     smooth: 0.2,
     lineStyle: { color, width: 2, type: dashed ? ("dashed" as const) : ("solid" as const) }
   });
