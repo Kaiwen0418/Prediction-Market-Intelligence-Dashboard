@@ -5,6 +5,7 @@ export type TimePoint = {
 
 export type MarketSnapshot = {
   marketId: string;
+  conditionId?: string;
   eventId?: string;
   tokenId?: string;
   slug: string;
@@ -33,6 +34,7 @@ export type TradePrint = {
   price: number;
   size: number;
   timestamp: string;
+  walletAddress?: string;
 };
 
 export type OrderbookState = {
@@ -79,6 +81,12 @@ export type OrderbookSummary = {
     depthShareThreshold: number;
     minimumSampleSize: number;
     attributionAvailable: boolean;
+    attributedTradeCount: number;
+    uniqueWalletCount: number;
+    walletSampleMinimum: number;
+    walletConcentrationStatus: "unavailable" | "insufficient-data" | "available";
+    walletConcentrationScore: number | null;
+    topWalletVolumeShare: number | null;
     largeTrades: Array<{
       tradeId: string;
       side: "buy" | "sell";
@@ -88,6 +96,7 @@ export type OrderbookSummary = {
       notionalUsd: number;
       historicalSizeMultiple: number;
       executableDepthShare: number;
+      walletAddress?: string | null;
     }>;
   };
 };

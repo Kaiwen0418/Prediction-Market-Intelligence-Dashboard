@@ -45,6 +45,10 @@ import type { RegionSignal } from "@/types/signals";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 import { useSignalWatchlist } from "@/hooks/useSignalWatchlist";
 
+function formatWalletAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 type UsMarketMapProps = {
   market: MarketSnapshot;
   orderbook: OrderbookState;
@@ -270,6 +274,12 @@ export function UsMarketMap({
       depthShareThreshold: 0.05,
       minimumSampleSize: 5,
       attributionAvailable: false,
+      attributedTradeCount: 0,
+      uniqueWalletCount: 0,
+      walletSampleMinimum: 10,
+      walletConcentrationStatus: "unavailable" as const,
+      walletConcentrationScore: null,
+      topWalletVolumeShare: null,
       largeTrades: []
     }
   };
@@ -290,6 +300,12 @@ export function UsMarketMap({
     depthShareThreshold: 0.05,
     minimumSampleSize: 5,
     attributionAvailable: false,
+    attributedTradeCount: 0,
+    uniqueWalletCount: 0,
+    walletSampleMinimum: 10,
+    walletConcentrationStatus: "unavailable" as const,
+    walletConcentrationScore: null,
+    topWalletVolumeShare: null,
     largeTrades: []
   };
 
@@ -621,6 +637,7 @@ export function UsMarketMap({
                   <span className="text-slate-600">
                     {trade.historicalSizeMultiple.toFixed(1)}x median ·{" "}
                     {(trade.executableDepthShare * 100).toFixed(1)}% depth
+                    {trade.walletAddress ? ` · ${formatWalletAddress(trade.walletAddress)}` : ""}
                   </span>
                   <span className="font-semibold tabular-nums text-slate-900">
                     ${trade.notionalUsd.toLocaleString()}
@@ -637,6 +654,19 @@ export function UsMarketMap({
                   : `At least ${whaleActivity.minimumSampleSize} normalized prints and two-sided depth are required.`}
             </p>
           )}
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            {whaleActivity.walletConcentrationStatus === "available" &&
+            whaleActivity.walletConcentrationScore !== null &&
+            whaleActivity.topWalletVolumeShare !== null
+              ? `Wallet concentration ${whaleActivity.walletConcentrationScore.toFixed(1)}/100 · top public wallet ${(
+                  whaleActivity.topWalletVolumeShare * 100
+                ).toFixed(1)}% · ${whaleActivity.uniqueWalletCount} wallets · ${
+                  whaleActivity.attributedTradeCount
+                } attributed prints`
+              : whaleActivity.walletConcentrationStatus === "insufficient-data"
+                ? `${whaleActivity.attributedTradeCount} attributed prints · ${whaleActivity.walletSampleMinimum} required for concentration scoring`
+                : "Public wallet attribution is unavailable for this sample."}
+          </p>
           <p className="mt-3 text-xs leading-5 text-slate-500">
             Flagged at {whaleActivity.historicalMultipleThreshold}x median size and{" "}
             {(whaleActivity.depthShareThreshold * 100).toFixed(0)}% of executable depth. Public trades do not

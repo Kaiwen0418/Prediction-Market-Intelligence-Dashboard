@@ -20,6 +20,11 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function asWalletAddress(value: unknown): string | undefined {
+  const address = asString(value);
+  return /^0x[a-fA-F0-9]{40}$/.test(address) ? address.toLowerCase() : undefined;
+}
+
 function parseJsonArray(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string") return [];
@@ -67,6 +72,7 @@ function normalizeEventMarketCandidate(event: UnknownRecord, market: UnknownReco
 
   return {
     marketId,
+    conditionId: asString(market.conditionId) || undefined,
     eventId: asString(event.id) || undefined,
     tokenId,
     slug: asString(event.slug, marketId),
@@ -95,6 +101,7 @@ export function normalizeGammaMarket(payload: unknown): MarketSnapshot | null {
 
   return {
     marketId,
+    conditionId: asString(payload.conditionId) || undefined,
     eventId: asString(payload.eventId) || undefined,
     tokenId,
     slug,
@@ -192,7 +199,8 @@ function normalizeTrades(input: unknown): TradePrint[] {
         timestamp:
           typeof trade.timestamp === "number"
             ? new Date(trade.timestamp * 1000).toISOString()
-            : asString(trade.timestamp, new Date().toISOString())
+            : asString(trade.timestamp, new Date().toISOString()),
+        walletAddress: asWalletAddress(trade.proxyWallet)
       };
     })
     .filter((trade) => trade.price > 0 && trade.size > 0);

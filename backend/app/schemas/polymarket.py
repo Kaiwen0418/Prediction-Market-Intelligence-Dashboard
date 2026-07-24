@@ -9,6 +9,7 @@ class MarketProxyResponse(BaseModel):
 
 class FeaturedMarketResponse(BaseModel):
     market_id: str = Field(alias="marketId")
+    condition_id: str | None = Field(default=None, alias="conditionId")
     event_id: str | None = Field(default=None, alias="eventId")
     token_id: str | None = Field(default=None, alias="tokenId")
     slug: str
@@ -44,6 +45,9 @@ class TradePrint(BaseModel):
     price: float
     size: float
     timestamp: str
+    wallet_address: str | None = Field(default=None, alias="walletAddress")
+
+    model_config = {"populate_by_name": True}
 
 
 class OrderbookSnapshot(BaseModel):
@@ -88,6 +92,7 @@ class LargeTradeResponse(BaseModel):
     notional_usd: float = Field(alias="notionalUsd")
     historical_size_multiple: float = Field(alias="historicalSizeMultiple")
     executable_depth_share: float = Field(alias="executableDepthShare")
+    wallet_address: str | None = Field(default=None, alias="walletAddress")
 
     model_config = {"populate_by_name": True}
 
@@ -100,6 +105,15 @@ class WhaleActivityResponse(BaseModel):
     depth_share_threshold: float = Field(alias="depthShareThreshold")
     minimum_sample_size: int = Field(alias="minimumSampleSize")
     attribution_available: bool = Field(default=False, alias="attributionAvailable")
+    attributed_trade_count: int = Field(default=0, alias="attributedTradeCount")
+    unique_wallet_count: int = Field(default=0, alias="uniqueWalletCount")
+    wallet_sample_minimum: int = Field(default=10, alias="walletSampleMinimum")
+    wallet_concentration_status: Literal["unavailable", "insufficient-data", "available"] = Field(
+        default="unavailable",
+        alias="walletConcentrationStatus",
+    )
+    wallet_concentration_score: float | None = Field(default=None, alias="walletConcentrationScore")
+    top_wallet_volume_share: float | None = Field(default=None, alias="topWalletVolumeShare")
     large_trades: list[LargeTradeResponse] = Field(default_factory=list, alias="largeTrades")
 
     model_config = {"populate_by_name": True}
@@ -114,6 +128,12 @@ def default_whale_activity() -> WhaleActivityResponse:
         depthShareThreshold=0.05,
         minimumSampleSize=5,
         attributionAvailable=False,
+        attributedTradeCount=0,
+        uniqueWalletCount=0,
+        walletSampleMinimum=10,
+        walletConcentrationStatus="unavailable",
+        walletConcentrationScore=None,
+        topWalletVolumeShare=None,
         largeTrades=[],
     )
 

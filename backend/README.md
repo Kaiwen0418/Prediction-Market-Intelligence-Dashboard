@@ -34,6 +34,7 @@ Environment variables:
 
 - `APP_ENV=production`
 - `FEATURED_MARKET_SLUG=california-governor-election-2026`
+- `DATA_API_BASE_URL=https://data-api.polymarket.com`
 - `POLYMARKET_WS_URL=wss://ws-subscriptions-clob.polymarket.com/ws/market`
 - `LIVE_STREAM_ENABLED=true`
 - `LIVE_STREAM_INITIAL_DUMP=true`

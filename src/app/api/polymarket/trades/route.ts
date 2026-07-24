@@ -8,12 +8,12 @@ export async function GET(request: NextRequest) {
   const baseUrlError = validateProxyBaseUrls();
   if (baseUrlError) return baseUrlError;
 
-  const tokenId = request.nextUrl.searchParams.get("tokenId");
-  if (!tokenId) {
-    return NextResponse.json({ error: "tokenId is required" }, { status: 400 });
+  const conditionId = request.nextUrl.searchParams.get("conditionId");
+  if (!conditionId) {
+    return NextResponse.json({ error: "conditionId is required" }, { status: 400 });
   }
 
-  const url = `${polymarketConfig.gammaBaseUrl}/trades?limit=20&market=${encodeURIComponent(tokenId)}`;
+  const url = `${polymarketConfig.dataApiBaseUrl}/trades?limit=100&takerOnly=true&market=${encodeURIComponent(conditionId)}`;
   try {
     return await proxyJson(url);
   } catch {

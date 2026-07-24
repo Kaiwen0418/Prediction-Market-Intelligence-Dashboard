@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_name: str = "Prediction Market API"
     app_env: str = "development"
     gamma_base_url: str = "https://gamma-api.polymarket.com"
+    data_api_base_url: str = "https://data-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"
     featured_market_slug: str = "california-governor-election-2026"
     polymarket_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"

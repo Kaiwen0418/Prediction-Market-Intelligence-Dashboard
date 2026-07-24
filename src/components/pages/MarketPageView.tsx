@@ -97,6 +97,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     initialFeaturedMarket: contextMarket
   });
   const { orderbook, snapshotQuery } = useOrderbook(market?.tokenId, {
+    conditionId: market?.conditionId,
     strictSnapshot: strictLive,
     allowMockStreamFallback: !strictLive,
     enableRealtime: strictLive
@@ -105,7 +106,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const liveReplayQuery = useLiveReplay(selectedSlug ?? market?.slug, 48);
   const regionSignalsQuery = useRegionSignals(selectedCountryCode, selectedSlug ?? market?.slug);
   const liveSystemHealth = useLiveSystemHealth();
-  const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
+  const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId, market?.conditionId);
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market, marketContextQuery.data?.timelineEvents);
   const deferredEvents = useDeferredValue(timelineQuery.data ?? []);
@@ -113,10 +114,19 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     Boolean(liveStream.snapshot?.orderbookSummary) &&
     Boolean(market?.slug) &&
     liveStream.snapshot?.status.marketSlug === (selectedSlug ?? market?.slug);
-  const resolvedOrderbookSummary =
-    (liveStreamMatchesMarket ? liveStream.snapshot?.orderbookSummary : null) ??
-    marketContextQuery.data?.orderbookSummary ??
-    orderbookSummaryQuery.data;
+  const streamedOrderbookSummary = liveStreamMatchesMarket
+    ? liveStream.snapshot?.orderbookSummary
+    : null;
+  const restOrderbookSummary =
+    marketContextQuery.data?.orderbookSummary ?? orderbookSummaryQuery.data;
+  const resolvedOrderbookSummary = streamedOrderbookSummary
+    ? {
+        ...streamedOrderbookSummary,
+        whaleActivity:
+          restOrderbookSummary?.whaleActivity ??
+          streamedOrderbookSummary.whaleActivity
+      }
+    : restOrderbookSummary;
   const liveMicrostructure = liveStreamMatchesMarket ? liveStream.snapshot?.microstructure ?? null : null;
   const liveReplay =
     liveReplayQuery.data && liveReplayQuery.data.status.marketSlug === (selectedSlug ?? market?.slug)

@@ -186,3 +186,4 @@ Acceptance criteria:
 - [x] Add persistent region watchlists, watched-only filtering, and opt-in browser notification preferences.
 - [x] Detect large public trades using transparent median-size and executable-depth thresholds.
 - [x] Remove synthetic wallet identities and placeholder whale-buy claims.
+- [x] Normalize documented public proxy-wallet trades and add sample-gated concentration scoring.

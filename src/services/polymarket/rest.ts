@@ -178,8 +178,8 @@ export async function fetchOrderbookLive(tokenId: string): Promise<OrderbookStat
   }
 }
 
-export async function fetchTradesLive(tokenId: string): Promise<TradePrint[]> {
-  const tradesUrl = withApiBase(`/api/polymarket/trades?tokenId=${encodeURIComponent(tokenId)}`);
+export async function fetchTradesLive(conditionId: string): Promise<TradePrint[]> {
+  const tradesUrl = withApiBase(`/api/polymarket/trades?conditionId=${encodeURIComponent(conditionId)}`);
   try {
     const payload = await requestJson<unknown>(tradesUrl);
     const payloadIssue = validateTradesPayload(payload);
@@ -187,7 +187,7 @@ export async function fetchTradesLive(tokenId: string): Promise<TradePrint[]> {
       recordFallback("trades", payloadIssue.stage, payloadIssue.message);
       return [];
     }
-    const normalized = normalizeOrderbook({ trades: Array.isArray(payload) ? payload : [] }, tokenId);
+    const normalized = normalizeOrderbook({ trades: Array.isArray(payload) ? payload : [] }, conditionId);
     const trades = normalized?.trades ?? [];
     if (trades.length) {
       recordLive("trades");
@@ -201,8 +201,15 @@ export async function fetchTradesLive(tokenId: string): Promise<TradePrint[]> {
   }
 }
 
-export async function fetchOrderbookSummaryLive(tokenId: string): Promise<OrderbookSummary | null> {
-  const summaryUrl = withApiBase(`/api/polymarket/orderbook-summary?tokenId=${encodeURIComponent(tokenId)}`);
+export async function fetchOrderbookSummaryLive(
+  tokenId: string,
+  conditionId?: string
+): Promise<OrderbookSummary | null> {
+  const summaryUrl = withApiBase(
+    `/api/polymarket/orderbook-summary?tokenId=${encodeURIComponent(tokenId)}${
+      conditionId ? `&conditionId=${encodeURIComponent(conditionId)}` : ""
+    }`
+  );
   try {
     const payload = await requestJson<OrderbookSummary>(summaryUrl);
     if (
