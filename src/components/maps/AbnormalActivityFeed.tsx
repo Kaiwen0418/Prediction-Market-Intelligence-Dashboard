@@ -13,6 +13,7 @@ import type {
 import type { RegionMarket } from "@/components/maps/spotlightStates";
 import type { RegionSignal } from "@/types/signals";
 import { relativeTime } from "@/utils/time";
+import { filterWatchedRegions } from "@/components/maps/signalWatchlist";
 
 type AbnormalActivityFeedProps = {
   regions: RegionMarket[];
@@ -21,9 +22,17 @@ type AbnormalActivityFeedProps = {
   minimumScore: number;
   signalKind: ActivitySignalFilter;
   maxAgeHours: ActivityTimeWindow;
+  countryCode: string;
+  watchlist: string[];
+  watchedOnly: boolean;
+  alertsEnabled: boolean;
+  alertPermission: NotificationPermission | "unsupported";
   onMinimumScoreChange: (score: number) => void;
   onSignalKindChange: (kind: ActivitySignalFilter) => void;
   onMaxAgeHoursChange: (hours: ActivityTimeWindow) => void;
+  onWatchedOnlyChange: (watchedOnly: boolean) => void;
+  onAlertsEnabledChange: (enabled: boolean) => void;
+  onToggleWatch: (countryCode: string, regionCode: string) => void;
   onSelect: (code: string) => void;
 };
 
@@ -58,19 +67,40 @@ export function AbnormalActivityFeed({
   minimumScore,
   signalKind,
   maxAgeHours,
+  countryCode,
+  watchlist,
+  watchedOnly,
+  alertsEnabled,
+  alertPermission,
   onMinimumScoreChange,
   onSignalKindChange,
   onMaxAgeHoursChange,
+  onWatchedOnlyChange,
+  onAlertsEnabledChange,
+  onToggleWatch,
   onSelect
 }: AbnormalActivityFeedProps) {
   const rankedSignals = useMemo(
     () =>
-      rankRegionSignals(regions, signals, {
-        minimumScore,
-        signalKind,
-        maxAgeHours
-      }).slice(0, 5),
-    [maxAgeHours, minimumScore, regions, signalKind, signals]
+      rankRegionSignals(
+        filterWatchedRegions(regions, countryCode, watchlist, watchedOnly),
+        signals,
+        {
+          minimumScore,
+          signalKind,
+          maxAgeHours
+        }
+      ).slice(0, 5),
+    [
+      countryCode,
+      maxAgeHours,
+      minimumScore,
+      regions,
+      signalKind,
+      signals,
+      watchedOnly,
+      watchlist
+    ]
   );
 
   return (
@@ -137,52 +167,91 @@ export function AbnormalActivityFeed({
             ))}
           </select>
         </label>
+        <label className="flex min-h-8 items-center gap-2 text-xs font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={watchedOnly}
+            onChange={(event) => onWatchedOnlyChange(event.target.checked)}
+            className="h-4 w-4 accent-slate-900"
+          />
+          Watched only
+        </label>
+        <label className="flex min-h-8 items-center gap-2 text-xs font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={alertsEnabled}
+            disabled={alertPermission === "denied" || alertPermission === "unsupported"}
+            onChange={(event) => onAlertsEnabledChange(event.target.checked)}
+            className="h-4 w-4 accent-slate-900 disabled:opacity-50"
+          />
+          Browser alerts
+        </label>
+        {alertPermission === "denied" || alertPermission === "unsupported" ? (
+          <span className="pb-2 text-xs text-slate-400">
+            {alertPermission === "denied" ? "Permission denied" : "Not supported"}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-4 border-y border-[var(--demo-card-divider)]">
-        <div className="hidden grid-cols-[42px_80px_minmax(0,1fr)_100px_64px] gap-3 border-b border-[var(--demo-card-divider)] px-2 py-2 text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:grid">
+        <div className="hidden grid-cols-[42px_80px_minmax(0,1fr)_100px_64px_44px] gap-3 border-b border-[var(--demo-card-divider)] px-2 py-2 text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:grid">
           <span>Rank</span>
           <span>Region</span>
           <span>Signal</span>
           <span>Freshness</span>
           <span className="text-right">Score</span>
+          <span className="text-center">Watch</span>
         </div>
 
         {rankedSignals.length ? (
           <div className="divide-y divide-[var(--demo-card-divider)]">
             {rankedSignals.map(({ region, signal }, index) => {
               const isSelected = region.code === selectedCode;
+              const watched = watchlist.includes(`${countryCode}:${region.code}`);
               return (
-                <button
+                <div
                   key={region.code}
-                  type="button"
-                  aria-pressed={isSelected}
-                  onClick={() => onSelect(region.code)}
-                  className={`grid w-full grid-cols-[52px_minmax(0,1fr)_44px] items-center gap-3 px-2 py-3 text-left transition sm:grid-cols-[42px_80px_minmax(0,1fr)_100px_64px] ${
+                  className={`flex items-stretch transition ${
                     isSelected ? "bg-slate-50" : "hover:bg-slate-50"
                   }`}
                 >
-                  <span className="hidden text-xs tabular-nums text-slate-400 sm:block">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: getMarketSignalColor(signal.score) }}
+                  <button
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => onSelect(region.code)}
+                    className="grid min-w-0 flex-1 grid-cols-[52px_minmax(0,1fr)_44px] items-center gap-3 px-2 py-3 text-left sm:grid-cols-[42px_80px_minmax(0,1fr)_100px_64px]"
+                  >
+                    <span className="hidden text-xs tabular-nums text-slate-400 sm:block">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: getMarketSignalColor(signal.score) }}
+                      />
+                      {region.code}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-slate-900">{signal.headline}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">{getMarketSignalLabel(signal)}</span>
+                    </span>
+                    <span className="hidden text-xs text-slate-500 sm:block">
+                      {signal.source === "live" ? relativeTime(signal.observedAt) : "demo snapshot"}
+                    </span>
+                    <span className="text-right text-xl font-semibold tabular-nums text-slate-900">
+                      {signal.score}
+                    </span>
+                  </button>
+                  <label className="flex w-11 shrink-0 cursor-pointer items-center justify-center">
+                    <span className="sr-only">Watch {region.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={watched}
+                      onChange={() => onToggleWatch(countryCode, region.code)}
+                      className="h-4 w-4 accent-slate-900"
                     />
-                    {region.code}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-slate-900">{signal.headline}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500">{getMarketSignalLabel(signal)}</span>
-                  </span>
-                  <span className="hidden text-xs text-slate-500 sm:block">
-                    {signal.source === "live" ? relativeTime(signal.observedAt) : "demo snapshot"}
-                  </span>
-                  <span className="text-right text-xl font-semibold tabular-nums text-slate-900">
-                    {signal.score}
-                  </span>
-                </button>
+                  </label>
+                </div>
               );
             })}
           </div>
