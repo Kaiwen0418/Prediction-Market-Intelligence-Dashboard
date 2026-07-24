@@ -17,6 +17,7 @@ const defaultFeaturedMarket: MarketSnapshot = {
   volume24h: 4_380_000,
   openInterest: 21_400_000,
   liquidity: 7_800_000,
+  status: "open",
   outcomeLabel: "Yes",
   updatedAt: now.toISOString()
 };
@@ -29,11 +30,13 @@ const texasRepublicanSenatePrimaryMarket: MarketSnapshot = {
   eventSlug: "texas-republican-senate-primary-winner",
   title: "Who will win the Texas Republican Senate primary?",
   category: "Politics",
-  probability: 0.40,
-  volume24h: 1_280_000,
+  probability: 1,
+  volume24h: 0,
   openInterest: 6_450_000,
-  liquidity: 2_300_000,
-  outcomeLabel: "Paxton",
+  liquidity: 0,
+  endDate: "2026-05-26T00:00:00.000Z",
+  status: "closed",
+  outcomeLabel: "Will Ken Paxton win the 2026 Texas Republican Primary?",
   updatedAt: now.toISOString()
 };
 
@@ -45,10 +48,12 @@ const californiaGovernorElectionMarket: MarketSnapshot = {
   eventSlug: "california-governor-election-2026",
   title: "California Governor Election Winner",
   category: "Politics",
-  probability: 0.74,
-  volume24h: 2_180_000,
+  probability: 0.927,
+  volume24h: 3_874.493822,
   openInterest: 1_120_000,
-  liquidity: 3_400_000,
+  liquidity: 67_314.01761,
+  endDate: "2026-11-03T00:00:00.000Z",
+  status: "open",
   outcomeLabel: "Will Xavier Becerra win the California Governor Election in 2026?",
   updatedAt: now.toISOString()
 };
@@ -66,6 +71,7 @@ const ukMarkets: MarketSnapshot[] = [
     volume24h: 384_000,
     openInterest: 1_740_000,
     liquidity: 620_000,
+    status: "unknown",
     outcomeLabel: "Will Scotland hold an independence referendum before 2030?",
     updatedAt: now.toISOString()
   },
@@ -81,6 +87,7 @@ const ukMarkets: MarketSnapshot[] = [
     volume24h: 276_000,
     openInterest: 980_000,
     liquidity: 410_000,
+    status: "unknown",
     outcomeLabel: "Leading outcome in the next London mayoral election",
     updatedAt: now.toISOString()
   },
@@ -96,6 +103,7 @@ const ukMarkets: MarketSnapshot[] = [
     volume24h: 192_000,
     openInterest: 740_000,
     liquidity: 330_000,
+    status: "unknown",
     outcomeLabel: "Leading outcome for most seats in the Welsh Parliament election",
     updatedAt: now.toISOString()
   },
@@ -111,7 +119,103 @@ const ukMarkets: MarketSnapshot[] = [
     volume24h: 148_000,
     openInterest: 560_000,
     liquidity: 270_000,
+    status: "unknown",
     outcomeLabel: "Leading outcome for most seats in the Northern Ireland Assembly election",
+    updatedAt: now.toISOString()
+  }
+];
+
+const europeMarkets: MarketSnapshot[] = [
+  {
+    marketId: "next-french-presidential-election",
+    eventId: "event-next-french-presidential-election",
+    tokenId:
+      "55764212211467781322980371912612507865974994976253196346176314491480419639168",
+    slug: "next-french-presidential-election",
+    eventSlug: "next-french-presidential-election",
+    title: "Next French Presidential Election",
+    category: "Politics",
+    probability: 0.3245,
+    volume24h: 12_224.885544,
+    openInterest: 0,
+    liquidity: 297_243.58845,
+    endDate: "2027-04-30T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Will Marine Le Pen win the 2027 French presidential election?",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "berlin-state-election-winner",
+    eventId: "event-berlin-state-election-winner",
+    tokenId:
+      "102682832966209969978965796495958715590593079468512867290824407541600306279619",
+    slug: "berlin-state-election-winner",
+    eventSlug: "berlin-state-election-winner",
+    title: "Berlin State Election Winner",
+    category: "Politics",
+    probability: 0.33,
+    volume24h: 1_346.749898,
+    openInterest: 0,
+    liquidity: 59_684.6989,
+    endDate: "2026-09-20T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Will Linke win the most seats in the 2026 Berlin state elections?",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "next-prime-minister-of-spain",
+    eventId: "event-next-prime-minister-of-spain",
+    tokenId:
+      "30446115040994756735976163960167805883187697808359254957130669387440187908610",
+    slug: "next-prime-minister-of-spain-20260625005215443",
+    eventSlug: "next-prime-minister-of-spain-20260625005215443",
+    title: "Next Prime Minister of Spain?",
+    category: "Politics",
+    probability: 0.805,
+    volume24h: 758.37,
+    openInterest: 0,
+    liquidity: 18_173.3381,
+    endDate: "2028-03-31T23:59:00.000Z",
+    status: "open",
+    outcomeLabel: "Will Alberto Nunez Feijoo be the next Prime Minister of Spain?",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "next-prime-minister-of-italy",
+    eventId: "event-next-prime-minister-of-italy",
+    tokenId:
+      "92925956878413761296666205124299104254076986470847214501768371394347050368958",
+    slug: "next-prime-minister-of-italy",
+    eventSlug: "next-prime-minister-of-italy",
+    title: "Next Prime Minister of Italy?",
+    category: "Politics",
+    probability: 0.525,
+    volume24h: 62.5,
+    openInterest: 0,
+    liquidity: 6_862.5608,
+    endDate: "2028-12-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Will Giorgia Meloni be the next Prime Minister of Italy?",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "iceland-eu-membership-referendum",
+    eventId: "event-iceland-eu-membership-referendum",
+    tokenId:
+      "115219528940805078601788795659304795391013024089082090049167812795798773409339",
+    slug:
+      "icelandic-european-union-membership-negotiations-referendum-passes-20260609135241589",
+    eventSlug:
+      "icelandic-european-union-membership-negotiations-referendum-passes-20260609135241589",
+    title: "Icelandic European Union membership negotiations referendum passes?",
+    category: "Politics",
+    probability: 0.485,
+    volume24h: 115.384614,
+    openInterest: 0,
+    liquidity: 6_153.2016,
+    endDate: "2026-08-30T03:59:00.000Z",
+    status: "open",
+    outcomeLabel: "Icelandic European Union membership negotiations referendum passes?",
     updatedAt: now.toISOString()
   }
 ];
@@ -120,7 +224,8 @@ const mockMarkets = [
   defaultFeaturedMarket,
   texasRepublicanSenatePrimaryMarket,
   californiaGovernorElectionMarket,
-  ...ukMarkets
+  ...ukMarkets,
+  ...europeMarkets
 ];
 
 function titleFromSlug(slug: string) {
@@ -156,6 +261,7 @@ export function getMockMarketBySlug(slug: string): MarketSnapshot {
     title,
     outcomeLabel: title,
     venue: "Polymarket",
+    status: "unknown",
     probability: probabilityFromSlug(slug),
     updatedAt: new Date().toISOString()
   };

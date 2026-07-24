@@ -16,14 +16,18 @@ test("watchlist parsing validates, deduplicates, and sorts stored keys", () => {
   assert.deepEqual(parseSignalWatchlist("{not-json"), []);
 });
 
-test("watched-only filtering keeps regions from the active country", () => {
-  const regions = [{ code: "TX" }, { code: "PA" }];
+test("watched-only filtering keeps matching regions across countries", () => {
+  const regions = [
+    { code: "TX", countryCode: "US" },
+    { code: "PA", countryCode: "US" },
+    { code: "ON", countryCode: "CA" }
+  ];
 
   assert.deepEqual(
-    filterWatchedRegions(regions, "US", ["US:PA", "CA:ON"], true),
-    [{ code: "PA" }]
+    filterWatchedRegions(regions, ["US:PA", "CA:ON"], true),
+    [regions[1], regions[2]]
   );
-  assert.equal(filterWatchedRegions(regions, "US", [], false), regions);
+  assert.equal(filterWatchedRegions(regions, [], false), regions);
 });
 
 test("alerts require a watched live signal with a material new score", () => {

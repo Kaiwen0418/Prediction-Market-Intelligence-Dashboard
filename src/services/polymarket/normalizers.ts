@@ -20,6 +20,10 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
 function asTimestamp(value: unknown): string | undefined {
   const rawValue = asString(value);
   if (!rawValue) return undefined;
@@ -81,6 +85,20 @@ function parseTokenMetadata(payload: UnknownRecord) {
   };
 }
 
+function normalizeMarketStatus(
+  market: UnknownRecord,
+  event?: UnknownRecord
+): MarketSnapshot["status"] {
+  const closed = asBoolean(market.closed) ?? asBoolean(event?.closed);
+  const active = asBoolean(market.active) ?? asBoolean(event?.active);
+  const acceptingOrders = asBoolean(market.acceptingOrders);
+
+  if (closed === true) return "closed";
+  if (active === false || acceptingOrders === false) return "inactive";
+  if (active === true && closed === false) return "open";
+  return "unknown";
+}
+
 function normalizeEventMarketCandidate(event: UnknownRecord, market: UnknownRecord): MarketSnapshot | null {
   const { tokenId, outcomeLabel, probability } = parseTokenMetadata(market);
   if (!tokenId) return null;
@@ -108,6 +126,7 @@ function normalizeEventMarketCandidate(event: UnknownRecord, market: UnknownReco
     endDate: asTimestamp(market.endDate ?? market.endDateIso ?? event.endDate ?? event.endDateIso),
     resolutionSource: asHttpUrl(market.resolutionSource ?? event.resolutionSource),
     venue: "Polymarket",
+    status: normalizeMarketStatus(market, event),
     outcomeLabel: normalizedOutcomeLabel ?? contractLabel,
     contractLabel,
     updatedAt: new Date().toISOString()
@@ -140,6 +159,7 @@ export function normalizeGammaMarket(payload: unknown): MarketSnapshot | null {
     endDate: asTimestamp(payload.endDate ?? payload.endDateIso),
     resolutionSource: asHttpUrl(payload.resolutionSource),
     venue: "Polymarket",
+    status: normalizeMarketStatus(payload),
     outcomeLabel,
     updatedAt: new Date().toISOString()
   };

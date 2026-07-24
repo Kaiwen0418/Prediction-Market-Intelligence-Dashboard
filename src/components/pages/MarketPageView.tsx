@@ -11,6 +11,7 @@ import {
   serializeActivityFeedFilters
 } from "@/components/maps/activityFeedFilters";
 import type {
+  ActivityCountryScope,
   ActivitySignalFilter,
   ActivityTimeWindow,
   MapViewMode
@@ -42,15 +43,18 @@ type MarketPageViewProps = {
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
   const [selectedCountryCode, setSelectedCountryCode] = useState("US");
   const [selectedStateCode, setSelectedStateCode] = useState<string | null>("CA");
-  const [mapView, setMapView] = useState<MapViewMode>("country");
+  const [mapView, setMapView] = useState<MapViewMode>("world");
+  const [countryScope, setCountryScope] = useState<ActivityCountryScope>("global");
   const [evidenceView, setEvidenceView] = useState<"flow" | "history">("flow");
   const [activityThreshold, setActivityThreshold] = useState(50);
   const [activitySignalKind, setActivitySignalKind] = useState<ActivitySignalFilter>("all");
   const [activityMaxAgeHours, setActivityMaxAgeHours] = useState<ActivityTimeWindow>(0);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
+  const [autoTourEnabled, setAutoTourEnabled] = useState(false);
 
   useEffect(() => {
-    const parsed = parseActivityFeedFilters(window.location.search);
+    const params = new URLSearchParams(window.location.search);
+    const parsed = parseActivityFeedFilters(params);
     const country =
       COUNTRY_MARKET_MAPS.find((candidate) => candidate.code === parsed.countryCode) ??
       COUNTRY_MARKET_MAPS[0];
@@ -58,12 +62,16 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
 
     setSelectedCountryCode(country.code);
     setMapView(parsed.mapView);
+    setCountryScope(parsed.countryScope);
     setSelectedStateCode(
       region?.countryCode === country.code ? region.code : country.defaultRegionCode
     );
     setActivityThreshold(parsed.minimumScore);
     setActivitySignalKind(parsed.signalKind);
     setActivityMaxAgeHours(parsed.maxAgeHours);
+    setAutoTourEnabled(
+      !["country", "region", "view"].some((key) => params.has(key))
+    );
     setFiltersHydrated(true);
   }, []);
 
@@ -75,6 +83,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     const params = serializeActivityFeedFilters(
       {
         mapView,
+        countryScope,
         countryCode: selectedCountryCode,
         regionCode: selectedStateCode,
         minimumScore: activityThreshold,
@@ -90,6 +99,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     activityMaxAgeHours,
     activitySignalKind,
     activityThreshold,
+    countryScope,
     filtersHydrated,
     mapView,
     selectedCountryCode,
@@ -142,6 +152,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       : null;
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;
   const marketMatchesSelectedRegion = marketMatchesRegion(selectedState, market);
+  const effectiveEvidenceView =
+    market?.status === "closed" ? "history" : evidenceView;
   const displayMarketTitle =
     mapView === "world"
       ? "Global political market activity"
@@ -157,6 +169,18 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           title: "Limited coverage for this region",
           detail: "Regional signals remain available, but pair-specific market depth and history cannot be shown."
         }
+      : market?.status === "closed"
+        ? {
+            tone: "info" as const,
+            title: "This market is closed",
+            detail: "Prices, volume, and order-book statistics are shown as historical information."
+          }
+        : market?.status === "inactive"
+          ? {
+              tone: "warning" as const,
+              title: "Trading is not currently available",
+              detail: "The venue is not accepting orders for this contract."
+            }
       : primarySource?.state === "failed" || signalSource?.state === "failed"
         ? {
             tone: "error" as const,
@@ -207,9 +231,18 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const content = (
     <>
       <section>
-        <h2 className="max-w-4xl text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
-          {displayMarketTitle}
-        </h2>
+        <div className="flex max-w-4xl flex-wrap items-center gap-x-3 gap-y-2">
+          <h2 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
+            {displayMarketTitle}
+          </h2>
+          {mapView === "country" &&
+          marketMatchesSelectedRegion &&
+          market.status === "closed" ? (
+            <span className="border border-slate-400 px-2 py-1 font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+              Closed market
+            </span>
+          ) : null}
+        </div>
         {mapView === "country" ? (
           <>
             <p className="mt-3 font-sans text-xs text-slate-500">
@@ -232,6 +265,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             marketSeries={marketSeries}
             regionSignals={regionSignalsQuery.data?.signals}
             activityThreshold={activityThreshold}
+            autoTourEnabled={autoTourEnabled}
+            countryScope={countryScope}
             activitySignalKind={activitySignalKind}
             activityMaxAgeHours={activityMaxAgeHours}
             mapView={mapView}
@@ -240,6 +275,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             onSelectCountryCode={setSelectedCountryCode}
             onSelectCode={setSelectedStateCode}
             onActivityThresholdChange={setActivityThreshold}
+            onAutoTourEnabledChange={setAutoTourEnabled}
+            onCountryScopeChange={setCountryScope}
             onActivitySignalKindChange={setActivitySignalKind}
             onActivityMaxAgeHoursChange={setActivityMaxAgeHours}
             onMapViewChange={setMapView}
@@ -250,26 +287,28 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       {mapView === "world" ? null : marketMatchesSelectedRegion ? (
       <section className="pt-2">
         <div className="mb-7 flex border-b border-[var(--demo-card-divider)] font-sans" role="tablist" aria-label="Market evidence">
+          {market.status === "closed" ? null : (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveEvidenceView === "flow"}
+              onClick={() => setEvidenceView("flow")}
+              className={`border-b-2 px-4 py-3 text-sm font-semibold ${
+                effectiveEvidenceView === "flow"
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              Order flow
+            </button>
+          )}
           <button
             type="button"
             role="tab"
-            aria-selected={evidenceView === "flow"}
-            onClick={() => setEvidenceView("flow")}
-            className={`border-b-2 px-4 py-3 text-sm font-semibold ${
-              evidenceView === "flow"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            Order flow
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={evidenceView === "history"}
+            aria-selected={effectiveEvidenceView === "history"}
             onClick={() => setEvidenceView("history")}
             className={`border-b-2 px-4 py-3 text-sm font-semibold ${
-              evidenceView === "history"
+              effectiveEvidenceView === "history"
                 ? "border-slate-900 text-slate-900"
                 : "border-transparent text-slate-500 hover:text-slate-900"
             }`}
@@ -278,7 +317,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           </button>
         </div>
 
-        {evidenceView === "flow" ? (
+        {effectiveEvidenceView === "flow" ? (
           <div role="tabpanel">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
@@ -303,7 +342,9 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
               <div>
                 <p className="metric-label">Price History</p>
                 <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">
-                  Selected market probability over time
+                  {market.status === "closed"
+                    ? "Final contract probability over time"
+                    : "Selected market probability over time"}
                 </h2>
               </div>
               <p className="text-sm leading-6 text-slate-500 md:max-w-[280px] md:text-right">

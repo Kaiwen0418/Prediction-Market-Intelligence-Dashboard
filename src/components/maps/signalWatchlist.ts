@@ -46,9 +46,8 @@ export function parseSignalWatchlist(value: string | null): string[] {
   }
 }
 
-export function filterWatchedRegions<T extends { code: string }>(
+export function filterWatchedRegions<T extends { code: string; countryCode: string }>(
   regions: T[],
-  countryCode: string,
   watchlist: string[],
   watchedOnly: boolean
 ) {
@@ -58,7 +57,7 @@ export function filterWatchedRegions<T extends { code: string }>(
 
   const watched = new Set(watchlist);
   return regions.filter((region) =>
-    watched.has(getSignalWatchKey(countryCode, region.code))
+    watched.has(getSignalWatchKey(region.countryCode, region.code))
   );
 }
 
