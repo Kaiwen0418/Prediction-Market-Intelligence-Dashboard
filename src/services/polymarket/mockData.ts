@@ -138,7 +138,11 @@ function probabilityFromSlug(slug: string) {
 export function getMockMarketBySlug(slug: string): MarketSnapshot {
   const configuredMarket = mockMarkets.find((market) => market.slug === slug);
   if (configuredMarket) {
-    return { ...configuredMarket, updatedAt: new Date().toISOString() };
+    return {
+      ...configuredMarket,
+      venue: "Polymarket",
+      updatedAt: new Date().toISOString()
+    };
   }
 
   const title = titleFromSlug(slug);
@@ -151,6 +155,7 @@ export function getMockMarketBySlug(slug: string): MarketSnapshot {
     eventSlug: slug,
     title,
     outcomeLabel: title,
+    venue: "Polymarket",
     probability: probabilityFromSlug(slug),
     updatedAt: new Date().toISOString()
   };

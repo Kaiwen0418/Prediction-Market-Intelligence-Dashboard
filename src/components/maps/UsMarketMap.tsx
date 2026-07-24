@@ -72,6 +72,20 @@ function movementTone(value: number | null) {
   return value > 0 ? "text-emerald-700" : "text-rose-700";
 }
 
+function formatContractClose(value?: string) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+
+  return `Closes ${new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date)}`;
+}
+
 type UsMarketMapProps = {
   market: MarketSnapshot;
   orderbook: OrderbookState;
@@ -326,6 +340,7 @@ export function UsMarketMap({
   const liveVenueUrl = marketMatchesActiveRegion
     ? `https://polymarket.com/event/${market.eventSlug ?? market.slug}`
     : null;
+  const marketCloseLabel = formatContractClose(market.endDate);
   const highPriorityCount = regionMarkets.filter(
     (region) => (signalByRegion.get(region.code) ?? region.signal).score >= 70
   ).length;
@@ -756,6 +771,44 @@ export function UsMarketMap({
             </a>
           ) : null}
         </div>
+
+        {marketMatchesActiveRegion &&
+        (market.venue || marketCloseLabel || market.description || market.resolutionSource) ? (
+          <div className="mt-5 font-sans text-xs leading-5 text-slate-500">
+            {market.venue || marketCloseLabel ? (
+              <p>
+                {[
+                  market.venue ? `Venue: ${market.venue}` : null,
+                  marketCloseLabel
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            ) : null}
+            {market.description || market.resolutionSource ? (
+              <details className="mt-2">
+                <summary className="w-fit cursor-pointer font-semibold text-slate-700 transition hover:text-slate-900">
+                  Contract details
+                </summary>
+                {market.description ? (
+                  <p className="mt-2 max-w-prose text-sm leading-6 text-slate-600">
+                    {market.description}
+                  </p>
+                ) : null}
+                {market.resolutionSource ? (
+                  <a
+                    href={market.resolutionSource}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block font-semibold text-slate-700 hover:text-slate-900"
+                  >
+                    Resolution source ↗
+                  </a>
+                ) : null}
+              </details>
+            ) : null}
+          </div>
+        ) : null}
 
         {activeSignal ? (
           <div className="mt-8">

@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeOrderbook } from "@/services/polymarket/normalizers";
+import {
+  normalizeGammaEvent,
+  normalizeGammaMarket,
+  normalizeOrderbook
+} from "@/services/polymarket/normalizers";
 
 test("public Data API trades retain only valid proxy-wallet addresses", () => {
   const orderbook = normalizeOrderbook({
@@ -29,4 +33,47 @@ test("public Data API trades retain only valid proxy-wallet addresses", () => {
     "0xaebe4cfd8735f44be2768380f1d9b0cfd6882c1d"
   );
   assert.equal(orderbook?.trades[1]?.walletAddress, undefined);
+});
+
+test("market normalization preserves verified contract context", () => {
+  const market = normalizeGammaMarket({
+    id: "market-1",
+    clobTokenIds: "[\"token-1\"]",
+    question: "Will the measure pass?",
+    description: "Resolves Yes if the certified result approves the measure.",
+    endDate: "2026-11-04T00:00:00Z",
+    resolutionSource: "https://example.gov/elections/results"
+  });
+
+  assert.equal(market?.venue, "Polymarket");
+  assert.equal(market?.endDate, "2026-11-04T00:00:00.000Z");
+  assert.equal(market?.resolutionSource, "https://example.gov/elections/results");
+  assert.equal(
+    market?.description,
+    "Resolves Yes if the certified result approves the measure."
+  );
+});
+
+test("event normalization prefers market rules and rejects unsafe contract metadata", () => {
+  const market = normalizeGammaEvent({
+    id: "event-1",
+    title: "Election event",
+    description: "General event description",
+    endDate: "not-a-date",
+    resolutionSource: "javascript:alert(1)",
+    markets: [
+      {
+        id: "market-1",
+        clobTokenIds: "[\"token-1\"]",
+        question: "Will the candidate win?",
+        description: "Resolves from the certified election result.",
+        outcomes: "[\"Yes\", \"No\"]",
+        outcomePrices: "[\"0.6\", \"0.4\"]"
+      }
+    ]
+  });
+
+  assert.equal(market?.description, "Resolves from the certified election result.");
+  assert.equal(market?.endDate, undefined);
+  assert.equal(market?.resolutionSource, undefined);
 });
