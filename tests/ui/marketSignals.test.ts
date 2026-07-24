@@ -7,6 +7,7 @@ import {
   rankRegionSignals
 } from "@/components/maps/marketSignals";
 import type { RegionSignal } from "@/types/signals";
+import { getRegionMarketPairLabel } from "@/components/maps/spotlightStates";
 
 test("signal scores map to stable severity thresholds", () => {
   assert.equal(getMarketSignalSeverity(null), "inactive");
@@ -81,7 +82,10 @@ test("activity ranking applies backend overrides and minimum score", () => {
     }
   ];
 
-  const ranked = rankRegionSignals(regions, overrides, 85, new Date("2026-07-24T10:00:00Z"));
+  const ranked = rankRegionSignals(regions, overrides, {
+    minimumScore: 85,
+    now: new Date("2026-07-24T10:00:00Z")
+  });
 
   assert.deepEqual(ranked.map((item) => item.region.code), ["CA", "TX"]);
   assert.equal(ranked[0]?.signal.headline, "Live California");
@@ -103,9 +107,72 @@ test("activity ranking excludes regions below the selected threshold", () => {
       }
     ],
     [],
-    50,
-    new Date("2026-07-24T10:00:00Z")
+    {
+      minimumScore: 50,
+      now: new Date("2026-07-24T10:00:00Z")
+    }
   );
 
   assert.equal(ranked.length, 0);
+});
+
+test("activity ranking filters by signal kind and freshness window", () => {
+  const regions = [
+    {
+      code: "TX",
+      signal: {
+        kind: "whale-flow" as const,
+        score: 92,
+        headline: "Whale",
+        detail: "Whale",
+        observedAt: "2026-07-24T09:30:00Z",
+        source: "fixture" as const
+      }
+    },
+    {
+      code: "PA",
+      signal: {
+        kind: "poll-divergence" as const,
+        score: 72,
+        headline: "Poll",
+        detail: "Poll",
+        observedAt: "2026-07-24T07:00:00Z",
+        source: "fixture" as const
+      }
+    }
+  ];
+
+  const ranked = rankRegionSignals(regions, [], {
+    signalKind: "whale-flow",
+    maxAgeHours: 1,
+    now: new Date("2026-07-24T10:00:00Z")
+  });
+
+  assert.deepEqual(ranked.map((item) => item.region.code), ["TX"]);
+});
+
+test("region pair labels remain readable during market fallback", () => {
+  assert.equal(
+    getRegionMarketPairLabel({
+      code: "TX",
+      countryCode: "US",
+      countryLabel: "United States",
+      center: [-99.3, 31.1],
+      fips: "48",
+      label: "Texas",
+      liveMarketSlug: "texas-republican-senate-primary-winner",
+      note: "Test",
+      zoom: 3.2,
+      status: "live",
+      signal: {
+        kind: "whale-flow",
+        score: 92,
+        headline: "Whale",
+        detail: "Whale",
+        observedAt: "2026-07-24T09:30:00Z",
+        source: "fixture"
+      }
+    }),
+    "Texas Republican Senate Primary Winner"
+  );
 });
