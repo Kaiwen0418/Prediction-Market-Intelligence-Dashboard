@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from app.core.config import get_settings
 from app.schemas.polymarket import (
     FeaturedMarketResponse,
+    LargeTradeResponse,
     LiquiditySummary,
     MarketContextResponse,
     OrderbookLevel,
@@ -18,6 +19,13 @@ from app.schemas.polymarket import (
     TimelineEventResponse,
     TradePressureSummary,
     TradePrint,
+    WhaleActivityResponse,
+)
+from app.analytics.whale_activity import (
+    DEPTH_SHARE_THRESHOLD,
+    HISTORICAL_MULTIPLE_THRESHOLD,
+    MINIMUM_SAMPLE_SIZE,
+    analyze_whale_activity,
 )
 
 
@@ -313,6 +321,11 @@ async def fetch_orderbook_summary(token_id: str) -> OrderbookSummaryResponse:
     sell_volume = sum(trade.size for trade in trades if trade.side == "sell")
     ratio = buy_volume if sell_volume == 0 else buy_volume / sell_volume
     pressure = "buy" if ratio > 1.15 else "sell" if ratio < 0.87 else "balanced"
+    whale_activity = analyze_whale_activity(
+        trades,
+        total_bid_depth=total_bid_depth,
+        total_ask_depth=total_ask_depth,
+    )
 
     return OrderbookSummaryResponse(
         marketId=_as_string(orderbook_payload.get("market"), token_id),
@@ -336,6 +349,28 @@ async def fetch_orderbook_summary(token_id: str) -> OrderbookSummaryResponse:
             sellVolume=round(sell_volume, 4),
             ratio=round(ratio, 2),
             pressure=pressure,
+        ),
+        whaleActivity=WhaleActivityResponse(
+            status=whale_activity.status,
+            sampleSize=whale_activity.sample_size,
+            medianTradeSize=whale_activity.median_trade_size,
+            historicalMultipleThreshold=HISTORICAL_MULTIPLE_THRESHOLD,
+            depthShareThreshold=DEPTH_SHARE_THRESHOLD,
+            minimumSampleSize=MINIMUM_SAMPLE_SIZE,
+            attributionAvailable=False,
+            largeTrades=[
+                LargeTradeResponse(
+                    tradeId=detection.trade_id,
+                    side=detection.side,
+                    price=detection.price,
+                    size=detection.size,
+                    timestamp=detection.timestamp,
+                    notionalUsd=detection.notional_usd,
+                    historicalSizeMultiple=detection.historical_size_multiple,
+                    executableDepthShare=detection.executable_depth_share,
+                )
+                for detection in whale_activity.detections
+            ],
         ),
     )
 

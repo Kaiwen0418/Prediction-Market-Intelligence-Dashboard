@@ -261,6 +261,16 @@ export function UsMarketMap({
       sellVolume: 0,
       ratio: 0,
       pressure: "balanced" as const
+    },
+    whaleActivity: {
+      status: "insufficient-data" as const,
+      sampleSize: orderbook.trades.length,
+      medianTradeSize: 0,
+      historicalMultipleThreshold: 3,
+      depthShareThreshold: 0.05,
+      minimumSampleSize: 5,
+      attributionAvailable: false,
+      largeTrades: []
     }
   };
   summary.liquidity.imbalance =
@@ -272,6 +282,16 @@ export function UsMarketMap({
             (summary.liquidity.totalBidDepth + summary.liquidity.totalAskDepth)
           ).toFixed(3)
         );
+  const whaleActivity = summary.whaleActivity ?? {
+    status: "insufficient-data" as const,
+    sampleSize: orderbook.trades.length,
+    medianTradeSize: 0,
+    historicalMultipleThreshold: 3,
+    depthShareThreshold: 0.05,
+    minimumSampleSize: 5,
+    attributionAvailable: false,
+    largeTrades: []
+  };
 
   const fallbackMicrostructure: LiveMicrostructureMetrics = {
     microprice: summary.midPrice,
@@ -574,6 +594,53 @@ export function UsMarketMap({
           </div>
           <p className="mt-3 text-xs leading-5 text-slate-500">
             {showingBackendMetrics ? "Computed from the active FastAPI stream window." : "Estimated from the latest REST snapshot."}
+          </p>
+        </div>
+
+        <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="metric-label">Large Trade Monitor</p>
+            <span className="text-xs tabular-nums text-slate-500">
+              {whaleActivity.sampleSize} prints
+            </span>
+          </div>
+          {whaleActivity.status === "detected" ? (
+            <div className="mt-3 divide-y divide-[var(--demo-card-divider)]">
+              {whaleActivity.largeTrades.slice(0, 3).map((trade) => (
+                <div
+                  key={trade.tradeId}
+                  className="grid grid-cols-[auto_1fr_auto] items-baseline gap-3 py-2.5 text-sm"
+                >
+                  <span
+                    className={`font-semibold uppercase ${
+                      trade.side === "buy" ? "text-emerald-700" : "text-rose-700"
+                    }`}
+                  >
+                    {trade.side}
+                  </span>
+                  <span className="text-slate-600">
+                    {trade.historicalSizeMultiple.toFixed(1)}x median ·{" "}
+                    {(trade.executableDepthShare * 100).toFixed(1)}% depth
+                  </span>
+                  <span className="font-semibold tabular-nums text-slate-900">
+                    ${trade.notionalUsd.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {whaleActivity.status === "clear"
+                ? "No recent print meets both relative thresholds."
+                : whaleActivity.sampleSize >= whaleActivity.minimumSampleSize
+                  ? "Relative detection is unavailable from the current data source."
+                  : `At least ${whaleActivity.minimumSampleSize} normalized prints and two-sided depth are required.`}
+            </p>
+          )}
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Flagged at {whaleActivity.historicalMultipleThreshold}x median size and{" "}
+            {(whaleActivity.depthShareThreshold * 100).toFixed(0)}% of executable depth. Public trades do not
+            establish wallet identity or insider activity.
           </p>
         </div>
 

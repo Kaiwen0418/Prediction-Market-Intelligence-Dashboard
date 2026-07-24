@@ -45,6 +45,10 @@ class PolymarketSummaryTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(result.liquidity.imbalance, 0.053, places=3)
         self.assertEqual(result.trade_pressure.pressure, "buy")
         self.assertAlmostEqual(result.trade_pressure.ratio, 4.0, places=2)
+        self.assertEqual(result.whale_activity.status, "insufficient-data")
+        self.assertEqual(result.whale_activity.sample_size, 2)
+        self.assertEqual(result.whale_activity.historical_multiple_threshold, 3.0)
+        self.assertFalse(result.whale_activity.attribution_available)
 
 
 if __name__ == "__main__":

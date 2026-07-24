@@ -128,6 +128,8 @@ Acceptance criteria:
 
 ### Phase 4: Whale and Smart-Money Intelligence
 
+Status: in progress
+
 - Normalize public trade and wallet activity where venue data permits.
 - Detect large trades relative to market depth and historical trade size.
 - Track wallet concentration and coordinated directional flow.
@@ -182,3 +184,5 @@ Acceptance criteria:
 - [x] Add the first ranked abnormal-activity feed with threshold filtering and map selection.
 - [x] Add signal-type and time-window filters with URL persistence.
 - [x] Add persistent region watchlists, watched-only filtering, and opt-in browser notification preferences.
+- [x] Detect large public trades using transparent median-size and executable-depth thresholds.
+- [x] Remove synthetic wallet identities and placeholder whale-buy claims.

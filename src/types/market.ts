@@ -71,6 +71,25 @@ export type OrderbookSummary = {
     ratio: number;
     pressure: "buy" | "sell" | "balanced";
   };
+  whaleActivity?: {
+    status: "insufficient-data" | "clear" | "detected";
+    sampleSize: number;
+    medianTradeSize: number;
+    historicalMultipleThreshold: number;
+    depthShareThreshold: number;
+    minimumSampleSize: number;
+    attributionAvailable: boolean;
+    largeTrades: Array<{
+      tradeId: string;
+      side: "buy" | "sell";
+      price: number;
+      size: number;
+      timestamp: string;
+      notionalUsd: number;
+      historicalSizeMultiple: number;
+      executableDepthShare: number;
+    }>;
+  };
 };
 
 export type PriceHistoryMeta = {
