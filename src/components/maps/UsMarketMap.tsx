@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
+import { AbnormalActivityFeed } from "@/components/maps/AbnormalActivityFeed";
 import {
   buildBackendHealthDetail,
   buildBackendHealthLine,
@@ -50,6 +51,8 @@ type UsMarketMapProps = {
   selectedCode?: string | null;
   selectedCountryCode?: string;
   regionSignals?: RegionSignal[];
+  activityThreshold?: number;
+  onActivityThresholdChange?: (score: number) => void;
   onSelectCode?: (code: string | null) => void;
   onSelectCountryCode?: (code: string) => void;
   sources: {
@@ -78,6 +81,8 @@ export function UsMarketMap({
   selectedCode,
   selectedCountryCode = "US",
   regionSignals = [],
+  activityThreshold = 50,
+  onActivityThresholdChange,
   onSelectCode,
   onSelectCountryCode,
   sources
@@ -255,6 +260,18 @@ export function UsMarketMap({
   const selectedRegionHasPair = Boolean(activeRegion?.liveMarketSlug);
   const defaultRegionLabel = defaultRegion?.countryCode === activeCountry.code ? defaultRegion.label : regionMarkets[0]?.label;
   const activeSignal = activeRegion ? signalByRegion.get(activeRegion.code) ?? activeRegion.signal : null;
+  const liveSignalCount = regionSignals.filter((signal) => signal.source === "live").length;
+  const signalModeLabel =
+    liveSignalCount === regionMarkets.length && regionMarkets.length > 0
+      ? "Live signals"
+      : liveSignalCount > 0
+        ? "Live + fallback"
+        : "Demo snapshots";
+  const marketMatchesActiveRegion =
+    Boolean(activeRegion) &&
+    (market.slug === activeRegion?.liveMarketSlug || market.eventSlug === activeRegion?.liveMarketSlug);
+  const activePairLabel =
+    activeRegion && marketMatchesActiveRegion ? compactTitle : activeRegion?.liveMarketSlug ?? compactTitle;
 
   const getRegionFill = (regionCode?: string) => {
     const region = getSpotlightState(regionCode);
@@ -386,8 +403,16 @@ export function UsMarketMap({
                 {item.label}
               </span>
             ))}
-            <span className="text-slate-400">Demo snapshots</span>
+            <span className="text-slate-400">{signalModeLabel}</span>
           </div>
+          <AbnormalActivityFeed
+            regions={regionMarkets}
+            signals={regionSignals}
+            selectedCode={activeSelectedCode ?? defaultCode}
+            minimumScore={activityThreshold}
+            onMinimumScoreChange={onActivityThresholdChange ?? (() => undefined)}
+            onSelect={selectCode}
+          />
         </div>
       </div>
 
@@ -500,7 +525,7 @@ export function UsMarketMap({
 
         {selectedRegionHasPair ? (
           <p className="mt-5 text-sm text-slate-600">
-            Live focus: <span className="font-medium text-slate-900">{compactTitle}</span>
+            Pair: <span className="font-medium text-slate-900">{activePairLabel}</span>
           </p>
         ) : null}
       </div>
