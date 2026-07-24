@@ -18,6 +18,9 @@ export type MarketSnapshot = {
   liquidity?: number;
   image?: string;
   description?: string;
+  endDate?: string;
+  resolutionSource?: string;
+  venue?: string;
   outcomeLabel?: string;
   contractLabel?: string;
   updatedAt: string;

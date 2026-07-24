@@ -20,6 +20,26 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function asTimestamp(value: unknown): string | undefined {
+  const rawValue = asString(value);
+  if (!rawValue) return undefined;
+
+  const timestamp = new Date(rawValue);
+  return Number.isFinite(timestamp.getTime()) ? timestamp.toISOString() : undefined;
+}
+
+function asHttpUrl(value: unknown): string | undefined {
+  const rawValue = asString(value);
+  if (!rawValue) return undefined;
+
+  try {
+    const url = new URL(rawValue);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function asWalletAddress(value: unknown): string | undefined {
   const address = asString(value);
   return /^0x[a-fA-F0-9]{40}$/.test(address) ? address.toLowerCase() : undefined;
@@ -84,7 +104,10 @@ function normalizeEventMarketCandidate(event: UnknownRecord, market: UnknownReco
     openInterest: asNumber(market.openInterest, asNumber(event.openInterest)),
     liquidity: asNumber(market.liquidity, asNumber(event.liquidity)),
     image: asString(event.image) || undefined,
-    description: asString(event.description) || undefined,
+    description: asString(market.description, asString(event.description)) || undefined,
+    endDate: asTimestamp(market.endDate ?? market.endDateIso ?? event.endDate ?? event.endDateIso),
+    resolutionSource: asHttpUrl(market.resolutionSource ?? event.resolutionSource),
+    venue: "Polymarket",
     outcomeLabel: normalizedOutcomeLabel ?? contractLabel,
     contractLabel,
     updatedAt: new Date().toISOString()
@@ -114,6 +137,9 @@ export function normalizeGammaMarket(payload: unknown): MarketSnapshot | null {
     liquidity: asNumber(payload.liquidity),
     image: asString(payload.image) || undefined,
     description: asString(payload.description) || undefined,
+    endDate: asTimestamp(payload.endDate ?? payload.endDateIso),
+    resolutionSource: asHttpUrl(payload.resolutionSource),
+    venue: "Polymarket",
     outcomeLabel,
     updatedAt: new Date().toISOString()
   };

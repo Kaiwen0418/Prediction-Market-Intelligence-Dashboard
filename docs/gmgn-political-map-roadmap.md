@@ -256,6 +256,16 @@ Status: complete
 - [x] Withhold movement windows when no suitably timed observation exists.
 - [x] Validate the summary across live and latest-available UK market data.
 
+### Phase 12: Contract Resolution Context
+
+Status: complete
+
+- [x] Normalize venue, close time, contract description, and resolution source metadata.
+- [x] Show verified venue and close time without fabricating unavailable fallback values.
+- [x] Keep detailed resolution guidance collapsed until requested.
+- [x] Reject malformed dates and unsafe resolution-source links.
+- [x] Validate contract context across live and latest-available market states.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -286,3 +296,4 @@ Status: complete
 - [x] Add fee-aware related-market consistency checks and source-linked political catalyst windows.
 - [x] Add a timestamped polling-derived election-model baseline for market comparison.
 - [x] Add a compact selected-market trading summary with time-aware movement windows.
+- [x] Add verified venue, close-time, and contract-resolution context.
