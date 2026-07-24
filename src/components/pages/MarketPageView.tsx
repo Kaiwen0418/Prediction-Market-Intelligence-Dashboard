@@ -5,13 +5,15 @@ import { PolymarketHistoryChart } from "@/components/charts/PolymarketHistoryCha
 import { MicrostructureReplayChart } from "@/components/charts/MicrostructureReplayChart";
 import { ErrorState } from "@/components/layout/ErrorState";
 import { LoadingState } from "@/components/layout/LoadingState";
+import { OperationalNotice } from "@/components/layout/OperationalNotice";
 import {
   parseActivityFeedFilters,
   serializeActivityFeedFilters
 } from "@/components/maps/activityFeedFilters";
 import type {
   ActivitySignalFilter,
-  ActivityTimeWindow
+  ActivityTimeWindow,
+  MapViewMode
 } from "@/components/maps/activityFeedFilters";
 import {
   COUNTRY_MARKET_MAPS,
@@ -24,7 +26,6 @@ import { TopNav } from "@/components/navigation/TopNav";
 import { useMarketContext } from "@/hooks/useMarketContext";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useLiveReplay } from "@/hooks/useLiveReplay";
-import { useLiveSystemHealth } from "@/hooks/useLiveSystemHealth";
 import { useLiveMarketStream } from "@/hooks/useLiveMarketStream";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
@@ -41,6 +42,7 @@ type MarketPageViewProps = {
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
   const [selectedCountryCode, setSelectedCountryCode] = useState("US");
   const [selectedStateCode, setSelectedStateCode] = useState<string | null>("CA");
+  const [mapView, setMapView] = useState<MapViewMode>("country");
   const [evidenceView, setEvidenceView] = useState<"flow" | "history">("flow");
   const [activityThreshold, setActivityThreshold] = useState(50);
   const [activitySignalKind, setActivitySignalKind] = useState<ActivitySignalFilter>("all");
@@ -55,6 +57,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     const region = getSpotlightState(parsed.regionCode);
 
     setSelectedCountryCode(country.code);
+    setMapView(parsed.mapView);
     setSelectedStateCode(
       region?.countryCode === country.code ? region.code : country.defaultRegionCode
     );
@@ -71,6 +74,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
 
     const params = serializeActivityFeedFilters(
       {
+        mapView,
         countryCode: selectedCountryCode,
         regionCode: selectedStateCode,
         minimumScore: activityThreshold,
@@ -87,6 +91,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     activitySignalKind,
     activityThreshold,
     filtersHydrated,
+    mapView,
     selectedCountryCode,
     selectedStateCode
   ]);
@@ -109,7 +114,6 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const liveStream = useLiveMarketStream(selectedSlug ?? market?.slug);
   const liveReplayQuery = useLiveReplay(selectedSlug ?? market?.slug, 48);
   const regionSignalsQuery = useRegionSignals(selectedCountryCode, selectedSlug ?? market?.slug);
-  const liveSystemHealth = useLiveSystemHealth();
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId, market?.conditionId);
   const sources = useSourceDiagnostics();
   const timelineQuery = useTimelineData(market, marketContextQuery.data?.timelineEvents);
@@ -139,59 +143,63 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;
   const marketMatchesSelectedRegion = marketMatchesRegion(selectedState, market);
   const displayMarketTitle =
-    selectedState && !marketMatchesSelectedRegion
+    mapView === "world"
+      ? "Global political market activity"
+      : selectedState && !marketMatchesSelectedRegion
       ? getRegionMarketPairLabel(selectedState)
       : market?.outcomeLabel ?? market?.title;
   const primarySource = sources["market-context"] ?? sources["featured-market"];
   const signalSource = sources["region-signals"];
-  const dataState =
+  const operationalNotice =
     !marketMatchesSelectedRegion
-      ? "Coverage unavailable"
-      : regionSignalsQuery.data?.freshness === "stale"
-        ? "Delayed"
+      ? {
+          tone: "warning" as const,
+          title: "Limited coverage for this region",
+          detail: "Regional signals remain available, but pair-specific market depth and history cannot be shown."
+        }
       : primarySource?.state === "failed" || signalSource?.state === "failed"
-      ? "Unavailable"
-      : primarySource?.state === "live" && signalSource?.state === "live"
-        ? "Live"
-        : primarySource?.state === "pending" || signalSource?.state === "pending"
-          ? "Connecting"
-          : "Fallback";
-  const dataStateTone =
-    dataState === "Live"
-      ? "bg-emerald-500"
-      : dataState === "Fallback"
-        ? "bg-amber-400"
-        : dataState === "Unavailable" || dataState === "Coverage unavailable"
-          ? "bg-rose-500"
-          : dataState === "Delayed"
-            ? "bg-amber-500"
-          : "bg-slate-300";
+        ? {
+            tone: "error" as const,
+            title: "Market data is temporarily unavailable",
+            detail: "Some prices or signals may be missing. Please try again shortly."
+          }
+        : regionSignalsQuery.data?.freshness === "stale"
+          ? {
+              tone: "warning" as const,
+              title: "Market data may be delayed",
+              detail: orderbook
+                ? `Last updated ${formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}.`
+                : "The latest update time is unavailable."
+            }
+          : primarySource?.state === "fallback" || signalSource?.state === "fallback"
+            ? {
+                tone: "warning" as const,
+                title: "Showing the latest available market information",
+                detail: "Recent updates are temporarily delayed."
+              }
+            : primarySource?.state === "pending" || signalSource?.state === "pending"
+              ? {
+                  tone: "info" as const,
+                  title: "Updating market information",
+                  detail: "New prices and signals will appear automatically."
+                }
+              : null;
   const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
-  const errorMessage = marketContextQuery.error instanceof Error
-    ? marketContextQuery.error.message
-    : featuredMarketQuery.error instanceof Error
-    ? featuredMarketQuery.error.message
-    : snapshotQuery.error instanceof Error
-      ? snapshotQuery.error.message
-      : !market
-        ? "No live market could be loaded for the configured slug."
-        : !orderbook
-          ? "No live orderbook snapshot could be loaded for the live market token."
-          : null;
+  const hasLoadError =
+    Boolean(marketContextQuery.error) ||
+    Boolean(featuredMarketQuery.error) ||
+    Boolean(snapshotQuery.error) ||
+    !market ||
+    !orderbook;
 
   if (isLoading) {
-    return <LoadingState label="Connecting to live orderbook and market streams..." />;
+    return <LoadingState label="Loading market data..." />;
   }
 
-  if (errorMessage || !market || !orderbook) {
+  if (hasLoadError || !market || !orderbook) {
     return (
       <ErrorState
-        detail={
-          errorMessage ??
-          (strictLive
-            ? "The live market page is configured to use real data only, and no usable live response was available."
-            : "The embedded market module could not load even the fallback data.")
-        }
+        detail="We could not load this market. Please try again shortly."
       />
     );
   }
@@ -199,39 +207,34 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const content = (
     <>
       <section>
-        <p className="metric-label">Interactive Map</p>
-        {/* The title row mirrors the UsMarketMap grid columns so the timestamp sits at
-            the right edge of the map column (not the full content width). */}
-        <div className="mt-2 grid gap-x-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] xl:grid-cols-[3fr_1fr]">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <h2 className="max-w-4xl text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
-              {displayMarketTitle}
-            </h2>
-            <p className="shrink-0 text-[11px] uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
-              {formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}
+        <h2 className="max-w-4xl text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
+          {displayMarketTitle}
+        </h2>
+        {mapView === "country" ? (
+          <>
+            <p className="mt-3 font-sans text-xs text-slate-500">
+              Updated {formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}
             </p>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-[var(--demo-card-divider)] py-3 font-sans text-xs text-slate-600">
-          <span className="flex items-center gap-2 font-semibold text-slate-900">
-            <span className={`h-2.5 w-2.5 rounded-full ${dataStateTone}`} />
-            {dataState}
-          </span>
-          <span>Market: {primarySource?.mode ?? "pending"}</span>
-          <span>Signals: {signalSource?.mode ?? "pending"}</span>
-          <span>Updated {formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}</span>
-        </div>
-        <div className="mt-5">
+            {operationalNotice ? (
+              <div className="mt-4 max-w-2xl">
+                <OperationalNotice {...operationalNotice} />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        <div className="mt-7">
           <UsMarketMap
             market={market}
             orderbook={orderbook}
             orderbookSummary={resolvedOrderbookSummary}
             liveMicrostructure={liveMicrostructure}
             liveReplay={liveReplay}
+            marketSeries={marketSeries}
             regionSignals={regionSignalsQuery.data?.signals}
             activityThreshold={activityThreshold}
             activitySignalKind={activitySignalKind}
             activityMaxAgeHours={activityMaxAgeHours}
+            mapView={mapView}
             selectedCountryCode={selectedCountryCode}
             selectedCode={selectedStateCode}
             onSelectCountryCode={setSelectedCountryCode}
@@ -239,27 +242,13 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             onActivityThresholdChange={setActivityThreshold}
             onActivitySignalKindChange={setActivitySignalKind}
             onActivityMaxAgeHoursChange={setActivityMaxAgeHours}
-            sources={{
-              featuredMarket: sources["market-context"] ?? sources["featured-market"],
-              liveStream: sources["live-stream"],
-              liveReplay: sources["live-replay"],
-              liveReadiness: sources["live-readiness"],
-              liveDegradation: sources["live-degradation"],
-              liveRegistry: sources["live-registry"],
-              orderbookSummary: sources["market-context"] ?? sources["orderbook-summary"],
-              regionSignals: sources["region-signals"],
-              orderbook: sources.orderbook,
-              trades: sources.trades
-            }}
-            liveReadiness={liveSystemHealth.readinessQuery.data ?? null}
-            liveDegradation={liveSystemHealth.degradationQuery.data ?? null}
-            liveRegistryHealth={liveSystemHealth.registryHealthQuery.data ?? null}
+            onMapViewChange={setMapView}
           />
         </div>
       </section>
 
-      {marketMatchesSelectedRegion ? (
-      <section className="border-t border-[var(--demo-card-divider)] pt-8">
+      {mapView === "world" ? null : marketMatchesSelectedRegion ? (
+      <section className="pt-2">
         <div className="mb-7 flex border-b border-[var(--demo-card-divider)] font-sans" role="tablist" aria-label="Market evidence">
           <button
             type="button"
@@ -293,13 +282,15 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           <div role="tabpanel">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="metric-label">Microstructure Replay</p>
+                <p className="metric-label">Market Dynamics</p>
                 <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">
                   Liquidity and order flow through time
                 </h2>
               </div>
               <p className="text-sm leading-6 text-slate-500 md:max-w-[320px] md:text-right">
-                {liveReplay?.sampleCount ?? 0} samples · {liveReplay?.source ?? "warming up"} · FastAPI + NumPy
+                {liveReplay?.sampleCount
+                  ? `${liveReplay.sampleCount} recent observations`
+                  : "Collecting recent market activity"}
               </p>
             </div>
             <div className="mt-6">
@@ -318,7 +309,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
               <p className="text-sm leading-6 text-slate-500 md:max-w-[280px] md:text-right">
                 {historicalSeriesQuery.isLoading
                   ? "Loading history..."
-                  : `${historyMeta?.points ?? marketSeries.length} points · ${sources["market-context"]?.state ?? sources["price-history"]?.state ?? "fallback"} · ${sources["market-context"]?.mode ?? sources["price-history"]?.mode ?? "mock"}`}
+                  : `${historyMeta?.points ?? marketSeries.length} historical observations`}
               </p>
             </div>
             <div className="mt-6">
@@ -328,12 +319,12 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         )}
       </section>
       ) : (
-        <section className="border-t border-[var(--demo-card-divider)] py-10">
+        <section className="py-8">
           <p className="metric-label">Market Evidence</p>
           <h2 className="mt-2 text-xl font-semibold text-slate-900">Coverage unavailable for this pair</h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Signal context remains visible, but order-book replay and price history are withheld because the loaded
-            fallback market does not match the selected region.
+            Regional signals remain visible, but order-book replay and price history are unavailable because this
+            region does not have matching market coverage.
           </p>
         </section>
       )}

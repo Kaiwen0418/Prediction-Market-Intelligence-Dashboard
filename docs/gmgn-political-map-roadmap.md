@@ -199,6 +199,63 @@ Acceptance criteria:
 - Users can watch a region or open its matching venue market from the selected rail.
 - Only one deep evidence view is expanded at a time.
 
+### Phase 8: Interface Hierarchy and Visual Rhythm
+
+Status: complete
+
+- Consolidate brand, page title, context, navigation, and theme controls into one application header.
+- Remove decorative full-width rules between page sections and use spacing to communicate hierarchy.
+- Keep functional separators for tab state, scanner rows, and dense metric tables.
+- Deduplicate selected-market metadata and expose the update time once.
+- Preserve mobile access to the alternate primary route without crowding the header.
+- Enforce one page-level heading per route.
+
+Acceptance criteria:
+
+- Home and Research use the same single-header structure.
+- The map view has no stacked context bar, card header, and module label.
+- Desktop and mobile layouts have no horizontal overflow.
+- Navigation remains available at mobile widths.
+- Heading levels describe the content hierarchy without duplicate `h1` elements.
+
+### Phase 9: Production Status Communication
+
+Status: complete
+
+- Keep healthy data operation quiet and show update time without implementation details.
+- Replace source modes and backend diagnostics with impact-based information, warning, and error notices.
+- Remove mock, fixture, fallback, framework, and pipeline terminology from customer-facing copy.
+- Express delayed data as the latest available information with a clear recency warning.
+- Show unavailable regional coverage without exposing mismatched market internals.
+- Preserve source diagnostics in application state for development and observability only.
+
+Acceptance criteria:
+
+- No rendered route exposes source mode, backend health, framework names, or fixture labels.
+- Informational notices are neutral; delayed data is a warning; unavailable data is an error.
+- Notices explain user impact and expected recovery behavior.
+- Signal and market timestamps remain visible in plain language.
+
+### Phase 10: Global Map Navigation
+
+Status: complete
+
+- [x] Preserve selected UK market identity when upstream market data is unavailable.
+- [x] Provide coherent UK market history and order-book values for all configured regions.
+- [x] Replace the country dropdown with a map-based country selection mode.
+- [x] Let users move from a world overview into a country map without losing signal filters.
+- [x] Preserve country and region selection in the shareable URL.
+
+### Phase 11: Selected-Market Trading Summary
+
+Status: complete
+
+- [x] Calculate 1-hour, 24-hour, and 7-day probability movement from timestamped history.
+- [x] Add current probability and movement windows to the selected-region rail.
+- [x] Add 24-hour volume and available liquidity in compact market units.
+- [x] Withhold movement windows when no suitably timed observation exists.
+- [x] Validate the summary across live and latest-available UK market data.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -228,3 +285,4 @@ Acceptance criteria:
 - [x] Gate wallet reputation behind five resolved markets and expose the resolved-history sample.
 - [x] Add fee-aware related-market consistency checks and source-linked political catalyst windows.
 - [x] Add a timestamped polling-derived election-model baseline for market comparison.
+- [x] Add a compact selected-market trading summary with time-aware movement windows.

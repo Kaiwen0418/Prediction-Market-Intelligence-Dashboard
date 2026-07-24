@@ -8,9 +8,8 @@ import { useTheme } from "@/components/theme/ThemeProvider";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type ProductDemoShellProps = {
-  barLeft: string;
-  barCenter: string;
-  barRight: string;
+  brand: string;
+  context?: string;
   title: ReactNode;
   footerLabel?: string;
   footerLeft?: string;
@@ -25,9 +24,8 @@ const navLinks = [
 ];
 
 export function ProductDemoShell({
-  barLeft,
-  barCenter,
-  barRight,
+  brand,
+  context,
   title,
   footerLabel,
   footerLeft,
@@ -42,16 +40,14 @@ export function ProductDemoShell({
     <main className="product-demo-page flex min-h-screen w-full flex-col px-4 py-5 md:px-6 lg:px-8">
       <section className="product-demo-hero">
         <div className="product-demo-shell">
-          <div className="product-demo-bar">
-            <span>{barLeft}</span>
-            <span className="text-center">{barCenter}</span>
-            <span className="text-right">{barRight}</span>
-          </div>
-
           <div className="product-demo-card">
             <div className={showHero ? "product-demo-stage" : "product-demo-stage product-demo-stage--compact"}>
               <div className="product-demo-card-header">
-                <h1 className="product-demo-title">{title}</h1>
+                <div>
+                  <p className="product-demo-brand">{brand}</p>
+                  <h1 className="product-demo-title">{title}</h1>
+                  {context ? <p className="product-demo-context">{context}</p> : null}
+                </div>
 
                 <nav className="product-demo-local-nav" aria-label="Primary navigation">
                   {navLinks.map((link) => (

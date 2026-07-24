@@ -1,0 +1,14 @@
+# Agent Guidelines
+
+## Task Cleanup
+
+Before finishing a task, clean up temporary resources created during that task:
+
+- Stop development servers, watchers, background Node/Next.js processes, browser sessions, and other local services started by the agent.
+- Stop and remove temporary containers, networks, and volumes created specifically for the task.
+- Remove disposable virtual environments, temporary files, screenshots, logs, and generated test artifacts that are not requested deliverables.
+- Check that no command or tool session started for the task is still running before sending the final response.
+
+Only clean up resources created or explicitly owned by the current task. Never use broad commands such as `pkill node`, and never stop user-owned processes, shared containers, databases, caches, or external services.
+
+If the user explicitly asks to keep a service running, leave it running and report its address and process details in the final response.

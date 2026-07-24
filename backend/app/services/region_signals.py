@@ -158,7 +158,7 @@ REGION_SIGNAL_FIXTURES = (
         "poll-divergence",
         74,
         "Referendum pricing diverges from polling",
-        "The configured contract is trading away from the latest constitutional polling baseline.",
+        "The market is trading away from the latest constitutional polling baseline.",
         "2026-07-24T10:05:00Z",
     ),
     RegionSignalFixture(
@@ -168,7 +168,7 @@ REGION_SIGNAL_FIXTURES = (
         "volume-anomaly",
         68,
         "Mayoral market volume is elevated",
-        "Recent turnover is above the configured London political-market baseline.",
+        "Recent turnover is above the London market's recent baseline.",
         "2026-07-24T10:02:00Z",
     ),
     RegionSignalFixture(

@@ -334,8 +334,8 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
         eventSlug=event_slug,
         party=party,
         summary=(
-            f"FiveThirtyEight {party} state support matched against a cached Polymarket history snapshot for {state}, "
-            "with lead-lag, correlation, volatility, divergence, and rolling-correlation computed by the FastAPI + NumPy backend."
+            f"FiveThirtyEight {party} state support compared with Polymarket history for {state}, "
+            "including lead-lag, correlation, volatility, divergence, and rolling-correlation analysis."
         ),
         analyticsSource="api",
         researchSource="api",
@@ -371,7 +371,7 @@ def get_research_summary(state: str, party: Party) -> ResearchStateSummaryRespon
                 f"{lead_lag.interpretation.lower()}."
             ),
             methodology=(
-                "Poll and market series are date-aligned first, then FastAPI + NumPy computes lead-lag, "
+                "Poll and market series are aligned by date before the service calculates lead-lag, "
                 "correlation, divergence, volatility, rolling correlation, and the largest event-window shock."
             ),
         ),

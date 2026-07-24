@@ -6,9 +6,8 @@ import { MarketPageView } from "@/components/pages/MarketPageView";
 export function HomePageView() {
   return (
     <ProductDemoShell
-      barLeft="Prediction Market Intelligence"
-      barCenter="Political markets"
-      barRight="Map intelligence"
+      brand="Prediction Market Intelligence"
+      context="Political markets · Map intelligence"
       title="Market Flow"
       showHero={false}
     >
