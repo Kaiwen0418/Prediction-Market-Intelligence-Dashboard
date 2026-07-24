@@ -5,6 +5,7 @@ import type { MarketTradePrint } from "@/types/market";
 import { formatTimestamp } from "@/utils/time";
 
 type MapLiveTradeTapeProps = {
+  marketSlugs: string[];
   trades: MarketTradePrint[];
 };
 
@@ -32,35 +33,57 @@ export function getVisibleMarketTrades(
   );
 }
 
-export function MapLiveTradeTape({ trades }: MapLiveTradeTapeProps) {
+export function filterRegionMarketTrades(
+  trades: MarketTradePrint[],
+  marketSlugs: string[]
+) {
+  const configuredSlugs = new Set(marketSlugs);
+
+  return trades.filter(
+    (trade) =>
+      configuredSlugs.has(trade.marketSlug) ||
+      (trade.eventSlug ? configuredSlugs.has(trade.eventSlug) : false)
+  );
+}
+
+export function MapLiveTradeTape({
+  marketSlugs,
+  trades
+}: MapLiveTradeTapeProps) {
   const [offset, setOffset] = useState(0);
+  const regionTrades = useMemo(
+    () => filterRegionMarketTrades(trades, marketSlugs),
+    [marketSlugs, trades]
+  );
 
   useEffect(() => {
-    setOffset((current) => (trades.length ? current % trades.length : 0));
-  }, [trades.length]);
+    setOffset((current) =>
+      regionTrades.length ? current % regionTrades.length : 0
+    );
+  }, [regionTrades.length]);
 
   useEffect(() => {
-    if (trades.length <= VISIBLE_TRADE_COUNT) return;
+    if (regionTrades.length <= VISIBLE_TRADE_COUNT) return;
 
     const interval = window.setInterval(() => {
-      setOffset((current) => (current + 1) % trades.length);
+      setOffset((current) => (current + 1) % regionTrades.length);
     }, 2_800);
 
     return () => window.clearInterval(interval);
-  }, [trades.length]);
+  }, [regionTrades.length]);
 
   const visibleTrades = useMemo(
-    () => getVisibleMarketTrades(trades, offset),
-    [offset, trades]
+    () => getVisibleMarketTrades(regionTrades, offset),
+    [offset, regionTrades]
   );
 
   if (!visibleTrades.length) return null;
 
   return (
     <section
-      aria-label="Live trades across all markets"
+      aria-label="Live trades for regional market pairs"
       aria-live="polite"
-      className="absolute bottom-3 left-3 z-10 w-[calc(100%_-_1.5rem)] max-w-[calc(100vw_-_3.5rem)] overflow-hidden border border-slate-200 bg-white/95 font-sans shadow-lg backdrop-blur-sm sm:max-w-[390px]"
+      className="absolute bottom-3 left-3 z-10 w-[calc(100%_-_1.5rem)] max-w-[calc(100vw_-_3.5rem)] overflow-hidden border border-slate-300/70 bg-transparent font-sans sm:max-w-[390px]"
       onPointerDown={(event) => event.stopPropagation()}
     >
       <div className="flex h-8 items-center justify-between border-b border-slate-200 px-3">
@@ -69,7 +92,7 @@ export function MapLiveTradeTape({ trades }: MapLiveTradeTapeProps) {
           Live trades
         </span>
         <span className="text-[9px] font-medium uppercase text-slate-500">
-          All markets
+          Region pairs
         </span>
       </div>
       <div key={offset} className="map-trade-tape-enter">
