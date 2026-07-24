@@ -43,6 +43,7 @@ import type {
 import type { SourceDiagnostics } from "@/types/service";
 import type { RegionSignal } from "@/types/signals";
 import { formatTimestamp, relativeTime } from "@/utils/time";
+import { useSignalWatchlist } from "@/hooks/useSignalWatchlist";
 
 type UsMarketMapProps = {
   market: MarketSnapshot;
@@ -109,6 +110,28 @@ export function UsMarketMap({
     () => new Map(regionSignals.map((signal) => [signal.regionCode, signal])),
     [regionSignals]
   );
+  const alertSignals = useMemo(
+    () =>
+      regionSignals.map((signal) => {
+        const region = regionMarkets.find(
+          (candidate) => candidate.code === signal.regionCode
+        );
+        return {
+          countryCode: signal.countryCode,
+          regionCode: signal.regionCode,
+          regionLabel: region?.label ?? signal.regionCode,
+          pairLabel: region
+            ? getRegionMarketPairLabel(region)
+            : signal.marketSlug,
+          headline: signal.headline,
+          score: signal.score,
+          observedAt: signal.observedAt,
+          source: signal.source
+        };
+      }),
+    [regionMarkets, regionSignals]
+  );
+  const signalWatchlist = useSignalWatchlist(alertSignals);
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
   const [view, setView] = useState<{ center: [number, number]; zoom: number }>({
@@ -429,9 +452,19 @@ export function UsMarketMap({
             minimumScore={activityThreshold}
             signalKind={activitySignalKind}
             maxAgeHours={activityMaxAgeHours}
+            countryCode={activeCountry.code}
+            watchlist={signalWatchlist.watchlist}
+            watchedOnly={signalWatchlist.watchedOnly}
+            alertsEnabled={signalWatchlist.alertsEnabled}
+            alertPermission={signalWatchlist.alertPermission}
             onMinimumScoreChange={onActivityThresholdChange ?? (() => undefined)}
             onSignalKindChange={onActivitySignalKindChange ?? (() => undefined)}
             onMaxAgeHoursChange={onActivityMaxAgeHoursChange ?? (() => undefined)}
+            onWatchedOnlyChange={signalWatchlist.setWatchedOnly}
+            onAlertsEnabledChange={(enabled) => {
+              void signalWatchlist.setBrowserAlertsEnabled(enabled);
+            }}
+            onToggleWatch={signalWatchlist.toggleWatch}
             onSelect={selectCode}
           />
         </div>

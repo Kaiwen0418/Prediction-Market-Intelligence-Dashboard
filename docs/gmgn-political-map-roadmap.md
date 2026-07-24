@@ -113,7 +113,7 @@ Acceptance criteria:
 
 ### Phase 3: Abnormal Activity Feed
 
-Status: in progress
+Status: complete
 
 - Rank signals by severity, freshness, liquidity, and confidence.
 - Add filters for country, signal type, threshold, and time window.
@@ -181,4 +181,4 @@ Acceptance criteria:
 - [x] Replace the selected live region's fixture signal when enough backend samples are available.
 - [x] Add the first ranked abnormal-activity feed with threshold filtering and map selection.
 - [x] Add signal-type and time-window filters with URL persistence.
-- [ ] Add watchlists and notification preferences.
+- [x] Add persistent region watchlists, watched-only filtering, and opt-in browser notification preferences.
