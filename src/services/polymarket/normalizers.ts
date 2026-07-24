@@ -1,4 +1,12 @@
-import type { MarketSnapshot, OrderbookLevel, OrderbookState, TimelineEvent, TimePoint, TradePrint } from "@/types/market";
+import type {
+  MarketSnapshot,
+  MarketTradePrint,
+  OrderbookLevel,
+  OrderbookState,
+  TimelineEvent,
+  TimePoint,
+  TradePrint
+} from "@/types/market";
 import type { NormalizedBookEvent } from "@/types/ws";
 
 type UnknownRecord = Record<string, unknown>;
@@ -230,6 +238,18 @@ function normalizeLevels(input: unknown): OrderbookLevel[] {
     .filter((row) => row.price > 0 && row.size > 0);
 }
 
+function normalizeTradeTimestamp(value: unknown) {
+  if (typeof value === "number") {
+    return new Date(value * 1000).toISOString();
+  }
+
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    return new Date(Number(value) * 1000).toISOString();
+  }
+
+  return asString(value, new Date().toISOString());
+}
+
 function normalizeTrades(input: unknown): TradePrint[] {
   if (!Array.isArray(input)) return [];
 
@@ -242,14 +262,48 @@ function normalizeTrades(input: unknown): TradePrint[] {
         side,
         price: asNumber(trade.price),
         size: asNumber(trade.size),
-        timestamp:
-          typeof trade.timestamp === "number"
-            ? new Date(trade.timestamp * 1000).toISOString()
-            : asString(trade.timestamp, new Date().toISOString()),
+        timestamp: normalizeTradeTimestamp(trade.timestamp),
         walletAddress: asWalletAddress(trade.proxyWallet)
       };
     })
     .filter((trade) => trade.price > 0 && trade.size > 0);
+}
+
+export function normalizeMarketTrades(input: unknown): MarketTradePrint[] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .filter(isRecord)
+    .map((trade, index): MarketTradePrint => ({
+      id: `${asString(trade.transactionHash, "trade")}-${asString(
+        trade.asset,
+        String(index)
+      )}`,
+      side:
+        String(trade.side).toLowerCase() === "sell" ? "sell" : "buy",
+      price: asNumber(trade.price),
+      size: asNumber(trade.size),
+      timestamp: normalizeTradeTimestamp(trade.timestamp),
+      walletAddress: asWalletAddress(trade.proxyWallet),
+      conditionId: asString(trade.conditionId),
+      marketSlug: asString(trade.slug),
+      eventSlug: asString(trade.eventSlug) || undefined,
+      title: asString(trade.title),
+      outcome: asString(trade.outcome) || undefined
+    }))
+    .filter(
+      (trade) =>
+        trade.price > 0 &&
+        trade.size > 0 &&
+        Boolean(trade.conditionId) &&
+        Boolean(trade.marketSlug) &&
+        Boolean(trade.title)
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.timestamp).getTime() -
+        new Date(left.timestamp).getTime()
+    );
 }
 
 export function normalizeOrderbook(payload: unknown, tokenId?: string): OrderbookState | null {

@@ -308,6 +308,56 @@ Status: complete
 - [x] Add verified-open fallback identity, probability, liquidity, and close-time context.
 - [x] Validate Europe focus and global-to-Europe navigation on desktop and mobile.
 
+### Phase 17: Country-Accurate World and Detail Layers
+
+Status: complete
+
+- [x] Replace the synthetic Europe adapter with independent country adapters.
+- [x] Show one activity surface and label per configured country at world scale.
+- [x] Render only the focused country's subdivisions after selection or auto-tour.
+- [x] Add regional boundaries for France and Länder boundaries for Germany.
+- [x] Keep national contracts national while preserving internal boundary context.
+- [x] Anchor Germany's Berlin market to the Berlin state polygon.
+
+### Phase 18: Global Live Trade Tape
+
+Status: complete
+
+- [x] Proxy the latest public trades without restricting the feed to one contract.
+- [x] Normalize market identity, outcome, side, price, size, and timestamp.
+- [x] Poll independently from the selected map market without synthetic fallback.
+- [x] Rotate recent prints in a compact lower-left map overlay.
+- [x] Link each print to its Polymarket event and respect reduced-motion settings.
+
+### Phase 19: Animated Auto-Tour Camera
+
+Status: complete
+
+- [x] Replace automatic camera jumps with staged zoom-out, pan, and zoom-in motion.
+- [x] Focus automatic navigation on the selected region rather than only its country.
+- [x] Cancel in-flight motion immediately after pointer or manual selection input.
+- [x] Debounce the next tour interval until camera motion has settled.
+- [x] Keep manual country navigation immediate and deterministic.
+
+### Phase 20: Fullscreen Map Control
+
+Status: complete
+
+- [x] Replace the country-view world button with a compact fullscreen control.
+- [x] Group fullscreen and auto-tour controls inside the map.
+- [x] Preserve auto-tour state when entering or exiting fullscreen.
+- [x] Fill the fullscreen viewport while keeping the ocean matched to the surface.
+
+### Phase 21: Complete Signal Ranking Pagination
+
+Status: complete
+
+- [x] Remove the hidden five-result cap from the global signal ranking.
+- [x] Include scores below 50 whenever the Score filter is set to All.
+- [x] Add stable rank numbers across paginated results.
+- [x] Add result ranges, page jumps, and previous/next controls.
+- [x] Reset or clamp pages when filters and result counts change.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -343,3 +393,8 @@ Status: complete
 - [x] Unify world and regional navigation in one pannable map with global signal scope.
 - [x] Add an interruptible live tour across verified-open high-activity regions.
 - [x] Launch the Europe country-market layer with five open political contracts.
+- [x] Split European markets into country-accurate world and regional detail layers.
+- [x] Add a rolling all-market live trade tape to the map.
+- [x] Animate and debounce region-to-region auto-tour camera movement.
+- [x] Add a fullscreen map control beside auto-tour.
+- [x] Page the complete signal ranking without hiding normal-score regions.

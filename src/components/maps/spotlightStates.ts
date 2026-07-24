@@ -9,6 +9,7 @@ export type RegionMarket = {
   code: string;
   countryCode: string;
   countryLabel: string;
+  coverage?: "country" | "region";
   center: [number, number];
   featureId: string;
   label: string;
@@ -60,13 +61,59 @@ export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
     boundarySourceUrl: "https://github.com/ONSvisual/topojson_boundaries"
   },
   {
-    code: "EU",
-    worldFeatureIds: ["250", "276", "380", "724", "352"],
-    label: "Europe",
+    code: "FR",
+    worldFeatureIds: ["250"],
+    label: "France",
     projection: "geoMercator",
     defaultRegionCode: "FR",
-    defaultCenter: [10, 51],
-    defaultZoom: 1,
+    defaultCenter: [2.2, 46.3],
+    defaultZoom: 7.5,
+    featureIdProperty: "code",
+    boundarySourceLabel: "France GeoJSON",
+    boundarySourceUrl: "https://github.com/gregoiredavid/france-geojson"
+  },
+  {
+    code: "DE",
+    worldFeatureIds: ["276"],
+    label: "Germany",
+    projection: "geoMercator",
+    defaultRegionCode: "BER",
+    defaultCenter: [10.4, 51.1],
+    defaultZoom: 7.5,
+    featureIdProperty: "id",
+    boundarySourceLabel: "Deutschland GeoJSON",
+    boundarySourceUrl: "https://github.com/isellsoap/deutschlandGeoJSON"
+  },
+  {
+    code: "ES",
+    worldFeatureIds: ["724"],
+    label: "Spain",
+    projection: "geoMercator",
+    defaultRegionCode: "ES",
+    defaultCenter: [-3.7, 40.2],
+    defaultZoom: 7,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "IT",
+    worldFeatureIds: ["380"],
+    label: "Italy",
+    projection: "geoMercator",
+    defaultRegionCode: "IT",
+    defaultCenter: [12.6, 42.8],
+    defaultZoom: 6,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "IS",
+    worldFeatureIds: ["352"],
+    label: "Iceland",
+    projection: "geoMercator",
+    defaultRegionCode: "IS",
+    defaultCenter: [-18.6, 64.9],
+    defaultZoom: 7,
     boundarySourceLabel: "Natural Earth",
     boundarySourceUrl: "https://github.com/topojson/world-atlas"
   }
@@ -257,14 +304,15 @@ export const REGION_MARKETS: RegionMarket[] = [
   },
   {
     code: "FR",
-    countryCode: "EU",
-    countryLabel: "Europe",
+    countryCode: "FR",
+    countryLabel: "France",
+    coverage: "country",
     center: [2.2, 46.3],
-    featureId: "250",
+    featureId: "*",
     label: "France",
     liveMarketSlug: "next-french-presidential-election",
     note: "French presidential market with active liquidity and regional signal coverage.",
-    zoom: 5,
+    zoom: 7.5,
     status: "live",
     marketStatus: "open",
     signal: {
@@ -277,15 +325,15 @@ export const REGION_MARKETS: RegionMarket[] = [
     }
   },
   {
-    code: "DE",
-    countryCode: "EU",
-    countryLabel: "Europe",
-    center: [10.4, 51.1],
-    featureId: "276",
-    label: "Germany",
+    code: "BER",
+    countryCode: "DE",
+    countryLabel: "Germany",
+    center: [13.4, 52.5],
+    featureId: "DE-BE",
+    label: "Berlin",
     liveMarketSlug: "berlin-state-election-winner",
-    note: "Berlin state election market represented at country level in the Europe scanner.",
-    zoom: 5,
+    note: "Berlin state election market with state-level signal coverage.",
+    zoom: 10.5,
     status: "live",
     marketStatus: "open",
     signal: {
@@ -299,10 +347,11 @@ export const REGION_MARKETS: RegionMarket[] = [
   },
   {
     code: "ES",
-    countryCode: "EU",
-    countryLabel: "Europe",
+    countryCode: "ES",
+    countryLabel: "Spain",
+    coverage: "country",
     center: [-3.7, 40.2],
-    featureId: "724",
+    featureId: "*",
     label: "Spain",
     liveMarketSlug: "next-prime-minister-of-spain-20260625005215443",
     note: "Next-prime-minister market with country-level signal coverage.",
@@ -320,10 +369,11 @@ export const REGION_MARKETS: RegionMarket[] = [
   },
   {
     code: "IT",
-    countryCode: "EU",
-    countryLabel: "Europe",
+    countryCode: "IT",
+    countryLabel: "Italy",
+    coverage: "country",
     center: [12.6, 42.8],
-    featureId: "380",
+    featureId: "*",
     label: "Italy",
     liveMarketSlug: "next-prime-minister-of-italy",
     note: "Next-prime-minister market with country-level signal coverage.",
@@ -341,10 +391,11 @@ export const REGION_MARKETS: RegionMarket[] = [
   },
   {
     code: "IS",
-    countryCode: "EU",
-    countryLabel: "Europe",
+    countryCode: "IS",
+    countryLabel: "Iceland",
+    coverage: "country",
     center: [-18.6, 64.9],
-    featureId: "352",
+    featureId: "*",
     label: "Iceland",
     liveMarketSlug:
       "icelandic-european-union-membership-negotiations-referendum-passes-20260609135241589",

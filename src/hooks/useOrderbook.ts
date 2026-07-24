@@ -30,12 +30,13 @@ export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}
       strictSnapshot
         ? getOrderbookSnapshotStrict(tokenId, conditionId)
         : getOrderbookSnapshot(tokenId, conditionId),
+    placeholderData: (previous) => previous,
     refetchInterval: tokenId ? 30_000 : 15_000
   });
 
   useEffect(() => {
-    resetOrderbook();
-  }, [conditionId, resetOrderbook, tokenId]);
+    if (!tokenId) resetOrderbook();
+  }, [resetOrderbook, tokenId]);
 
   useEffect(() => {
     if (snapshotQuery.data) {
@@ -47,7 +48,8 @@ export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}
     (events: ReturnType<typeof routeMarketStreamMessage>) => {
       pushEvents(events);
 
-      let nextOrderbook = orderbook;
+      let nextOrderbook =
+        orderbook?.tokenId === tokenId ? orderbook : null;
       for (const event of events) {
         nextOrderbook = mergeNormalizedBookEvent(nextOrderbook, event);
       }
@@ -55,7 +57,7 @@ export function useOrderbook(tokenId?: string, options: UseOrderbookOptions = {}
         upsertOrderbook(nextOrderbook);
       }
     },
-    [orderbook, pushEvents, upsertOrderbook]
+    [orderbook, pushEvents, tokenId, upsertOrderbook]
   );
 
   const connect = useCallback(

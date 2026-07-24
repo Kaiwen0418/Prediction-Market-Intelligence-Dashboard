@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getMarketSignalColor,
   getMarketSignalLabel,
@@ -15,6 +15,10 @@ import type { RegionMarket } from "@/components/maps/spotlightStates";
 import type { RegionSignal } from "@/types/signals";
 import { relativeTime } from "@/utils/time";
 import { filterWatchedRegions } from "@/components/maps/signalWatchlist";
+import {
+  ACTIVITY_FEED_PAGE_SIZE,
+  getPaginationItems
+} from "@/components/maps/activityFeedPagination";
 
 type AbnormalActivityFeedProps = {
   regions: RegionMarket[];
@@ -87,6 +91,7 @@ export function AbnormalActivityFeed({
   onToggleWatch,
   onSelect
 }: AbnormalActivityFeedProps) {
+  const [currentPage, setCurrentPage] = useState(1);
   const rankedSignals = useMemo(
     () =>
       rankRegionSignals(
@@ -97,7 +102,7 @@ export function AbnormalActivityFeed({
           signalKind,
           maxAgeHours
         }
-      ).slice(0, 5),
+      ),
     [
       countryCode,
       maxAgeHours,
@@ -109,6 +114,35 @@ export function AbnormalActivityFeed({
       watchlist
     ]
   );
+  const pageCount = Math.ceil(
+    rankedSignals.length / ACTIVITY_FEED_PAGE_SIZE
+  );
+  const safePage = Math.min(Math.max(1, currentPage), Math.max(1, pageCount));
+  const pageStart = (safePage - 1) * ACTIVITY_FEED_PAGE_SIZE;
+  const pagedSignals = rankedSignals.slice(
+    pageStart,
+    pageStart + ACTIVITY_FEED_PAGE_SIZE
+  );
+  const paginationItems = getPaginationItems(safePage, pageCount);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    countryCode,
+    countryScope,
+    maxAgeHours,
+    minimumScore,
+    regions,
+    signalKind,
+    watchedOnly,
+    watchlist
+  ]);
+
+  useEffect(() => {
+    if (pageCount > 0 && currentPage > pageCount) {
+      setCurrentPage(pageCount);
+    }
+  }, [currentPage, pageCount]);
 
   return (
     <section className="pt-2" aria-labelledby="activity-feed-title">
@@ -154,29 +188,34 @@ export function AbnormalActivityFeed({
             })}
           </div>
         </div>
-        <div
-          className="flex divide-x divide-slate-200 overflow-hidden rounded-md border border-slate-200"
-          role="group"
-          aria-label="Minimum activity score"
-        >
-          {THRESHOLDS.map((threshold) => {
-            const isActive = threshold.value === minimumScore;
-            return (
-              <button
-                key={threshold.value}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => onMinimumScoreChange(threshold.value)}
-                className={`min-w-12 px-3 py-1.5 text-xs font-medium transition ${
-                  isActive
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                {threshold.label}
-              </button>
-            );
-          })}
+        <div>
+          <p className="mb-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            Score
+          </p>
+          <div
+            className="flex divide-x divide-slate-200 overflow-hidden rounded-md border border-slate-200"
+            role="group"
+            aria-label="Minimum activity score"
+          >
+            {THRESHOLDS.map((threshold) => {
+              const isActive = threshold.value === minimumScore;
+              return (
+                <button
+                  key={threshold.value}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => onMinimumScoreChange(threshold.value)}
+                  className={`min-w-12 px-3 py-1.5 text-xs font-medium transition ${
+                    isActive
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  {threshold.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <label className="grid gap-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
           Signal
@@ -242,9 +281,9 @@ export function AbnormalActivityFeed({
           <span className="text-center">Watch</span>
         </div>
 
-        {rankedSignals.length ? (
+        {pagedSignals.length ? (
           <div className="divide-y divide-[var(--demo-card-divider)]">
-            {rankedSignals.map(({ region, signal }, index) => {
+            {pagedSignals.map(({ region, signal }, index) => {
               const isSelected =
                 region.countryCode === countryCode && region.code === selectedCode;
               const watched = watchlist.includes(`${region.countryCode}:${region.code}`);
@@ -262,7 +301,7 @@ export function AbnormalActivityFeed({
                     className="grid min-w-0 flex-1 grid-cols-[52px_minmax(0,1fr)_44px] items-center gap-3 px-2 py-3 text-left sm:grid-cols-[42px_80px_minmax(0,1fr)_100px_64px]"
                   >
                     <span className="hidden text-xs tabular-nums text-slate-400 sm:block">
-                      {String(index + 1).padStart(2, "0")}
+                      {String(pageStart + index + 1).padStart(2, "0")}
                     </span>
                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                       <span
@@ -296,8 +335,73 @@ export function AbnormalActivityFeed({
             })}
           </div>
         ) : (
-          <p className="px-2 py-6 text-sm text-slate-500">No regions meet this activity threshold.</p>
+          <p className="px-2 py-6 text-sm text-slate-500">
+            No regions match the current filters.
+          </p>
         )}
+
+        {rankedSignals.length ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--demo-card-divider)] px-2 pt-3 font-sans">
+            <p className="text-xs tabular-nums text-slate-500">
+              {pageStart + 1}–{Math.min(pageStart + ACTIVITY_FEED_PAGE_SIZE, rankedSignals.length)} of{" "}
+              {rankedSignals.length}
+            </p>
+            {pageCount > 1 ? (
+              <nav
+                aria-label="Activity ranking pages"
+                className="flex items-center gap-1"
+              >
+                <button
+                  type="button"
+                  title="Previous page"
+                  aria-label="Previous activity page"
+                  disabled={safePage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  className="grid h-8 w-8 place-items-center border border-slate-200 bg-white text-base text-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  ‹
+                </button>
+                {paginationItems.map((item, index) =>
+                  item === "ellipsis" ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="grid h-8 w-6 place-items-center text-xs text-slate-400"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      aria-label={`Activity page ${item}`}
+                      aria-current={item === safePage ? "page" : undefined}
+                      onClick={() => setCurrentPage(item)}
+                      className={`grid h-8 min-w-8 place-items-center border px-2 text-xs font-semibold ${
+                        item === safePage
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+                <button
+                  type="button"
+                  title="Next page"
+                  aria-label="Next activity page"
+                  disabled={safePage === pageCount}
+                  onClick={() =>
+                    setCurrentPage((page) => Math.min(pageCount, page + 1))
+                  }
+                  className="grid h-8 w-8 place-items-center border border-slate-200 bg-white text-base text-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  ›
+                </button>
+              </nav>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </section>
   );

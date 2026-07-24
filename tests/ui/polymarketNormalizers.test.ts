@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   normalizeGammaEvent,
   normalizeGammaMarket,
+  normalizeMarketTrades,
   normalizeOrderbook
 } from "@/services/polymarket/normalizers";
 
@@ -33,6 +34,48 @@ test("public Data API trades retain only valid proxy-wallet addresses", () => {
     "0xaebe4cfd8735f44be2768380f1d9b0cfd6882c1d"
   );
   assert.equal(orderbook?.trades[1]?.walletAddress, undefined);
+});
+
+test("global market trades preserve identity and sort newest first", () => {
+  const trades = normalizeMarketTrades([
+    {
+      transactionHash: "0xolder",
+      asset: "asset-1",
+      conditionId: "condition-1",
+      slug: "market-one",
+      eventSlug: "event-one",
+      title: "Market one",
+      outcome: "Yes",
+      side: "BUY",
+      size: 20,
+      price: 0.4,
+      timestamp: 1784892800
+    },
+    {
+      transactionHash: "0xnewer",
+      asset: "asset-2",
+      conditionId: "condition-2",
+      slug: "market-two",
+      title: "Market two",
+      side: "SELL",
+      size: 10,
+      price: 0.7,
+      timestamp: "1784892900"
+    },
+    {
+      title: "Incomplete trade",
+      size: 2,
+      price: 0.5
+    }
+  ]);
+
+  assert.deepEqual(
+    trades.map((trade) => trade.marketSlug),
+    ["market-two", "market-one"]
+  );
+  assert.equal(trades[0]?.side, "sell");
+  assert.equal(trades[1]?.eventSlug, "event-one");
+  assert.match(trades[0]?.timestamp ?? "", /^2026-/);
 });
 
 test("market normalization preserves verified contract context", () => {

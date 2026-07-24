@@ -5,6 +5,7 @@ import type {
   LiveReplay,
   MarketContext,
   MarketSnapshot,
+  MarketTradePrint,
   OrderbookState,
   OrderbookSummary,
   TimePoint,
@@ -14,7 +15,13 @@ import type { RegionSignalsResponse } from "@/types/signals";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 import { withApiBase } from "@/services/api/base";
 import { polymarketConfig } from "./config";
-import { normalizeGammaEvent, normalizeGammaMarket, normalizeOrderbook, normalizePriceHistory } from "./normalizers";
+import {
+  normalizeGammaEvent,
+  normalizeGammaMarket,
+  normalizeMarketTrades,
+  normalizeOrderbook,
+  normalizePriceHistory
+} from "./normalizers";
 import {
   validateGammaEventPayload,
   validateGammaMarketPayload,
@@ -199,6 +206,31 @@ export async function fetchTradesLive(conditionId: string): Promise<TradePrint[]
     recordFallback("trades", "reachability", "Trades request failed");
     return [];
   }
+}
+
+export async function fetchRecentMarketTrades(
+  limit = 60
+): Promise<MarketTradePrint[]> {
+  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+  const path = `/api/polymarket/trades?limit=${safeLimit}`;
+  const urls = [withApiBase(path), path].filter(
+    (url, index, all) => all.indexOf(url) === index
+  );
+
+  for (const url of urls) {
+    try {
+      const payload = await requestJson<unknown>(url);
+      const payloadIssue = validateTradesPayload(payload);
+      if (payloadIssue) continue;
+
+      const trades = normalizeMarketTrades(payload);
+      if (trades.length) return trades;
+    } catch {
+      continue;
+    }
+  }
+
+  return [];
 }
 
 export async function fetchOrderbookSummaryLive(

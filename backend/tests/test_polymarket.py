@@ -4,6 +4,21 @@ from app.services import polymarket as polymarket_service
 
 
 class PolymarketSummaryTestCase(unittest.IsolatedAsyncioTestCase):
+    async def test_fetch_trades_supports_global_recent_feed(self) -> None:
+        async def fake_fetch_json(url: str):
+            self.assertIn("/trades?limit=40&takerOnly=true", url)
+            self.assertNotIn("&market=", url)
+            return [{"transactionHash": "0xtrade"}]
+
+        original_fetch_json = polymarket_service.fetch_json
+        polymarket_service.fetch_json = fake_fetch_json
+        try:
+            result = await polymarket_service.fetch_trades(None, 40)
+        finally:
+            polymarket_service.fetch_json = original_fetch_json
+
+        self.assertEqual(result, [{"transactionHash": "0xtrade"}])
+
     def test_normalizes_documented_public_trade_wallet_shape(self) -> None:
         trades = polymarket_service._normalize_trades(
             [
