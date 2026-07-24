@@ -27,6 +27,7 @@ from app.analytics.whale_activity import (
     HISTORICAL_MULTIPLE_THRESHOLD,
     MINIMUM_SAMPLE_SIZE,
     WALLET_SAMPLE_MINIMUM,
+    WALLET_RESOLVED_MARKET_MINIMUM,
     analyze_whale_activity,
 )
 
@@ -392,6 +393,10 @@ async def fetch_orderbook_summary(
             walletConcentrationStatus=whale_activity.wallet_concentration_status,
             walletConcentrationScore=whale_activity.wallet_concentration_score,
             topWalletVolumeShare=whale_activity.top_wallet_volume_share,
+            walletReputationStatus=whale_activity.wallet_reputation_status,
+            walletReputationScore=whale_activity.wallet_reputation_score,
+            walletResolvedMarketCount=whale_activity.wallet_resolved_market_count,
+            walletResolvedMarketMinimum=WALLET_RESOLVED_MARKET_MINIMUM,
             largeTrades=[
                 LargeTradeResponse(
                     tradeId=detection.trade_id,

@@ -94,6 +94,50 @@ export type LiveHistoryCase = {
     leadLagLabel: string;
     divergenceLabel: string;
   };
+  relatedMarketDivergence?: {
+    primary: {
+      label: string;
+      probability: number;
+      observedAt: string;
+      sourceUrl: string;
+    };
+    related: {
+      label: string;
+      probability: number;
+      observedAt: string;
+      sourceUrl: string;
+    };
+    rawProbabilitySum: number;
+    rawGapPoints: number;
+    feeBpsPerLeg: number;
+    feeBufferPoints: number;
+    actionableGapPoints: number;
+    liquidityUsd?: number | null;
+    minimumLiquidityUsd: number;
+    status: string;
+    explanation: string;
+  };
+  electionModelComparison?: {
+    modelName: string;
+    modelProbability: number;
+    marketProbability: number;
+    divergencePoints: number;
+    pollObservedAt: string;
+    marketObservedAt: string;
+    sourceUrl: string;
+    methodology: string;
+  };
+  catalysts?: Array<{
+    id: string;
+    headline: string;
+    eventType: string;
+    occurredAt: string;
+    sourceName: string;
+    sourceUrl: string;
+    matchedMarketTimestamp: string;
+    marketMove: number;
+    summary: string;
+  }>;
   sourceUrls: string[];
 };
 

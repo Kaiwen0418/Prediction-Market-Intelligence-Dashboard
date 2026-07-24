@@ -238,6 +238,10 @@ export function UsMarketMap({
       walletConcentrationStatus: "unavailable" as const,
       walletConcentrationScore: null,
       topWalletVolumeShare: null,
+      walletReputationStatus: "unavailable" as const,
+      walletReputationScore: null,
+      walletResolvedMarketCount: 0,
+      walletResolvedMarketMinimum: 5,
       largeTrades: []
     }
   };
@@ -264,6 +268,10 @@ export function UsMarketMap({
     walletConcentrationStatus: "unavailable" as const,
     walletConcentrationScore: null,
     topWalletVolumeShare: null,
+    walletReputationStatus: "unavailable" as const,
+    walletReputationScore: null,
+    walletResolvedMarketCount: 0,
+    walletResolvedMarketMinimum: 5,
     largeTrades: []
   };
 
@@ -716,6 +724,14 @@ export function UsMarketMap({
                   : whaleActivity.walletConcentrationStatus === "insufficient-data"
                     ? `${whaleActivity.attributedTradeCount} attributed prints · ${whaleActivity.walletSampleMinimum} required for concentration scoring`
                     : "Public wallet attribution is unavailable for this sample."}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                {whaleActivity.walletReputationStatus === "available" &&
+                whaleActivity.walletReputationScore !== null
+                  ? `Resolved-history score ${whaleActivity.walletReputationScore.toFixed(1)}/100 · ${whaleActivity.walletResolvedMarketCount} resolved markets`
+                  : whaleActivity.walletReputationStatus === "insufficient-history"
+                    ? `Resolved history ${whaleActivity.walletResolvedMarketCount}/${whaleActivity.walletResolvedMarketMinimum} markets · score withheld`
+                    : `Wallet reputation unavailable · ${whaleActivity.walletResolvedMarketCount} resolved markets`}
               </p>
               <p className="mt-3 text-xs leading-5 text-slate-500">
                 Flagged at {whaleActivity.historicalMultipleThreshold}x median size and{" "}

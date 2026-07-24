@@ -128,7 +128,7 @@ Acceptance criteria:
 
 ### Phase 4: Whale and Smart-Money Intelligence
 
-Status: in progress
+Status: complete
 
 - Normalize public trade and wallet activity where venue data permits.
 - Detect large trades relative to market depth and historical trade size.
@@ -141,6 +141,7 @@ Acceptance criteria:
 - Whale labels are based on transparent relative thresholds.
 - Wallet scores show sample size and resolved-market history.
 - No alert implies insider activity without verifiable evidence.
+- Reputation requires five distinct resolved markets and combines 70% directional hit rate with 30% bounded realized return.
 
 ### Phase 5: Multi-Country Political Maps
 
@@ -160,6 +161,8 @@ Acceptance criteria:
 
 ### Phase 6: Divergence and Catalyst Intelligence
 
+Status: complete
+
 - Compare prediction markets with polling, related contracts, and election models.
 - Detect logically inconsistent probabilities across related markets.
 - Correlate repricing windows with political news and scheduled events.
@@ -170,10 +173,11 @@ Acceptance criteria:
 - Divergence alerts name both compared sources and their timestamps.
 - Related-market calculations account for fees and liquidity.
 - Automated catalyst summaries remain traceable to source events.
+- Related-outcome checks expose both observation timestamps, fee assumptions, and liquidity gating.
 
 ### Phase 7: Product Design and Decision Workflow
 
-Status: in progress
+Status: complete
 
 - Open directly into the map, scanner, and selected-market context instead of a marketing hero.
 - Make live, delayed, fallback, and fixture provenance visible before users inspect a signal.
@@ -221,3 +225,6 @@ Acceptance criteria:
 - [x] Keep the country map camera stable while selecting regional trading pairs.
 - [x] Add the United Kingdom regional map, political-pair registry, signal fixtures, and ONS boundary provenance.
 - [x] Cache unchanged replay baselines and expose stale signal degradation through the API and scanner.
+- [x] Gate wallet reputation behind five resolved markets and expose the resolved-history sample.
+- [x] Add fee-aware related-market consistency checks and source-linked political catalyst windows.
+- [x] Add a timestamped polling-derived election-model baseline for market comparison.

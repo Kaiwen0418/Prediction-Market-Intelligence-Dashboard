@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from statistics import median
+from statistics import mean, median
 from typing import Sequence
 
 from app.schemas.polymarket import TradePrint
@@ -9,6 +9,7 @@ HISTORICAL_MULTIPLE_THRESHOLD = 3.0
 DEPTH_SHARE_THRESHOLD = 0.05
 MINIMUM_SAMPLE_SIZE = 5
 WALLET_SAMPLE_MINIMUM = 10
+WALLET_RESOLVED_MARKET_MINIMUM = 5
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,13 @@ class LargeTradeDetection:
 
 
 @dataclass(frozen=True)
+class ResolvedWalletOutcome:
+    wallet_address: str
+    market_id: str
+    realized_return: float
+
+
+@dataclass(frozen=True)
 class WhaleActivityAnalysis:
     status: str
     sample_size: int
@@ -35,6 +43,9 @@ class WhaleActivityAnalysis:
     wallet_concentration_status: str
     wallet_concentration_score: float | None
     top_wallet_volume_share: float | None
+    wallet_reputation_status: str
+    wallet_reputation_score: float | None
+    wallet_resolved_market_count: int
 
 
 def _wallet_concentration(
@@ -83,10 +94,48 @@ def _wallet_concentration(
     )
 
 
+def _wallet_reputation(
+    trades: Sequence[TradePrint],
+    resolved_outcomes: Sequence[ResolvedWalletOutcome],
+) -> tuple[str, float | None, int]:
+    wallet_volume: dict[str, float] = {}
+    for trade in trades:
+        if trade.wallet_address:
+            wallet_volume[trade.wallet_address] = (
+                wallet_volume.get(trade.wallet_address, 0.0) + trade.price * trade.size
+            )
+
+    if not wallet_volume:
+        return "unavailable", None, 0
+
+    top_wallet = max(wallet_volume, key=wallet_volume.get)
+    wallet_outcomes = [
+        outcome
+        for outcome in resolved_outcomes
+        if outcome.wallet_address.lower() == top_wallet.lower()
+    ]
+    resolved_market_count = len({outcome.market_id for outcome in wallet_outcomes})
+    if resolved_market_count == 0:
+        return "unavailable", None, 0
+    if resolved_market_count < WALLET_RESOLVED_MARKET_MINIMUM:
+        return "insufficient-history", None, resolved_market_count
+
+    unique_outcomes = {
+        outcome.market_id: max(-1.0, min(1.0, outcome.realized_return))
+        for outcome in wallet_outcomes
+    }
+    returns = list(unique_outcomes.values())
+    hit_rate = sum(value > 0 for value in returns) / len(returns)
+    normalized_return = (mean(returns) + 1.0) / 2.0
+    score = round((hit_rate * 0.7 + normalized_return * 0.3) * 100, 1)
+    return "available", score, resolved_market_count
+
+
 def analyze_whale_activity(
     trades: Sequence[TradePrint],
     total_bid_depth: float,
     total_ask_depth: float,
+    resolved_outcomes: Sequence[ResolvedWalletOutcome] = (),
 ) -> WhaleActivityAnalysis:
     sample_size = len(trades)
     median_trade_size = float(median(trade.size for trade in trades)) if trades else 0.0
@@ -97,6 +146,11 @@ def analyze_whale_activity(
         wallet_concentration_score,
         top_wallet_volume_share,
     ) = _wallet_concentration(trades)
+    (
+        wallet_reputation_status,
+        wallet_reputation_score,
+        wallet_resolved_market_count,
+    ) = _wallet_reputation(trades, resolved_outcomes)
 
     if (
         sample_size < MINIMUM_SAMPLE_SIZE
@@ -114,6 +168,9 @@ def analyze_whale_activity(
             wallet_concentration_status=wallet_concentration_status,
             wallet_concentration_score=wallet_concentration_score,
             top_wallet_volume_share=top_wallet_volume_share,
+            wallet_reputation_status=wallet_reputation_status,
+            wallet_reputation_score=wallet_reputation_score,
+            wallet_resolved_market_count=wallet_resolved_market_count,
         )
 
     detections: list[LargeTradeDetection] = []
@@ -159,4 +216,7 @@ def analyze_whale_activity(
         wallet_concentration_status=wallet_concentration_status,
         wallet_concentration_score=wallet_concentration_score,
         top_wallet_volume_share=top_wallet_volume_share,
+        wallet_reputation_status=wallet_reputation_status,
+        wallet_reputation_score=wallet_reputation_score,
+        wallet_resolved_market_count=wallet_resolved_market_count,
     )

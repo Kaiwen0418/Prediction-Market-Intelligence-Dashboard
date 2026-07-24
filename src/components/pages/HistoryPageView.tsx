@@ -14,7 +14,11 @@ import { LoadingState } from "@/components/layout/LoadingState";
 import { ProductDemoShell } from "@/components/layout/ProductDemoShell";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
 import { getShockWindows } from "@/services/analytics/api";
-import { getLiveHistoryCases, getLiveHistoryOverview } from "@/services/history/liveHistory";
+import {
+  getLiveHistoryCases,
+  getLiveHistoryOverview,
+  type LiveHistoryCase
+} from "@/services/history/liveHistory";
 import supportDataset from "@/../public/data/state-party-support-2024.json";
 import { researchCases, researchDataSources } from "@/services/history/researchStatic";
 
@@ -90,10 +94,12 @@ export function HistoryPageView() {
   const researchCase = researchCases.find((item) => item.state === activeState) ?? researchCases[0];
   const pollSeries = buildPollSeries(activeState, party);
   const fallbackCoverage = buildCoverage(pollSeries, researchCase.marketSeries);
-  const activeCase = liveCase
+  const activeCase: LiveHistoryCase = liveCase
     ? { ...liveCase, pollSeries }
     : {
         ...researchCase,
+        eventSlug: `${activeState.toLowerCase()}-presidential-election-winner`,
+        party,
         analyticsSource: "local" as const,
         researchSource: "local" as const,
         divergence: {
@@ -132,6 +138,7 @@ export function HistoryPageView() {
           divergenceLabel: "Divergence summary is only calculated when the live analytics pipeline is available."
         },
         summary: `${party} polling shown from cleaned public dataset; market series is fallback research data.`,
+        sourceUrls: []
       };
   const pollingSources = Array.from(new Map(activeCase.pollSeries.map((point) => [point.source, point])).values());
   const usingLiveCases = Boolean(liveCase);
@@ -232,6 +239,111 @@ export function HistoryPageView() {
             </p>
           ) : null}
         </section>
+
+        {activeCase.relatedMarketDivergence || activeCase.catalysts?.length ? (
+          <section className="border-t border-[var(--demo-card-divider)] pt-8">
+            <p className="metric-label">Political Catalyst Intelligence</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+              Related markets and source-linked events
+            </h2>
+
+            {activeCase.relatedMarketDivergence ? (
+              <div className="mt-6 grid gap-6 border-y border-[var(--demo-card-divider)] py-5 lg:grid-cols-[1fr_1fr_1.2fr]">
+                {[activeCase.relatedMarketDivergence.primary, activeCase.relatedMarketDivergence.related].map(
+                  (comparison) => (
+                    <div key={comparison.label}>
+                      <p className="metric-label">{comparison.label} outcome</p>
+                      <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-900">
+                        {(comparison.probability * 100).toFixed(1)}%
+                      </p>
+                      <a
+                        href={comparison.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 block text-xs text-slate-500 hover:text-slate-900"
+                      >
+                        Observed {comparison.observedAt.slice(0, 10)} ↗
+                      </a>
+                    </div>
+                  )
+                )}
+                <div>
+                  <p className="metric-label">Consistency check</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">
+                    {activeCase.relatedMarketDivergence.rawGapPoints.toFixed(2)} pts raw gap
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {activeCase.relatedMarketDivergence.feeBpsPerLeg.toFixed(0)} bps per leg ·{" "}
+                    {activeCase.relatedMarketDivergence.actionableGapPoints.toFixed(2)} pts after fees · liquidity{" "}
+                    {activeCase.relatedMarketDivergence.liquidityUsd === null ||
+                    activeCase.relatedMarketDivergence.liquidityUsd === undefined
+                      ? "unverified"
+                      : `$${activeCase.relatedMarketDivergence.liquidityUsd.toLocaleString()}`}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    {activeCase.relatedMarketDivergence.explanation}
+                  </p>
+                  {activeCase.electionModelComparison ? (
+                    <div className="mt-3 border-t border-[var(--demo-card-divider)] pt-3">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Model {(activeCase.electionModelComparison.modelProbability * 100).toFixed(1)}% · market-model gap{" "}
+                        {activeCase.electionModelComparison.divergencePoints >= 0 ? "+" : ""}
+                        {activeCase.electionModelComparison.divergencePoints.toFixed(2)} pts
+                      </p>
+                      <a
+                        href={activeCase.electionModelComparison.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 block text-xs text-slate-500 hover:text-slate-900"
+                      >
+                        {activeCase.electionModelComparison.modelName} · poll{" "}
+                        {activeCase.electionModelComparison.pollObservedAt.slice(0, 10)} · market{" "}
+                        {activeCase.electionModelComparison.marketObservedAt.slice(0, 10)} ↗
+                      </a>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {activeCase.electionModelComparison.methodology}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {activeCase.catalysts?.length ? (
+              <div className="mt-6 divide-y divide-[var(--demo-card-divider)]">
+                {activeCase.catalysts.map((catalyst) => (
+                  <div
+                    key={catalyst.id}
+                    className="grid gap-2 py-4 md:grid-cols-[150px_minmax(0,1fr)_120px]"
+                  >
+                    <div>
+                      <p className="text-xs font-medium uppercase text-slate-500">{catalyst.eventType}</p>
+                      <p className="mt-1 text-xs text-slate-400">{catalyst.occurredAt.slice(0, 10)}</p>
+                    </div>
+                    <div>
+                      <a
+                        href={catalyst.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-slate-900 hover:underline"
+                      >
+                        {catalyst.headline} ↗
+                      </a>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">{catalyst.summary}</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {catalyst.sourceName} · matched {catalyst.matchedMarketTimestamp.slice(0, 10)}
+                      </p>
+                    </div>
+                    <p className="text-left text-lg font-semibold tabular-nums text-slate-900 md:text-right">
+                      {catalyst.marketMove >= 0 ? "+" : ""}
+                      {catalyst.marketMove.toFixed(2)} pts
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="border-t border-[var(--demo-card-divider)] pt-8">
           <div className="flex flex-wrap items-center gap-3">

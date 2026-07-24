@@ -114,6 +114,13 @@ class WhaleActivityResponse(BaseModel):
     )
     wallet_concentration_score: float | None = Field(default=None, alias="walletConcentrationScore")
     top_wallet_volume_share: float | None = Field(default=None, alias="topWalletVolumeShare")
+    wallet_reputation_status: Literal["unavailable", "insufficient-history", "available"] = Field(
+        default="unavailable",
+        alias="walletReputationStatus",
+    )
+    wallet_reputation_score: float | None = Field(default=None, alias="walletReputationScore")
+    wallet_resolved_market_count: int = Field(default=0, alias="walletResolvedMarketCount")
+    wallet_resolved_market_minimum: int = Field(default=5, alias="walletResolvedMarketMinimum")
     large_trades: list[LargeTradeResponse] = Field(default_factory=list, alias="largeTrades")
 
     model_config = {"populate_by_name": True}
@@ -134,6 +141,10 @@ def default_whale_activity() -> WhaleActivityResponse:
         walletConcentrationStatus="unavailable",
         walletConcentrationScore=None,
         topWalletVolumeShare=None,
+        walletReputationStatus="unavailable",
+        walletReputationScore=None,
+        walletResolvedMarketCount=0,
+        walletResolvedMarketMinimum=5,
         largeTrades=[],
     )
 

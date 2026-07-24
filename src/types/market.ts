@@ -87,6 +87,10 @@ export type OrderbookSummary = {
     walletConcentrationStatus: "unavailable" | "insufficient-data" | "available";
     walletConcentrationScore: number | null;
     topWalletVolumeShare: number | null;
+    walletReputationStatus: "unavailable" | "insufficient-history" | "available";
+    walletReputationScore: number | null;
+    walletResolvedMarketCount: number;
+    walletResolvedMarketMinimum: number;
     largeTrades: Array<{
       tradeId: string;
       side: "buy" | "sell";
