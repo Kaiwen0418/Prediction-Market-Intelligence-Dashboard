@@ -28,6 +28,7 @@ type MarketPageViewProps = {
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
   const [selectedCountryCode, setSelectedCountryCode] = useState("US");
   const [selectedStateCode, setSelectedStateCode] = useState<string | null>(null);
+  const [activityThreshold, setActivityThreshold] = useState(50);
   const selectedState = getSpotlightState(selectedStateCode);
   const selectedSlug = selectedState?.liveMarketSlug;
   const marketContextQuery = useMarketContext(selectedSlug);
@@ -122,10 +123,12 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             liveMicrostructure={liveMicrostructure}
             liveReplay={liveReplay}
             regionSignals={regionSignalsQuery.data?.signals}
+            activityThreshold={activityThreshold}
             selectedCountryCode={selectedCountryCode}
             selectedCode={selectedStateCode}
             onSelectCountryCode={setSelectedCountryCode}
             onSelectCode={setSelectedStateCode}
+            onActivityThresholdChange={setActivityThreshold}
             sources={{
               featuredMarket: sources["market-context"] ?? sources["featured-market"],
               liveStream: sources["live-stream"],

@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   getMarketSignalColor,
   getMarketSignalLabel,
-  getMarketSignalSeverity
+  getMarketSignalSeverity,
+  rankRegionSignals
 } from "@/components/maps/marketSignals";
+import type { RegionSignal } from "@/types/signals";
 
 test("signal scores map to stable severity thresholds", () => {
   assert.equal(getMarketSignalSeverity(null), "inactive");
@@ -34,4 +36,76 @@ test("signal labels are readable", () => {
     "Whale Flow"
   );
   assert.equal(getMarketSignalLabel(null), "No active signal");
+});
+
+test("activity ranking applies backend overrides and minimum score", () => {
+  const regions = [
+    {
+      code: "TX",
+      signal: {
+        kind: "whale-flow" as const,
+        score: 92,
+        headline: "Fixture Texas",
+        detail: "Fixture",
+        observedAt: "2026-07-24T08:00:00Z",
+        source: "fixture" as const
+      }
+    },
+    {
+      code: "CA",
+      signal: {
+        kind: "volume-anomaly" as const,
+        score: 79,
+        headline: "Fixture California",
+        detail: "Fixture",
+        observedAt: "2026-07-24T08:00:00Z",
+        source: "fixture" as const
+      }
+    }
+  ];
+  const overrides: RegionSignal[] = [
+    {
+      regionCode: "CA",
+      countryCode: "US",
+      marketSlug: "california",
+      kind: "order-flow",
+      score: 95,
+      severity: "critical",
+      headline: "Live California",
+      detail: "Live",
+      observedAt: "2026-07-24T09:59:00Z",
+      source: "live",
+      confidence: 0.75,
+      baselineWindow: "24 samples",
+      components: []
+    }
+  ];
+
+  const ranked = rankRegionSignals(regions, overrides, 85, new Date("2026-07-24T10:00:00Z"));
+
+  assert.deepEqual(ranked.map((item) => item.region.code), ["CA", "TX"]);
+  assert.equal(ranked[0]?.signal.headline, "Live California");
+});
+
+test("activity ranking excludes regions below the selected threshold", () => {
+  const ranked = rankRegionSignals(
+    [
+      {
+        code: "AZ",
+        signal: {
+          kind: "normal" as const,
+          score: 49,
+          headline: "Normal",
+          detail: "Normal",
+          observedAt: "2026-07-24T08:00:00Z",
+          source: "fixture" as const
+        }
+      }
+    ],
+    [],
+    50,
+    new Date("2026-07-24T10:00:00Z")
+  );
+
+  assert.equal(ranked.length, 0);
 });

@@ -113,6 +113,8 @@ Acceptance criteria:
 
 ### Phase 3: Abnormal Activity Feed
 
+Status: in progress
+
 - Rank signals by severity, freshness, liquidity, and confidence.
 - Add filters for country, signal type, threshold, and time window.
 - Synchronize feed selection with map selection and URL state.
@@ -177,4 +179,6 @@ Acceptance criteria:
 - [x] Define the FastAPI `RegionSignal` and `SignalComponent` schemas.
 - [x] Add a batch `/api/signals/regions` endpoint backed by current stream metrics.
 - [x] Replace the selected live region's fixture signal when enough backend samples are available.
-- [ ] Add the ranked abnormal-activity feed after the batch contract stabilizes.
+- [x] Add the first ranked abnormal-activity feed with threshold filtering and map selection.
+- [ ] Add signal-type and time-window filters with URL persistence.
+- [ ] Add watchlists and notification preferences.
