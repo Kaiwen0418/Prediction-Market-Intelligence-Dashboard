@@ -17,7 +17,7 @@ export function HomePageView() {
         </>
       }
       footerLabel="Vision & Thesis"
-      footerLeft="MarketFlow turns Polymarket contracts into an observable market system: state-level navigation, live order-book depth, backend-streamed microstructure, and annotated probability history in one research surface."
+      footerLeft="MarketFlow turns political prediction markets into an observable market system: region trading-pair navigation, live order-book depth, backend-streamed microstructure, and annotated probability history in one research surface."
       footerRight="The longer-term thesis is an open predictive-intelligence layer that measures information arrival, liquidity regimes, and event impact across markets—then exposes those signals through reproducible FastAPI and NumPy analytics."
       showHero
     >

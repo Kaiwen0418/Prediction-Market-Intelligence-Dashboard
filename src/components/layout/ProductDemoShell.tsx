@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { ThreeGlobeVisual } from "@/components/hero/ThreeGlobeVisual";
-import { MobileDesktopNotice } from "@/components/layout/MobileDesktopNotice";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
@@ -41,7 +40,6 @@ export function ProductDemoShell({
 
   return (
     <main className="product-demo-page flex min-h-screen w-full flex-col px-4 py-5 md:px-6 lg:px-8">
-      <MobileDesktopNotice />
       <section className="product-demo-hero">
         <div className="product-demo-shell">
           <div className="product-demo-bar">
