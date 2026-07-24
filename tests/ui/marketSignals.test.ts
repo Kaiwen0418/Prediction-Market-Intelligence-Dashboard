@@ -143,6 +143,31 @@ test("activity ranking excludes regions below the selected threshold", () => {
   assert.equal(ranked.length, 0);
 });
 
+test("activity ranking includes normal regions when score filter is All", () => {
+  const ranked = rankRegionSignals(
+    [
+      {
+        code: "AZ",
+        signal: {
+          kind: "normal" as const,
+          score: 46,
+          headline: "Normal",
+          detail: "Normal",
+          observedAt: "2026-07-24T08:00:00Z",
+          source: "fixture" as const
+        }
+      }
+    ],
+    [],
+    {
+      minimumScore: 0,
+      now: new Date("2026-07-24T10:00:00Z")
+    }
+  );
+
+  assert.deepEqual(ranked.map((item) => item.region.code), ["AZ"]);
+});
+
 test("activity ranking filters by signal kind and freshness window", () => {
   const regions = [
     {
@@ -210,7 +235,7 @@ test("region coverage only matches the configured market identity", () => {
 test("country adapters expose distinct configured region identifiers", () => {
   assert.deepEqual(
     getCountryMarketMaps().map((country) => country.code),
-    ["US", "GB", "EU"]
+    ["US", "GB", "FR", "DE", "ES", "IT", "IS"]
   );
 
   const ukRegions = getRegionMarketsByCountry("GB");
@@ -220,14 +245,22 @@ test("country adapters expose distinct configured region identifiers", () => {
   );
   assert.equal(new Set(ukRegions.map((region) => region.featureId)).size, ukRegions.length);
 
-  const europeRegions = getRegionMarketsByCountry("EU");
+  const franceRegions = getRegionMarketsByCountry("FR");
   assert.deepEqual(
-    europeRegions.map((region) => region.code),
-    ["FR", "DE", "ES", "IT", "IS"]
+    franceRegions.map((region) => region.code),
+    ["FR"]
   );
-  assert.equal(
-    new Set(europeRegions.map((region) => region.featureId)).size,
-    europeRegions.length
+  assert.equal(franceRegions[0]?.coverage, "country");
+
+  const germanyRegions = getRegionMarketsByCountry("DE");
+  assert.deepEqual(
+    germanyRegions.map((region) => region.code),
+    ["BER"]
   );
-  assert.ok(europeRegions.every((region) => region.marketStatus === "open"));
+  assert.equal(germanyRegions[0]?.featureId, "DE-BE");
+  assert.ok(
+    [...franceRegions, ...germanyRegions].every(
+      (region) => region.marketStatus === "open"
+    )
+  );
 });

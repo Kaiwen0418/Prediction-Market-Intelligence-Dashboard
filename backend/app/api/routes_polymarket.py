@@ -42,5 +42,8 @@ async def get_price_history(market: str = Query(...)) -> dict | list:
 
 
 @router.get("/trades")
-async def get_trades(conditionId: str = Query(...)) -> dict | list:
-    return await fetch_trades(conditionId)
+async def get_trades(
+    conditionId: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=100),
+) -> dict | list:
+    return await fetch_trades(conditionId, limit)

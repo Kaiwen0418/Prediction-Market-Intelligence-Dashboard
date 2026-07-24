@@ -15,3 +15,13 @@ distributed by the `world-atlas` project. It provides the persistent world
 navigation layer; country-specific boundary files provide the signal layer.
 
 Source: https://github.com/topojson/world-atlas
+
+`france-regions.json` contains the 13 metropolitan France regional
+boundaries from the simplified France GeoJSON distribution.
+
+Source: https://github.com/gregoiredavid/france-geojson
+
+`germany-states.json` contains the 16 German Länder boundaries from the
+low-resolution Deutschland GeoJSON distribution.
+
+Source: https://github.com/isellsoap/deutschlandGeoJSON

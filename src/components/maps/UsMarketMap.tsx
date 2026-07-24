@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
+import franceRegions from "@/components/maps/data/france-regions.json";
+import germanyStates from "@/components/maps/data/germany-states.json";
 import ukRegions from "@/components/maps/data/uk-regions.json";
 import worldCountries from "@/components/maps/data/world-countries-110m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
@@ -22,6 +24,13 @@ import {
 } from "@/components/maps/marketSignals";
 import { getAutoTourRegions } from "@/components/maps/mapTour";
 import {
+  MAP_CAMERA_SETTLE_MS,
+  MAP_CAMERA_TRANSITION_MS,
+  getMapTransitionPosition,
+  type MapCameraPosition
+} from "@/components/maps/mapCamera";
+import { MapLiveTradeTape } from "@/components/maps/MapLiveTradeTape";
+import {
   COUNTRY_MARKET_MAPS,
   REGION_MARKETS,
   getCountryMarketMaps,
@@ -39,6 +48,7 @@ import type {
   LiveMicrostructureMetrics,
   LiveReplay,
   MarketSnapshot,
+  MarketTradePrint,
   OrderbookState,
   OrderbookSummary,
   TimePoint
@@ -102,6 +112,7 @@ type UsMarketMapProps = {
   liveMicrostructure?: LiveMicrostructureMetrics | null;
   liveReplay?: LiveReplay | null;
   marketSeries?: TimePoint[];
+  liveTrades?: MarketTradePrint[];
   selectedCode?: string | null;
   selectedCountryCode?: string;
   regionSignals?: RegionSignal[];
@@ -128,6 +139,7 @@ export function UsMarketMap({
   liveMicrostructure,
   liveReplay,
   marketSeries = [],
+  liveTrades = [],
   selectedCode,
   selectedCountryCode = "US",
   regionSignals = [],
@@ -168,6 +180,11 @@ export function UsMarketMap({
       availableCountries.map((country) => {
         const regions = getRegionMarketsByCountry(country.code);
         const topRegion = regions
+          .filter(
+            (region) =>
+              region.marketStatus !== "closed" &&
+              region.marketStatus !== "inactive"
+          )
           .map((region) => ({
             region,
             signal: getRegionSignal(region)
@@ -184,7 +201,7 @@ export function UsMarketMap({
   );
   const labeledRegions = useMemo(
     () =>
-      (mapView === "world" ? allRegionMarkets : regionMarkets)
+      regionMarkets
         .map((region) => ({
           region,
           signal: getRegionSignal(region)
@@ -192,7 +209,21 @@ export function UsMarketMap({
         .filter(({ signal }) => signal.score >= 70)
         .sort((left, right) => right.signal.score - left.signal.score)
         .slice(0, 3),
-    [allRegionMarkets, mapView, regionMarkets, signalByRegion]
+    [regionMarkets, signalByRegion]
+  );
+  const labeledCountries = useMemo(
+    () =>
+      countrySummaries
+        .filter(
+          (summary) =>
+            summary.topRegion && summary.topRegion.signal.score >= 70
+        )
+        .sort(
+          (left, right) =>
+            (right.topRegion?.signal.score ?? 0) -
+            (left.topRegion?.signal.score ?? 0)
+        ),
+    [countrySummaries]
   );
   const alertSignals = useMemo(
     () =>
@@ -220,16 +251,30 @@ export function UsMarketMap({
   const signalWatchlist = useSignalWatchlist(alertSignals);
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+  const [hoveredBoundaryLabel, setHoveredBoundaryLabel] = useState<string | null>(
+    null
+  );
   const [tourActive, setTourActive] = useState(false);
   const [tourIndex, setTourIndex] = useState(0);
-  const [mapPosition, setMapPosition] = useState<{
-    center: [number, number];
-    zoom: number;
-  }>({
+  const [tourTransitioning, setTourTransitioning] = useState(false);
+  const [fullscreenActive, setFullscreenActive] = useState(false);
+  const [mapPosition, setMapPosition] = useState<MapCameraPosition>({
     center: [0, 20],
     zoom: 1
   });
+  const mapPositionRef = useRef(mapPosition);
+  const mapAnimationFrameRef = useRef<number | null>(null);
+  const mapSettleTimeoutRef = useRef<number | null>(null);
+  const mapSurfaceRef = useRef<HTMLDivElement>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
+  const selectedState = getSpotlightState(activeSelectedCode);
+  const defaultRegion = getSpotlightState(defaultCode);
+  const activeRegion =
+    selectedState?.countryCode === activeCountry.code
+      ? selectedState
+      : defaultRegion?.countryCode === activeCountry.code
+        ? defaultRegion
+        : null;
 
   useEffect(() => {
     if (!onSelectCode) {
@@ -254,20 +299,114 @@ export function UsMarketMap({
   }, [selectedCode]);
 
   useEffect(() => {
-    setMapPosition(
+    mapPositionRef.current = mapPosition;
+  }, [mapPosition]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setFullscreenActive(document.fullscreenElement === mapSurfaceRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === mapSurfaceRef.current) {
+        await document.exitFullscreen();
+      } else {
+        await mapSurfaceRef.current?.requestFullscreen();
+      }
+    } catch {
+      setFullscreenActive(false);
+    }
+  };
+
+  const cancelMapTransition = useCallback(() => {
+    if (mapAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(mapAnimationFrameRef.current);
+      mapAnimationFrameRef.current = null;
+    }
+    if (mapSettleTimeoutRef.current !== null) {
+      window.clearTimeout(mapSettleTimeoutRef.current);
+      mapSettleTimeoutRef.current = null;
+    }
+    setTourTransitioning(false);
+  }, []);
+
+  useEffect(() => {
+    const countryZoom =
+      activeCountry.code === "GB"
+        ? 6
+        : activeCountry.code === "US"
+          ? 2.1
+          : activeCountry.defaultZoom;
+    const target: MapCameraPosition =
       mapView === "world"
         ? { center: [0, 20], zoom: 1 }
-        : {
-            center: activeCountry.defaultCenter,
-            zoom:
-              activeCountry.code === "GB"
-                ? 6
-                : activeCountry.code === "EU"
-                  ? 4
-                  : 2.1
-          }
-    );
-  }, [activeCountry, mapView]);
+        : tourActive && activeRegion
+          ? {
+              center: activeRegion.center,
+              zoom: activeRegion.zoom
+            }
+          : {
+              center: activeCountry.defaultCenter,
+              zoom: countryZoom
+            };
+
+    cancelMapTransition();
+
+    if (!tourActive) {
+      mapPositionRef.current = target;
+      setMapPosition(target);
+      return;
+    }
+
+    const from = mapPositionRef.current;
+    const isAlreadyAtTarget =
+      Math.abs(from.center[0] - target.center[0]) < 0.001 &&
+      Math.abs(from.center[1] - target.center[1]) < 0.001 &&
+      Math.abs(from.zoom - target.zoom) < 0.001;
+
+    if (isAlreadyAtTarget) return;
+
+    setTourTransitioning(true);
+    const startedAt = window.performance.now();
+
+    const animate = (timestamp: number) => {
+      const progress = Math.min(
+        1,
+        (timestamp - startedAt) / MAP_CAMERA_TRANSITION_MS
+      );
+      const position = getMapTransitionPosition(from, target, progress);
+      mapPositionRef.current = position;
+      setMapPosition(position);
+
+      if (progress < 1) {
+        mapAnimationFrameRef.current =
+          window.requestAnimationFrame(animate);
+        return;
+      }
+
+      mapAnimationFrameRef.current = null;
+      mapSettleTimeoutRef.current = window.setTimeout(() => {
+        mapSettleTimeoutRef.current = null;
+        setTourTransitioning(false);
+      }, MAP_CAMERA_SETTLE_MS);
+    };
+
+    mapAnimationFrameRef.current = window.requestAnimationFrame(animate);
+
+    return cancelMapTransition;
+  }, [
+    activeCountry,
+    activeRegion,
+    cancelMapTransition,
+    mapView,
+    tourActive
+  ]);
 
   const tourRegions = useMemo(
     () => getAutoTourRegions(allRegionMarkets, regionSignals),
@@ -279,6 +418,7 @@ export function UsMarketMap({
   }, [autoTourEnabled]);
 
   const setTourEnabled = (enabled: boolean) => {
+    if (!enabled) cancelMapTransition();
     setTourActive(enabled);
     onAutoTourEnabledChange?.(enabled);
   };
@@ -286,6 +426,7 @@ export function UsMarketMap({
   useEffect(() => {
     if (
       !tourActive ||
+      tourTransitioning ||
       !tourRegions.length ||
       !onSelectCountryCode ||
       !onSelectCode ||
@@ -311,17 +452,9 @@ export function UsMarketMap({
     onSelectCountryCode,
     tourActive,
     tourIndex,
-    tourRegions
+    tourRegions,
+    tourTransitioning
   ]);
-
-  const selectedState = getSpotlightState(activeSelectedCode);
-  const defaultRegion = getSpotlightState(defaultCode);
-  const activeRegion =
-    selectedState?.countryCode === activeCountry.code
-      ? selectedState
-      : defaultRegion?.countryCode === activeCountry.code
-        ? defaultRegion
-        : null;
 
   const compactTitle = market.title.length > 56 ? `${market.title.slice(0, 56)}...` : market.title;
 
@@ -469,7 +602,7 @@ export function UsMarketMap({
       }`}
     >
       <div className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <p className="font-sans text-xs font-medium text-slate-600">
             {mapView === "world"
               ? `${allRegionMarkets.length} markets tracked across ${availableCountries.length} countries`
@@ -477,28 +610,21 @@ export function UsMarketMap({
                   activeRegion ? ` · Focus ${activeRegion.label}` : ""
                 }`}
           </p>
-          {mapView === "country" ? (
-            <button
-              type="button"
-              onClick={() => {
-                setTourEnabled(false);
-                onMapViewChange?.("world");
-                onCountryScopeChange?.("global");
-              }}
-              className="border border-slate-200 bg-white px-3 py-2 font-sans text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-            >
-              World view
-            </button>
-          ) : null}
         </div>
 
         <div className="grid items-stretch gap-6">
           <div
-            className="relative order-2 aspect-[4/3] min-h-[320px] overflow-hidden rounded-lg bg-slate-50 lg:order-1 lg:aspect-[16/10]"
+            ref={mapSurfaceRef}
+            className="market-map-surface relative order-2 aspect-[4/3] min-h-[320px] overflow-hidden rounded-lg bg-transparent lg:order-1 lg:aspect-[16/10]"
             style={{ border: "1.5px solid var(--demo-card-bg)" }}
-            onPointerDownCapture={() => setTourEnabled(false)}
-            onMouseDownCapture={() => setTourEnabled(false)}
-            onTouchStartCapture={() => setTourEnabled(false)}
+            onPointerDownCapture={(event) => {
+              if (
+                (event.target as HTMLElement).closest("[data-map-control]")
+              ) {
+                return;
+              }
+              setTourEnabled(false);
+            }}
           >
             <ComposableMap
               projection="geoMercator"
@@ -533,53 +659,63 @@ export function UsMarketMap({
                       const topSignal = country
                         ? countrySummaries.find(
                             (summary) => summary.country.code === country.code
-                          )?.topRegion.signal
+                          )?.topRegion?.signal
                         : null;
                       const isSelectedCountry =
                         mapView === "country" && country?.code === activeCountry.code;
-                      const fill = isSelectedCountry ? "#cbd5e1" : "#e5e7eb";
+                      const countryInteractive =
+                        mapView === "world" ? country : undefined;
+                      const fill = isSelectedCountry
+                        ? "#cbd5e1"
+                        : mapView === "world" && topSignal
+                          ? getMarketSignalColor(topSignal.score)
+                          : "#e5e7eb";
 
                       return (
                         <Geography
                           key={geo.rsmKey}
                           geography={geo}
-                          onClick={country ? () => selectCountry(country) : undefined}
+                          onClick={
+                            countryInteractive
+                              ? () => selectCountry(countryInteractive)
+                              : undefined
+                          }
                           onKeyDown={
-                            country
+                            countryInteractive
                               ? (event) => {
                                   if (event.key === "Enter" || event.key === " ") {
                                     event.preventDefault();
-                                    selectCountry(country);
+                                    selectCountry(countryInteractive);
                                   }
                                 }
                               : undefined
                           }
                           aria-label={
-                            country
-                              ? `${country.label}: top activity score ${topSignal?.score ?? 0}`
+                            countryInteractive
+                              ? `${countryInteractive.label}: top activity score ${topSignal?.score ?? 0}`
                               : undefined
                           }
-                          role={country ? "button" : "presentation"}
-                          tabIndex={country ? 0 : -1}
+                          role={countryInteractive ? "button" : "presentation"}
+                          tabIndex={countryInteractive ? 0 : -1}
                           style={{
                             default: {
                               fill,
                               outline: "none",
-                              stroke: isSelectedCountry ? "#111827" : "#ffffff",
+                              stroke: "var(--map-boundary)",
                               strokeWidth: isSelectedCountry ? 1.4 : 0.45,
-                              cursor: country ? "pointer" : "grab"
+                              cursor: countryInteractive ? "pointer" : "grab"
                             },
                             hover: {
-                              fill: country ? fill : "#d4d4d8",
+                              fill: countryInteractive ? fill : "#d4d4d8",
                               outline: "none",
-                              stroke: country ? "#111827" : "#ffffff",
-                              strokeWidth: country ? 1.2 : 0.45,
-                              cursor: country ? "pointer" : "grab"
+                              stroke: "var(--map-boundary)",
+                              strokeWidth: countryInteractive ? 1.2 : 0.45,
+                              cursor: countryInteractive ? "pointer" : "grab"
                             },
                             pressed: {
                               fill,
                               outline: "none",
-                              stroke: "#111827",
+                              stroke: "var(--map-boundary)",
                               strokeWidth: 1.2
                             }
                           }}
@@ -589,22 +725,37 @@ export function UsMarketMap({
                   }
                 </Geographies>
 
-                {availableCountries.map((country) => {
-                  const regions = getRegionMarketsByCountry(country.code);
+                {mapView === "country" ? (() => {
+                  const country = activeCountry;
+                  const regions = regionMarkets;
                   const regionById = new Map(
                     regions.map((region) => [region.featureId, region])
+                  );
+                  const nationalRegion = regions.find(
+                    (region) => region.coverage === "country"
                   );
                   const geography =
                     country.code === "US"
                       ? usAtlas
                       : country.code === "GB"
                         ? ukRegions
-                        : worldCountries;
+                        : country.code === "FR"
+                          ? franceRegions
+                          : country.code === "DE"
+                            ? germanyStates
+                            : worldCountries;
 
                   return (
                     <Geographies key={country.code} geography={geography}>
                       {({ geographies }) =>
                         geographies.map((geo) => {
+                          if (
+                            geography === worldCountries &&
+                            !country.worldFeatureIds.includes(String(geo.id))
+                          ) {
+                            return null;
+                          }
+
                           const featureId =
                             country.code === "US"
                               ? String(geo.id).padStart(2, "0")
@@ -615,54 +766,92 @@ export function UsMarketMap({
                                     ] ?? ""
                                   )
                                 : String(geo.id);
-                          const region = regionById.get(featureId);
-
-                          if (!region) return null;
-
-                          const signal = getRegionSignal(region);
+                          const region =
+                            nationalRegion ?? regionById.get(featureId) ?? null;
+                          const boundaryLabel = String(
+                            geo.properties?.nom ??
+                              geo.properties?.name ??
+                              geo.properties?.NAME ??
+                              region?.label ??
+                              country.label
+                          );
+                          const signal = region ? getRegionSignal(region) : null;
                           const isSelected =
-                            region.countryCode === activeCountry.code &&
-                            region.code === activeSelectedCode;
-                          const fill = getMarketSignalColor(signal.score);
+                            region?.countryCode === activeCountry.code &&
+                            region?.code === activeSelectedCode;
+                          const fill = signal
+                            ? getMarketSignalColor(signal.score)
+                            : "#e5e7eb";
 
                           return (
                             <Geography
                               key={geo.rsmKey}
                               geography={geo}
-                              onClick={() => selectRegion(region)}
-                              onMouseEnter={() => setHoveredCode(region.code)}
-                              onMouseLeave={() => setHoveredCode(null)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  selectRegion(region);
-                                }
-                              }}
-                              aria-label={`${region.label}, ${country.label}: activity score ${signal.score}, ${getMarketSignalSeverity(signal.score)}`}
-                              role="button"
-                              tabIndex={0}
+                              onClick={
+                                region ? () => selectRegion(region) : undefined
+                              }
+                              onMouseEnter={
+                                region
+                                  ? () => {
+                                      setHoveredCode(region.code);
+                                      setHoveredBoundaryLabel(boundaryLabel);
+                                    }
+                                  : undefined
+                              }
+                              onMouseLeave={
+                                region
+                                  ? () => {
+                                      setHoveredCode(null);
+                                      setHoveredBoundaryLabel(null);
+                                    }
+                                  : undefined
+                              }
+                              onKeyDown={
+                                region
+                                  ? (event) => {
+                                      if (
+                                        event.key === "Enter" ||
+                                        event.key === " "
+                                      ) {
+                                        event.preventDefault();
+                                        selectRegion(region);
+                                      }
+                                    }
+                                  : undefined
+                              }
+                              aria-label={
+                                region && signal
+                                  ? `${boundaryLabel}, ${country.label}: ${region.coverage === "country" ? "national market " : ""}activity score ${signal.score}, ${getMarketSignalSeverity(signal.score)}`
+                                  : undefined
+                              }
+                              role={region ? "button" : "presentation"}
+                              tabIndex={region ? 0 : -1}
                               style={{
                                 default: {
                                   fill,
                                   outline: "none",
-                                  stroke: isSelected ? "#111827" : "#ffffff",
+                                  stroke: "var(--map-boundary)",
                                   strokeWidth:
                                     (isSelected ? 1.8 : 0.55) /
                                     mapPosition.zoom,
-                                  cursor: "pointer"
+                                  cursor: region ? "pointer" : "grab"
                                 },
                                 hover: {
-                                  fill,
+                                  fill: region ? fill : "#d4d4d8",
                                   outline: "none",
-                                  stroke: "#111827",
-                                  strokeWidth: 1.4 / mapPosition.zoom,
-                                  cursor: "pointer"
+                                  stroke: "var(--map-boundary)",
+                                  strokeWidth:
+                                    (region ? 1.4 : 0.55) /
+                                    mapPosition.zoom,
+                                  cursor: region ? "pointer" : "grab"
                                 },
                                 pressed: {
                                   fill,
                                   outline: "none",
-                                  stroke: "#111827",
-                                  strokeWidth: 1.8 / mapPosition.zoom
+                                  stroke: "var(--map-boundary)",
+                                  strokeWidth:
+                                    (region ? 1.8 : 0.55) /
+                                    mapPosition.zoom
                                 }
                               }}
                             />
@@ -671,9 +860,40 @@ export function UsMarketMap({
                       }
                     </Geographies>
                   );
-                })}
+                })() : null}
 
-                {labeledRegions.map(({ region, signal }) => (
+                {mapView === "world"
+                  ? labeledCountries.map(({ country, topRegion }) => (
+                      <Marker
+                        key={country.code}
+                        coordinates={country.defaultCenter}
+                      >
+                        <g aria-hidden="true" className="pointer-events-none">
+                          <circle
+                            r={8 / mapPosition.zoom}
+                            fill={getMarketSignalColor(
+                              topRegion?.signal.score ?? 0
+                            )}
+                            stroke="#ffffff"
+                            strokeWidth={1.5 / mapPosition.zoom}
+                          />
+                          <text
+                            y={-14 / mapPosition.zoom}
+                            textAnchor="middle"
+                            fill="#111827"
+                            fontFamily="Inter, Segoe UI, sans-serif"
+                            fontSize={9 / mapPosition.zoom}
+                            fontWeight={700}
+                            paintOrder="stroke"
+                            stroke="var(--demo-card-bg)"
+                            strokeWidth={3 / mapPosition.zoom}
+                          >
+                            {country.code} {topRegion?.signal.score ?? 0}
+                          </text>
+                        </g>
+                      </Marker>
+                    ))
+                  : labeledRegions.map(({ region, signal }) => (
                   <Marker
                     key={`${region.countryCode}:${region.code}`}
                     coordinates={region.center}
@@ -700,13 +920,15 @@ export function UsMarketMap({
                       </text>
                     </g>
                   </Marker>
-                ))}
+                    ))}
               </ZoomableGroup>
             </ComposableMap>
             {hoveredRegion && hoveredSignal ? (
               <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[260px] border border-slate-200 bg-white/95 px-3 py-2 font-sans shadow-sm">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-xs font-semibold text-slate-900">{hoveredRegion.label}</span>
+                  <span className="text-xs font-semibold text-slate-900">
+                    {hoveredBoundaryLabel ?? hoveredRegion.label}
+                  </span>
                   <span className="text-xs font-semibold tabular-nums text-slate-900">{hoveredSignal.score}</span>
                 </div>
                 <p className="mt-1 truncate text-[11px] text-slate-600">
@@ -714,17 +936,34 @@ export function UsMarketMap({
                 </p>
               </div>
             ) : null}
-            <button
-              type="button"
-              title={tourActive ? "Pause live map tour" : "Resume live map tour"}
-              aria-label={tourActive ? "Pause live map tour" : "Resume live map tour"}
-              aria-pressed={tourActive}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => setTourEnabled(!tourActive)}
-              className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center border border-slate-300 bg-white/95 font-sans text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-500"
+            <MapLiveTradeTape trades={liveTrades} />
+            <div
+              data-map-control
+              className="absolute right-3 top-3 z-10 flex gap-2"
             >
-              {tourActive ? "Ⅱ" : "▶"}
-            </button>
+              <button
+                type="button"
+                title={fullscreenActive ? "Exit fullscreen" : "Enter fullscreen"}
+                aria-label={
+                  fullscreenActive ? "Exit fullscreen map" : "Enter fullscreen map"
+                }
+                aria-pressed={fullscreenActive}
+                onClick={toggleFullscreen}
+                className="grid h-9 w-9 place-items-center border border-slate-300 bg-white/95 font-sans text-base font-semibold text-slate-800 shadow-sm transition hover:border-slate-500"
+              >
+                {fullscreenActive ? "×" : "⛶"}
+              </button>
+              <button
+                type="button"
+                title={tourActive ? "Pause live map tour" : "Resume live map tour"}
+                aria-label={tourActive ? "Pause live map tour" : "Resume live map tour"}
+                aria-pressed={tourActive}
+                onClick={() => setTourEnabled(!tourActive)}
+                className="grid h-9 w-9 place-items-center border border-slate-300 bg-white/95 font-sans text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-500"
+              >
+                {tourActive ? "Ⅱ" : "▶"}
+              </button>
+            </div>
           </div>
           <div className="order-3 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600 lg:order-2">
             <span className="font-medium text-slate-900">Activity score</span>

@@ -28,6 +28,7 @@ import { useMarketContext } from "@/hooks/useMarketContext";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useLiveReplay } from "@/hooks/useLiveReplay";
 import { useLiveMarketStream } from "@/hooks/useLiveMarketStream";
+import { useRecentMarketTrades } from "@/hooks/useRecentMarketTrades";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
 import { useRegionSignals } from "@/hooks/useRegionSignals";
@@ -122,6 +123,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     enableRealtime: strictLive
   });
   const liveStream = useLiveMarketStream(selectedSlug ?? market?.slug);
+  const recentMarketTradesQuery = useRecentMarketTrades();
   const liveReplayQuery = useLiveReplay(selectedSlug ?? market?.slug, 48);
   const regionSignalsQuery = useRegionSignals(selectedCountryCode, selectedSlug ?? market?.slug);
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId, market?.conditionId);
@@ -263,6 +265,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             liveMicrostructure={liveMicrostructure}
             liveReplay={liveReplay}
             marketSeries={marketSeries}
+            liveTrades={recentMarketTradesQuery.data}
             regionSignals={regionSignalsQuery.data?.signals}
             activityThreshold={activityThreshold}
             autoTourEnabled={autoTourEnabled}

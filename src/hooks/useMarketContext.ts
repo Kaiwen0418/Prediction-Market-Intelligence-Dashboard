@@ -7,6 +7,7 @@ export function useMarketContext(slug?: string) {
   return useQuery({
     queryKey: ["market-context", slug ?? "default"],
     queryFn: () => fetchMarketContextLive(slug),
+    placeholderData: (previous) => previous,
     refetchInterval: 30_000
   });
 }

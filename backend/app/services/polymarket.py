@@ -77,14 +77,15 @@ async def fetch_price_history(market: str) -> Any:
     return await fetch_json(url)
 
 
-async def fetch_trades(condition_id: str) -> Any:
+async def fetch_trades(condition_id: str | None = None, limit: int = 100) -> Any:
     settings = get_settings()
-    if not condition_id.strip():
-        raise HTTPException(status_code=400, detail="conditionId is required")
-    url = (
-        f"{settings.data_api_base_url}/trades?limit=100&takerOnly=true"
-        f"&market={quote(condition_id, safe='')}"
+    safe_limit = max(1, min(limit, 100))
+    market_query = (
+        f"&market={quote(condition_id.strip(), safe='')}"
+        if condition_id and condition_id.strip()
+        else ""
     )
+    url = f"{settings.data_api_base_url}/trades?limit={safe_limit}&takerOnly=true{market_query}"
     return await fetch_json(url)
 
 

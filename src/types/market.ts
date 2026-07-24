@@ -43,6 +43,14 @@ export type TradePrint = {
   walletAddress?: string;
 };
 
+export type MarketTradePrint = TradePrint & {
+  conditionId: string;
+  marketSlug: string;
+  eventSlug?: string;
+  title: string;
+  outcome?: string;
+};
+
 export type OrderbookState = {
   marketId: string;
   tokenId?: string;

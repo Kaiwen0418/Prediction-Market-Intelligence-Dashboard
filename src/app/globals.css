@@ -31,6 +31,7 @@
   --demo-switch-bg: rgba(12, 12, 12, 0.06);
   --demo-switch-icon: rgba(12, 12, 12, 0.72);
   --demo-switch-thumb: #0c0c0c;
+  --map-boundary: #ffffff;
 }
 
 html[data-theme="dark"] {
@@ -62,6 +63,7 @@ html[data-theme="dark"] {
   --demo-switch-bg: rgba(242, 241, 237, 0.08);
   --demo-switch-icon: rgba(242, 241, 237, 0.82);
   --demo-switch-thumb: #f2f1ed;
+  --map-boundary: #0c0c0c;
 }
 
 * {
@@ -81,6 +83,35 @@ body {
   font-family: Georgia, "Times New Roman", serif;
   transition: background 180ms ease, color 180ms ease;
   overflow-x: hidden;
+}
+
+@keyframes map-trade-tape-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.map-trade-tape-enter {
+  animation: map-trade-tape-enter 180ms ease-out;
+}
+
+.market-map-surface:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  border-radius: 0;
+  background: var(--demo-card-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-trade-tape-enter {
+    animation: none;
+  }
 }
 
 a {

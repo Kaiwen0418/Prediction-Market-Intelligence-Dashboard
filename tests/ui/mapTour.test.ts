@@ -8,7 +8,7 @@ test("map tour ranks only verified open high-activity regions", () => {
 
   assert.deepEqual(
     tourRegions.map((region) => region.code),
-    ["FR", "CA", "DE"]
+    ["FR", "CA", "BER"]
   );
   assert.ok(!tourRegions.some((region) => region.code === "TX"));
 });
