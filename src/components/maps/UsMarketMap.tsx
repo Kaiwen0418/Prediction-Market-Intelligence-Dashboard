@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { AbnormalActivityFeed } from "@/components/maps/AbnormalActivityFeed";
@@ -12,7 +12,6 @@ import type {
 import {
   buildBackendHealthDetail,
   buildBackendHealthLine,
-  buildSourceDotTitle,
   getReplaySourceLabel,
   getSourceDotColorClass
 } from "@/components/maps/liveRailDiagnostics";
@@ -114,6 +113,18 @@ export function UsMarketMap({
     () => new Map(regionSignals.map((signal) => [signal.regionCode, signal])),
     [regionSignals]
   );
+  const labeledRegions = useMemo(
+    () =>
+      regionMarkets
+        .map((region) => ({
+          region,
+          signal: signalByRegion.get(region.code) ?? region.signal
+        }))
+        .filter(({ signal }) => signal.score >= 70)
+        .sort((left, right) => right.signal.score - left.signal.score)
+        .slice(0, 3),
+    [regionMarkets, signalByRegion]
+  );
   const alertSignals = useMemo(
     () =>
       regionSignals.map((signal) => {
@@ -137,6 +148,7 @@ export function UsMarketMap({
   );
   const signalWatchlist = useSignalWatchlist(alertSignals);
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
+  const [hoveredCode, setHoveredCode] = useState<string | null>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
   const [view, setView] = useState<{ center: [number, number]; zoom: number }>({
     center: activeCountry.defaultCenter,
@@ -348,6 +360,19 @@ export function UsMarketMap({
       : activeRegion
         ? getRegionMarketPairLabel(activeRegion)
         : compactTitle;
+  const activeRegionWatched = activeRegion
+    ? signalWatchlist.watchlist.includes(`${activeCountry.code}:${activeRegion.code}`)
+    : false;
+  const liveVenueUrl = marketMatchesActiveRegion
+    ? `https://polymarket.com/event/${market.eventSlug ?? market.slug}`
+    : null;
+  const highPriorityCount = regionMarkets.filter(
+    (region) => (signalByRegion.get(region.code) ?? region.signal).score >= 70
+  ).length;
+  const hoveredRegion = getSpotlightState(hoveredCode);
+  const hoveredSignal = hoveredRegion
+    ? signalByRegion.get(hoveredRegion.code) ?? hoveredRegion.signal
+    : null;
 
   const getRegionFill = (regionCode?: string) => {
     const region = getSpotlightState(regionCode);
@@ -359,14 +384,9 @@ export function UsMarketMap({
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] lg:items-start xl:grid-cols-[3fr_1fr]">
       <div className="min-w-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm leading-6 text-slate-600">
-            Colored regions have configured trading pairs. Click a region to select its active political market.
-            {defaultRegionLabel ? (
-              <>
-                {" "}
-                Current live focus defaults to <span className="font-medium text-slate-900">{defaultRegionLabel}</span>.
-              </>
-            ) : null}
+          <p className="font-sans text-xs font-medium text-slate-600">
+            {regionMarkets.length} configured markets · {highPriorityCount} high priority
+            {defaultRegionLabel ? ` · Focus ${defaultRegionLabel}` : ""}
           </p>
           {availableCountries.length > 1 ? (
             <div className="flex items-center gap-2">
@@ -390,7 +410,7 @@ export function UsMarketMap({
         </div>
 
         <div className="grid items-stretch gap-6">
-          <div className="relative overflow-hidden rounded-[28px]" style={{ border: "1.5px solid var(--demo-card-bg)" }}>
+          <div className="relative order-2 overflow-hidden rounded-lg lg:order-1" style={{ border: "1.5px solid var(--demo-card-bg)" }}>
             <ComposableMap projection="geoAlbersUsa" className="relative h-auto w-full overflow-visible">
               <ZoomableGroup
                 center={view.center}
@@ -414,6 +434,8 @@ export function UsMarketMap({
                           key={geo.rsmKey}
                           geography={geo}
                           onClick={region ? () => selectCode(region.code) : undefined}
+                          onMouseEnter={region ? () => setHoveredCode(region.code) : undefined}
+                          onMouseLeave={region ? () => setHoveredCode(null) : undefined}
                           onKeyDown={
                             region
                               ? (event) => {
@@ -458,17 +480,53 @@ export function UsMarketMap({
                     })
                   }
                 </Geographies>
+                {labeledRegions.map(({ region, signal }) => (
+                  <Marker key={region.code} coordinates={region.center}>
+                    <g aria-hidden="true" className="pointer-events-none">
+                      <circle
+                        r={8}
+                        fill={getMarketSignalColor(signal.score)}
+                        stroke="#ffffff"
+                        strokeWidth={1.5}
+                      />
+                      <text
+                        y={-14}
+                        textAnchor="middle"
+                        fill="#111827"
+                        fontFamily="Inter, Segoe UI, sans-serif"
+                        fontSize={9}
+                        fontWeight={700}
+                        paintOrder="stroke"
+                        stroke="var(--demo-card-bg)"
+                        strokeWidth={3}
+                      >
+                        {region.code} {signal.score}
+                      </text>
+                    </g>
+                  </Marker>
+                ))}
               </ZoomableGroup>
             </ComposableMap>
             <div
-              className="pointer-events-none absolute inset-0 rounded-[28px]"
+              className="pointer-events-none absolute inset-0 rounded-lg"
               aria-hidden="true"
               style={{
                 background: "radial-gradient(ellipse at 50% 50%, transparent 42%, var(--demo-card-bg) 88%)"
               }}
             />
+            {hoveredRegion && hoveredSignal ? (
+              <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[260px] border border-slate-200 bg-white/95 px-3 py-2 font-sans shadow-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs font-semibold text-slate-900">{hoveredRegion.label}</span>
+                  <span className="text-xs font-semibold tabular-nums text-slate-900">{hoveredSignal.score}</span>
+                </div>
+                <p className="mt-1 truncate text-[11px] text-slate-600">
+                  {getRegionMarketPairLabel(hoveredRegion)}
+                </p>
+              </div>
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600">
+          <div className="order-3 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600 lg:order-2">
             <span className="font-medium text-slate-900">Activity score</span>
             {SIGNAL_LEGEND.map((item) => (
               <span key={item.severity} className="flex items-center gap-2">
@@ -481,28 +539,30 @@ export function UsMarketMap({
             ))}
             <span className="text-slate-400">{signalModeLabel}</span>
           </div>
-          <AbnormalActivityFeed
-            regions={regionMarkets}
-            signals={regionSignals}
-            selectedCode={activeSelectedCode ?? defaultCode}
-            minimumScore={activityThreshold}
-            signalKind={activitySignalKind}
-            maxAgeHours={activityMaxAgeHours}
-            countryCode={activeCountry.code}
-            watchlist={signalWatchlist.watchlist}
-            watchedOnly={signalWatchlist.watchedOnly}
-            alertsEnabled={signalWatchlist.alertsEnabled}
-            alertPermission={signalWatchlist.alertPermission}
-            onMinimumScoreChange={onActivityThresholdChange ?? (() => undefined)}
-            onSignalKindChange={onActivitySignalKindChange ?? (() => undefined)}
-            onMaxAgeHoursChange={onActivityMaxAgeHoursChange ?? (() => undefined)}
-            onWatchedOnlyChange={signalWatchlist.setWatchedOnly}
-            onAlertsEnabledChange={(enabled) => {
-              void signalWatchlist.setBrowserAlertsEnabled(enabled);
-            }}
-            onToggleWatch={signalWatchlist.toggleWatch}
-            onSelect={selectCode}
-          />
+          <div className="order-1 lg:order-3">
+            <AbnormalActivityFeed
+              regions={regionMarkets}
+              signals={regionSignals}
+              selectedCode={activeSelectedCode ?? defaultCode}
+              minimumScore={activityThreshold}
+              signalKind={activitySignalKind}
+              maxAgeHours={activityMaxAgeHours}
+              countryCode={activeCountry.code}
+              watchlist={signalWatchlist.watchlist}
+              watchedOnly={signalWatchlist.watchedOnly}
+              alertsEnabled={signalWatchlist.alertsEnabled}
+              alertPermission={signalWatchlist.alertPermission}
+              onMinimumScoreChange={onActivityThresholdChange ?? (() => undefined)}
+              onSignalKindChange={onActivitySignalKindChange ?? (() => undefined)}
+              onMaxAgeHoursChange={onActivityMaxAgeHoursChange ?? (() => undefined)}
+              onWatchedOnlyChange={signalWatchlist.setWatchedOnly}
+              onAlertsEnabledChange={(enabled) => {
+                void signalWatchlist.setBrowserAlertsEnabled(enabled);
+              }}
+              onToggleWatch={signalWatchlist.toggleWatch}
+              onSelect={selectCode}
+            />
+          </div>
         </div>
       </div>
 
@@ -516,6 +576,33 @@ export function UsMarketMap({
             {activeRegion.countryLabel} · {activeRegion.note}
           </p>
         ) : null}
+
+        <div className="mt-5 flex flex-wrap gap-2 font-sans">
+          {activeRegion ? (
+            <button
+              type="button"
+              aria-pressed={activeRegionWatched}
+              onClick={() => signalWatchlist.toggleWatch(activeCountry.code, activeRegion.code)}
+              className={`border px-3 py-2 text-xs font-semibold transition ${
+                activeRegionWatched
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-300 text-slate-700 hover:border-slate-900 hover:text-slate-900"
+              }`}
+            >
+              {activeRegionWatched ? "Watching" : "Watch region"}
+            </button>
+          ) : null}
+          {liveVenueUrl ? (
+            <a
+              href={liveVenueUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-900"
+            >
+              Open market ↗
+            </a>
+          ) : null}
+        </div>
 
         {activeSignal ? (
           <div className="mt-5 border-y border-[var(--demo-card-divider)] py-4">
@@ -540,29 +627,21 @@ export function UsMarketMap({
           </div>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          {sourceDots.map(({ diagnostics, label }) => {
-            const colorClass = getSourceDotColorClass(diagnostics?.state);
-            const title = buildSourceDotTitle(
-              label,
-              diagnostics
-                ? {
-                    ...diagnostics,
-                    checkedAt: diagnostics.checkedAt ? relativeTime(diagnostics.checkedAt) : "not checked"
-                  }
-                : undefined
-            );
-
-            return (
-              <span
-                key={label}
-                title={title}
-                className={`h-2.5 w-2.5 rounded-full ${colorClass}`}
-              />
-            );
-          })}
-          <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Source status</span>
-        </div>
+        <details className="mt-5 border-y border-[var(--demo-card-divider)] py-3 font-sans">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-slate-700">
+            <span>Source status</span>
+            <span className="font-normal text-slate-500">{signalModeLabel}</span>
+          </summary>
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+            {sourceDots.map(({ diagnostics, label }) => (
+              <div key={label} className="flex items-center gap-2 text-xs text-slate-600">
+                <span className={`h-2 w-2 rounded-full ${getSourceDotColorClass(diagnostics?.state)}`} />
+                <span className="capitalize">{label}</span>
+                <span className="ml-auto text-slate-400">{diagnostics?.state ?? "pending"}</span>
+              </div>
+            ))}
+          </div>
+        </details>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           {backendHealthLine}
           <span className="text-slate-400"> — {backendHealthDetail}</span>

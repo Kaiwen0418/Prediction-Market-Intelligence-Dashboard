@@ -168,6 +168,27 @@ Acceptance criteria:
 - Related-market calculations account for fees and liquidity.
 - Automated catalyst summaries remain traceable to source events.
 
+### Phase 7: Product Design and Decision Workflow
+
+Status: in progress
+
+- Open directly into the map, scanner, and selected-market context instead of a marketing hero.
+- Make live, delayed, fallback, and fixture provenance visible before users inspect a signal.
+- Label the highest-priority anomalies directly on the map with score and pair context.
+- Preserve a clear detect, select, validate, and act workflow across desktop and mobile.
+- Add watchlist and venue actions to the selected-market rail.
+- Move deep evidence into focused views so mobile does not render every chart at once.
+- Replace unlabeled diagnostics with an inspectable source-status summary.
+
+Acceptance criteria:
+
+- The first desktop viewport contains at least one actionable signal and the map.
+- Mobile reaches the ranked anomaly scanner before the geographic visualization.
+- Every selected market shows its source mode and update time.
+- The map communicates its highest-priority anomalies without requiring legend cross-reference.
+- Users can watch a region or open its matching venue market from the selected rail.
+- Only one deep evidence view is expanded at a time.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -187,3 +208,6 @@ Acceptance criteria:
 - [x] Detect large public trades using transparent median-size and executable-depth thresholds.
 - [x] Remove synthetic wallet identities and placeholder whale-buy claims.
 - [x] Normalize documented public proxy-wallet trades and add sample-gated concentration scoring.
+- [x] Replace the Home hero with a product-first market intelligence shell.
+- [x] Add explicit source provenance, in-map anomaly labels, and selected-market actions.
+- [x] Reduce mobile depth with scanner-first ordering and tabbed evidence views.
