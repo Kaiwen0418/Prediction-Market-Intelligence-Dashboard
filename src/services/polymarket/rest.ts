@@ -10,6 +10,7 @@ import type {
   TimePoint,
   TradePrint
 } from "@/types/market";
+import type { RegionSignalsResponse } from "@/types/signals";
 import { useDataSourceStore } from "@/stores/dataSourceStore";
 import { withApiBase } from "@/services/api/base";
 import { polymarketConfig } from "./config";
@@ -357,6 +358,49 @@ export async function fetchLiveDegradation(): Promise<LiveDegradation | null> {
     return payload;
   } catch {
     recordFallback("live-degradation", "reachability", "Live degradation request failed");
+    return null;
+  }
+}
+
+export async function fetchRegionSignals(
+  countryCode: string,
+  activeSlug?: string
+): Promise<RegionSignalsResponse | null> {
+  const params = new URLSearchParams({ countryCode });
+  if (activeSlug) {
+    params.set("activeSlug", activeSlug);
+  }
+  const url = withApiBase(`/api/signals/regions?${params.toString()}`);
+
+  try {
+    const payload = await requestJson<RegionSignalsResponse>(url);
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      payload.countryCode !== countryCode ||
+      !Array.isArray(payload.signals) ||
+      payload.signals.some(
+        (signal) =>
+          typeof signal.regionCode !== "string" ||
+          typeof signal.marketSlug !== "string" ||
+          typeof signal.score !== "number" ||
+          (signal.source !== "live" && signal.source !== "fixture")
+      )
+    ) {
+      recordFallback("region-signals", "payload", "Region signal batch was malformed");
+      return null;
+    }
+
+    if (payload.source === "live") {
+      recordLive("region-signals");
+    } else if (payload.source === "mixed") {
+      recordFallback("region-signals", "payload", "Some regions are using signal fixtures");
+    } else {
+      recordFallback("region-signals", "payload", "Region signal batch is using fixtures");
+    }
+    return payload;
+  } catch {
+    recordFallback("region-signals", "reachability", "Region signal batch request failed");
     return null;
   }
 }

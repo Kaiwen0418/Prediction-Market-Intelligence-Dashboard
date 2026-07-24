@@ -35,6 +35,7 @@ import type {
   OrderbookSummary
 } from "@/types/market";
 import type { SourceDiagnostics } from "@/types/service";
+import type { RegionSignal } from "@/types/signals";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 
 type UsMarketMapProps = {
@@ -48,6 +49,7 @@ type UsMarketMapProps = {
   liveRegistryHealth?: LiveRegistryHealth | null;
   selectedCode?: string | null;
   selectedCountryCode?: string;
+  regionSignals?: RegionSignal[];
   onSelectCode?: (code: string | null) => void;
   onSelectCountryCode?: (code: string) => void;
   sources: {
@@ -59,6 +61,7 @@ type UsMarketMapProps = {
     liveRegistry?: SourceDiagnostics;
     orderbook?: SourceDiagnostics;
     orderbookSummary?: SourceDiagnostics;
+    regionSignals?: SourceDiagnostics;
     trades?: SourceDiagnostics;
   };
 };
@@ -74,6 +77,7 @@ export function UsMarketMap({
   liveRegistryHealth,
   selectedCode,
   selectedCountryCode = "US",
+  regionSignals = [],
   onSelectCode,
   onSelectCountryCode,
   sources
@@ -83,6 +87,10 @@ export function UsMarketMap({
   const activeCountry = COUNTRY_MARKET_MAPS.find((country) => country.code === selectedCountryCode) ?? COUNTRY_MARKET_MAPS[0];
   const regionMarkets = useMemo(() => getRegionMarketsByCountry(activeCountry.code), [activeCountry.code]);
   const regionByFips = useMemo(() => new Map(regionMarkets.map((region) => [region.fips, region])), [regionMarkets]);
+  const signalByRegion = useMemo(
+    () => new Map(regionSignals.map((signal) => [signal.regionCode, signal])),
+    [regionSignals]
+  );
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
   const [view, setView] = useState<{ center: [number, number]; zoom: number }>({
@@ -179,6 +187,7 @@ export function UsMarketMap({
   const compactTitle = market.title.length > 56 ? `${market.title.slice(0, 56)}...` : market.title;
 
   const sourceDots = [
+    { diagnostics: sources.regionSignals, label: "signals" },
     { diagnostics: sources.featuredMarket, label: "featured" },
     { diagnostics: sources.liveStream, label: "stream" },
     { diagnostics: sources.liveReplay, label: "replay" },
@@ -245,10 +254,12 @@ export function UsMarketMap({
   const showingBackendMetrics = Boolean(liveMicrostructure);
   const selectedRegionHasPair = Boolean(activeRegion?.liveMarketSlug);
   const defaultRegionLabel = defaultRegion?.countryCode === activeCountry.code ? defaultRegion.label : regionMarkets[0]?.label;
+  const activeSignal = activeRegion ? signalByRegion.get(activeRegion.code) ?? activeRegion.signal : null;
 
   const getRegionFill = (regionCode?: string) => {
     const region = getSpotlightState(regionCode);
-    return getMarketSignalColor(region?.signal.score);
+    const signal = region ? signalByRegion.get(region.code) ?? region.signal : null;
+    return getMarketSignalColor(signal?.score);
   };
 
   return (
@@ -303,6 +314,7 @@ export function UsMarketMap({
                       const region = regionByFips.get(fips);
                       const fill = getRegionFill(region?.code);
                       const isSelected = region?.code === activeSelectedCode;
+                      const signal = region ? signalByRegion.get(region.code) ?? region.signal : null;
 
                       return (
                         <Geography
@@ -321,7 +333,7 @@ export function UsMarketMap({
                           }
                           aria-label={
                             region
-                              ? `${region.label}: activity score ${region.signal.score}, ${getMarketSignalSeverity(region.signal.score)}`
+                              ? `${region.label}: activity score ${signal?.score ?? 0}, ${getMarketSignalSeverity(signal?.score)}`
                               : undefined
                           }
                           role={region ? "button" : "presentation"}
@@ -390,23 +402,25 @@ export function UsMarketMap({
           </p>
         ) : null}
 
-        {activeRegion?.signal ? (
+        {activeSignal ? (
           <div className="mt-5 border-y border-[var(--demo-card-divider)] py-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="metric-label">{getMarketSignalLabel(activeRegion.signal)}</p>
-                <p className="mt-2 font-semibold text-slate-900">{activeRegion.signal.headline}</p>
+                <p className="metric-label">{getMarketSignalLabel(activeSignal)}</p>
+                <p className="mt-2 font-semibold text-slate-900">{activeSignal.headline}</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-semibold text-slate-900">{activeRegion.signal.score}</p>
+                <p className="text-2xl font-semibold text-slate-900">{activeSignal.score}</p>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-                  {getMarketSignalSeverity(activeRegion.signal.score)}
+                  {getMarketSignalSeverity(activeSignal.score)}
                 </p>
               </div>
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{activeRegion.signal.detail}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{activeSignal.detail}</p>
             <p className="mt-2 text-xs text-slate-400">
-              {activeRegion.signal.source === "fixture" ? "Demo signal snapshot" : "Live signal"}
+              {activeSignal.source === "fixture"
+                ? "Demo signal snapshot"
+                : `Live signal · ${Math.round((activeSignal.confidence ?? 0) * 100)}% component coverage`}
             </p>
           </div>
         ) : null}

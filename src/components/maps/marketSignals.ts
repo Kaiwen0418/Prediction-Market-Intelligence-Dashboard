@@ -1,22 +1,17 @@
-export type MarketSignalKind =
-  | "whale-flow"
-  | "volume-anomaly"
-  | "price-move"
-  | "poll-divergence"
-  | "normal";
+import type {
+  MarketSignalSeverity,
+  RegionMarketSignal
+} from "@/types/signals";
 
-export type MarketSignalSource = "fixture" | "live";
-
-export type MarketSignalSeverity = "inactive" | "normal" | "elevated" | "high" | "critical";
-
-export type RegionMarketSignal = {
-  kind: MarketSignalKind;
-  score: number;
-  headline: string;
-  detail: string;
-  observedAt: string;
-  source: MarketSignalSource;
-};
+export type {
+  MarketSignalKind,
+  MarketSignalSeverity,
+  MarketSignalSource,
+  RegionMarketSignal,
+  RegionSignal,
+  RegionSignalComponent,
+  RegionSignalsResponse
+} from "@/types/signals";
 
 export const SIGNAL_LEGEND: Array<{
   severity: Exclude<MarketSignalSeverity, "inactive">;

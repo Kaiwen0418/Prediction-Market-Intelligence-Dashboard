@@ -15,6 +15,7 @@ import { useLiveSystemHealth } from "@/hooks/useLiveSystemHealth";
 import { useLiveMarketStream } from "@/hooks/useLiveMarketStream";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
+import { useRegionSignals } from "@/hooks/useRegionSignals";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
 import { formatTimestamp } from "@/utils/time";
@@ -43,6 +44,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   });
   const liveStream = useLiveMarketStream(selectedSlug ?? market?.slug);
   const liveReplayQuery = useLiveReplay(selectedSlug ?? market?.slug, 48);
+  const regionSignalsQuery = useRegionSignals(selectedCountryCode, selectedSlug ?? market?.slug);
   const liveSystemHealth = useLiveSystemHealth();
   const orderbookSummaryQuery = useOrderbookSummary(market?.tokenId);
   const sources = useSourceDiagnostics();
@@ -119,6 +121,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             orderbookSummary={resolvedOrderbookSummary}
             liveMicrostructure={liveMicrostructure}
             liveReplay={liveReplay}
+            regionSignals={regionSignalsQuery.data?.signals}
             selectedCountryCode={selectedCountryCode}
             selectedCode={selectedStateCode}
             onSelectCountryCode={setSelectedCountryCode}
@@ -131,6 +134,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
               liveDegradation: sources["live-degradation"],
               liveRegistry: sources["live-registry"],
               orderbookSummary: sources["market-context"] ?? sources["orderbook-summary"],
+              regionSignals: sources["region-signals"],
               orderbook: sources.orderbook,
               trades: sources.trades
             }}

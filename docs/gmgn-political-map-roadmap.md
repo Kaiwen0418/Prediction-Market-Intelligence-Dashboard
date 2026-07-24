@@ -79,7 +79,7 @@ The score must include component values, baseline window, observation time, sour
 
 ### Phase 1: Signal-Driven Map Foundation
 
-Status: in progress
+Status: complete
 
 - Replace hard-coded region tones with typed signal snapshots.
 - Add severity scoring, a stable palette, and map legend.
@@ -95,6 +95,8 @@ Acceptance criteria:
 - Typecheck, UI tests, and production build pass.
 
 ### Phase 2: Backend Signal API
+
+Status: in progress
 
 - Add FastAPI region-market registry and signal response schemas.
 - Calculate volume anomaly, price velocity, order-flow imbalance, and liquidity stress.
@@ -171,8 +173,8 @@ Acceptance criteria:
 
 ## Immediate Next Work
 
-1. Complete Phase 1 and validate the map interaction.
-2. Define the FastAPI `RegionSignal` and `SignalComponent` schemas.
-3. Add a batch `/api/signals/regions` endpoint backed by current stream metrics.
-4. Replace the selected live region's fixture signal with backend data.
-5. Add the ranked abnormal-activity feed after the batch contract stabilizes.
+- [x] Complete Phase 1 and validate the map interaction.
+- [x] Define the FastAPI `RegionSignal` and `SignalComponent` schemas.
+- [x] Add a batch `/api/signals/regions` endpoint backed by current stream metrics.
+- [x] Replace the selected live region's fixture signal when enough backend samples are available.
+- [ ] Add the ranked abnormal-activity feed after the batch contract stabilizes.
