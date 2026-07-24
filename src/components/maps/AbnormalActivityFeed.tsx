@@ -6,6 +6,10 @@ import {
   getMarketSignalLabel,
   rankRegionSignals
 } from "@/components/maps/marketSignals";
+import type {
+  ActivitySignalFilter,
+  ActivityTimeWindow
+} from "@/components/maps/activityFeedFilters";
 import type { RegionMarket } from "@/components/maps/spotlightStates";
 import type { RegionSignal } from "@/types/signals";
 import { relativeTime } from "@/utils/time";
@@ -15,7 +19,11 @@ type AbnormalActivityFeedProps = {
   signals: RegionSignal[];
   selectedCode?: string | null;
   minimumScore: number;
+  signalKind: ActivitySignalFilter;
+  maxAgeHours: ActivityTimeWindow;
   onMinimumScoreChange: (score: number) => void;
+  onSignalKindChange: (kind: ActivitySignalFilter) => void;
+  onMaxAgeHoursChange: (hours: ActivityTimeWindow) => void;
   onSelect: (code: string) => void;
 };
 
@@ -26,28 +34,57 @@ const THRESHOLDS = [
   { label: "85+", value: 85 }
 ] as const;
 
+const SIGNAL_TYPES: Array<{ label: string; value: ActivitySignalFilter }> = [
+  { label: "All signals", value: "all" },
+  { label: "Whale flow", value: "whale-flow" },
+  { label: "Order flow", value: "order-flow" },
+  { label: "Volume anomaly", value: "volume-anomaly" },
+  { label: "Price move", value: "price-move" },
+  { label: "Poll divergence", value: "poll-divergence" },
+  { label: "Normal", value: "normal" }
+];
+
+const TIME_WINDOWS: Array<{ label: string; value: ActivityTimeWindow }> = [
+  { label: "Any time", value: 0 },
+  { label: "Past hour", value: 1 },
+  { label: "Past 6 hours", value: 6 },
+  { label: "Past 24 hours", value: 24 }
+];
+
 export function AbnormalActivityFeed({
   regions,
   signals,
   selectedCode,
   minimumScore,
+  signalKind,
+  maxAgeHours,
   onMinimumScoreChange,
+  onSignalKindChange,
+  onMaxAgeHoursChange,
   onSelect
 }: AbnormalActivityFeedProps) {
   const rankedSignals = useMemo(
-    () => rankRegionSignals(regions, signals, minimumScore).slice(0, 5),
-    [minimumScore, regions, signals]
+    () =>
+      rankRegionSignals(regions, signals, {
+        minimumScore,
+        signalKind,
+        maxAgeHours
+      }).slice(0, 5),
+    [maxAgeHours, minimumScore, regions, signalKind, signals]
   );
 
   return (
     <section className="border-t border-[var(--demo-card-divider)] pt-5" aria-labelledby="activity-feed-title">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
         <div>
           <p className="metric-label">Signal Scanner</p>
           <h3 id="activity-feed-title" className="mt-1 text-lg font-semibold text-slate-900">
             Abnormal activity
           </h3>
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-3">
         <div
           className="flex divide-x divide-slate-200 overflow-hidden rounded-md border border-slate-200"
           role="group"
@@ -72,6 +109,34 @@ export function AbnormalActivityFeed({
             );
           })}
         </div>
+        <label className="grid gap-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+          Signal
+          <select
+            value={signalKind}
+            onChange={(event) => onSignalKindChange(event.target.value as ActivitySignalFilter)}
+            className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium normal-case tracking-normal text-slate-700"
+          >
+            {SIGNAL_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+          Window
+          <select
+            value={maxAgeHours}
+            onChange={(event) => onMaxAgeHoursChange(Number(event.target.value) as ActivityTimeWindow)}
+            className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium normal-case tracking-normal text-slate-700"
+          >
+            {TIME_WINDOWS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="mt-4 border-y border-[var(--demo-card-divider)]">

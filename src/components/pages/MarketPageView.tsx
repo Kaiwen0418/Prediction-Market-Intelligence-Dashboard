@@ -1,11 +1,23 @@
 "use client";
 
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { PolymarketHistoryChart } from "@/components/charts/PolymarketHistoryChart";
 import { MicrostructureReplayChart } from "@/components/charts/MicrostructureReplayChart";
 import { ErrorState } from "@/components/layout/ErrorState";
 import { LoadingState } from "@/components/layout/LoadingState";
-import { getSpotlightState } from "@/components/maps/spotlightStates";
+import {
+  parseActivityFeedFilters,
+  serializeActivityFeedFilters
+} from "@/components/maps/activityFeedFilters";
+import type {
+  ActivitySignalFilter,
+  ActivityTimeWindow
+} from "@/components/maps/activityFeedFilters";
+import {
+  COUNTRY_MARKET_MAPS,
+  getRegionMarketPairLabel,
+  getSpotlightState
+} from "@/components/maps/spotlightStates";
 import { UsMarketMap } from "@/components/maps/UsMarketMap";
 import { TopNav } from "@/components/navigation/TopNav";
 import { useMarketContext } from "@/hooks/useMarketContext";
@@ -29,6 +41,52 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const [selectedCountryCode, setSelectedCountryCode] = useState("US");
   const [selectedStateCode, setSelectedStateCode] = useState<string | null>(null);
   const [activityThreshold, setActivityThreshold] = useState(50);
+  const [activitySignalKind, setActivitySignalKind] = useState<ActivitySignalFilter>("all");
+  const [activityMaxAgeHours, setActivityMaxAgeHours] = useState<ActivityTimeWindow>(0);
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
+
+  useEffect(() => {
+    const parsed = parseActivityFeedFilters(window.location.search);
+    const country =
+      COUNTRY_MARKET_MAPS.find((candidate) => candidate.code === parsed.countryCode) ??
+      COUNTRY_MARKET_MAPS[0];
+    const region = getSpotlightState(parsed.regionCode);
+
+    setSelectedCountryCode(country.code);
+    setSelectedStateCode(region?.countryCode === country.code ? region.code : null);
+    setActivityThreshold(parsed.minimumScore);
+    setActivitySignalKind(parsed.signalKind);
+    setActivityMaxAgeHours(parsed.maxAgeHours);
+    setFiltersHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersHydrated) {
+      return;
+    }
+
+    const params = serializeActivityFeedFilters(
+      {
+        countryCode: selectedCountryCode,
+        regionCode: selectedStateCode,
+        minimumScore: activityThreshold,
+        signalKind: activitySignalKind,
+        maxAgeHours: activityMaxAgeHours
+      },
+      window.location.search
+    );
+    const query = params.toString();
+    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+    window.history.replaceState(null, "", nextUrl);
+  }, [
+    activityMaxAgeHours,
+    activitySignalKind,
+    activityThreshold,
+    filtersHydrated,
+    selectedCountryCode,
+    selectedStateCode
+  ]);
+
   const selectedState = getSpotlightState(selectedStateCode);
   const selectedSlug = selectedState?.liveMarketSlug;
   const marketContextQuery = useMarketContext(selectedSlug);
@@ -65,6 +123,14 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       ? liveReplayQuery.data
       : null;
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;
+  const marketMatchesSelectedRegion =
+    !selectedState ||
+    market?.slug === selectedState.liveMarketSlug ||
+    market?.eventSlug === selectedState.liveMarketSlug;
+  const displayMarketTitle =
+    selectedState && !marketMatchesSelectedRegion
+      ? getRegionMarketPairLabel(selectedState)
+      : market?.outcomeLabel ?? market?.title;
   const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
   const errorMessage = marketContextQuery.error instanceof Error
     ? marketContextQuery.error.message
@@ -104,7 +170,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         <div className="mt-2 grid gap-x-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] xl:grid-cols-[3fr_1fr]">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <h2 className="max-w-4xl text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
-              {market.outcomeLabel ?? market.title}
+              {displayMarketTitle}
             </h2>
             <p className="shrink-0 text-[11px] uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
               {formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}
@@ -124,11 +190,15 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             liveReplay={liveReplay}
             regionSignals={regionSignalsQuery.data?.signals}
             activityThreshold={activityThreshold}
+            activitySignalKind={activitySignalKind}
+            activityMaxAgeHours={activityMaxAgeHours}
             selectedCountryCode={selectedCountryCode}
             selectedCode={selectedStateCode}
             onSelectCountryCode={setSelectedCountryCode}
             onSelectCode={setSelectedStateCode}
             onActivityThresholdChange={setActivityThreshold}
+            onActivitySignalKindChange={setActivitySignalKind}
+            onActivityMaxAgeHoursChange={setActivityMaxAgeHours}
             sources={{
               featuredMarket: sources["market-context"] ?? sources["featured-market"],
               liveStream: sources["live-stream"],

@@ -180,5 +180,5 @@ Acceptance criteria:
 - [x] Add a batch `/api/signals/regions` endpoint backed by current stream metrics.
 - [x] Replace the selected live region's fixture signal when enough backend samples are available.
 - [x] Add the first ranked abnormal-activity feed with threshold filtering and map selection.
-- [ ] Add signal-type and time-window filters with URL persistence.
+- [x] Add signal-type and time-window filters with URL persistence.
 - [ ] Add watchlists and notification preferences.

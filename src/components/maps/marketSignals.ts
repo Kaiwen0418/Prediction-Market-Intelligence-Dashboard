@@ -1,4 +1,5 @@
 import type {
+  MarketSignalKind,
   MarketSignalSeverity,
   RegionMarketSignal,
   RegionSignal
@@ -75,12 +76,24 @@ export type RankedRegionSignal<T> = {
   priority: number;
 };
 
+export type RegionSignalRankingOptions = {
+  minimumScore?: number;
+  signalKind?: "all" | MarketSignalKind;
+  maxAgeHours?: number;
+  now?: Date;
+};
+
 export function rankRegionSignals<T extends { code: string; signal: RegionMarketSignal }>(
   regions: T[],
   overrides: RegionSignal[],
-  minimumScore = 0,
-  now = new Date()
+  options: RegionSignalRankingOptions = {}
 ): Array<RankedRegionSignal<T>> {
+  const {
+    minimumScore = 0,
+    signalKind = "all",
+    maxAgeHours = 0,
+    now = new Date()
+  } = options;
   const overrideByRegion = new Map(overrides.map((signal) => [signal.regionCode, signal]));
   const nowMs = now.getTime();
 
@@ -98,6 +111,18 @@ export function rankRegionSignals<T extends { code: string; signal: RegionMarket
         priority: signal.score + freshnessBoost + confidenceBoost
       };
     })
-    .filter((item) => item.signal.score >= minimumScore)
+    .filter((item) => {
+      if (item.signal.score < minimumScore) {
+        return false;
+      }
+      if (signalKind !== "all" && item.signal.kind !== signalKind) {
+        return false;
+      }
+      if (maxAgeHours <= 0) {
+        return true;
+      }
+      const observedAtMs = Date.parse(item.signal.observedAt);
+      return Number.isFinite(observedAtMs) && nowMs - observedAtMs <= maxAgeHours * 3_600_000;
+    })
     .sort((left, right) => right.priority - left.priority || right.signal.score - left.signal.score);
 }

@@ -5,6 +5,10 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simp
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { AbnormalActivityFeed } from "@/components/maps/AbnormalActivityFeed";
+import type {
+  ActivitySignalFilter,
+  ActivityTimeWindow
+} from "@/components/maps/activityFeedFilters";
 import {
   buildBackendHealthDetail,
   buildBackendHealthLine,
@@ -21,6 +25,7 @@ import {
 import {
   COUNTRY_MARKET_MAPS,
   getCountryMarketMaps,
+  getRegionMarketPairLabel,
   getRegionMarketsByCountry,
   getSpotlightState,
   inferSpotlightCodeFromMarket
@@ -52,7 +57,11 @@ type UsMarketMapProps = {
   selectedCountryCode?: string;
   regionSignals?: RegionSignal[];
   activityThreshold?: number;
+  activitySignalKind?: ActivitySignalFilter;
+  activityMaxAgeHours?: ActivityTimeWindow;
   onActivityThresholdChange?: (score: number) => void;
+  onActivitySignalKindChange?: (kind: ActivitySignalFilter) => void;
+  onActivityMaxAgeHoursChange?: (hours: ActivityTimeWindow) => void;
   onSelectCode?: (code: string | null) => void;
   onSelectCountryCode?: (code: string) => void;
   sources: {
@@ -82,7 +91,11 @@ export function UsMarketMap({
   selectedCountryCode = "US",
   regionSignals = [],
   activityThreshold = 50,
+  activitySignalKind = "all",
+  activityMaxAgeHours = 0,
   onActivityThresholdChange,
+  onActivitySignalKindChange,
+  onActivityMaxAgeHoursChange,
   onSelectCode,
   onSelectCountryCode,
   sources
@@ -271,7 +284,11 @@ export function UsMarketMap({
     Boolean(activeRegion) &&
     (market.slug === activeRegion?.liveMarketSlug || market.eventSlug === activeRegion?.liveMarketSlug);
   const activePairLabel =
-    activeRegion && marketMatchesActiveRegion ? compactTitle : activeRegion?.liveMarketSlug ?? compactTitle;
+    activeRegion && marketMatchesActiveRegion
+      ? compactTitle
+      : activeRegion
+        ? getRegionMarketPairLabel(activeRegion)
+        : compactTitle;
 
   const getRegionFill = (regionCode?: string) => {
     const region = getSpotlightState(regionCode);
@@ -410,7 +427,11 @@ export function UsMarketMap({
             signals={regionSignals}
             selectedCode={activeSelectedCode ?? defaultCode}
             minimumScore={activityThreshold}
+            signalKind={activitySignalKind}
+            maxAgeHours={activityMaxAgeHours}
             onMinimumScoreChange={onActivityThresholdChange ?? (() => undefined)}
+            onSignalKindChange={onActivitySignalKindChange ?? (() => undefined)}
+            onMaxAgeHoursChange={onActivityMaxAgeHoursChange ?? (() => undefined)}
             onSelect={selectCode}
           />
         </div>

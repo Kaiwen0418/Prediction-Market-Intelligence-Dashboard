@@ -224,3 +224,10 @@ export function getSpotlightState(code?: string | null) {
 export function getRegionMarket(code?: string | null) {
   return getSpotlightState(code);
 }
+
+export function getRegionMarketPairLabel(region: RegionMarket) {
+  return region.liveMarketSlug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
