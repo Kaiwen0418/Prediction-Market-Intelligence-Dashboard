@@ -27,7 +27,8 @@ import {
   getRegionMarketPairLabel,
   getRegionMarketsByCountry,
   getSpotlightState,
-  inferSpotlightCodeFromMarket
+  inferSpotlightCodeFromMarket,
+  marketMatchesRegion
 } from "@/components/maps/spotlightStates";
 import type {
   LiveDegradation,
@@ -342,7 +343,6 @@ export function UsMarketMap({
   const microstructure = liveMicrostructure ?? fallbackMicrostructure;
   const showingBackendMetrics = Boolean(liveMicrostructure);
   const selectedRegionHasPair = Boolean(activeRegion?.liveMarketSlug);
-  const defaultRegionLabel = defaultRegion?.countryCode === activeCountry.code ? defaultRegion.label : regionMarkets[0]?.label;
   const activeSignal = activeRegion ? signalByRegion.get(activeRegion.code) ?? activeRegion.signal : null;
   const liveSignalCount = regionSignals.filter((signal) => signal.source === "live").length;
   const signalModeLabel =
@@ -351,9 +351,7 @@ export function UsMarketMap({
       : liveSignalCount > 0
         ? "Live + fallback"
         : "Demo snapshots";
-  const marketMatchesActiveRegion =
-    Boolean(activeRegion) &&
-    (market.slug === activeRegion?.liveMarketSlug || market.eventSlug === activeRegion?.liveMarketSlug);
+  const marketMatchesActiveRegion = Boolean(activeRegion) && marketMatchesRegion(activeRegion, market);
   const activePairLabel =
     activeRegion && marketMatchesActiveRegion
       ? compactTitle
@@ -386,7 +384,7 @@ export function UsMarketMap({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="font-sans text-xs font-medium text-slate-600">
             {regionMarkets.length} configured markets · {highPriorityCount} high priority
-            {defaultRegionLabel ? ` · Focus ${defaultRegionLabel}` : ""}
+            {activeRegion ? ` · Focus ${activeRegion.label}` : ""}
           </p>
           {availableCountries.length > 1 ? (
             <div className="flex items-center gap-2">
@@ -650,110 +648,122 @@ export function UsMarketMap({
         {/* Depth chart only renders once the parent grid actually has a right panel (lg+).
             Below lg, the layout collapses to a single column and stacking the depth chart
             beneath the map looks broken — so we hide it entirely in that range. */}
-        <div className="mt-6 hidden lg:block">
-          <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
-        </div>
+        {marketMatchesActiveRegion ? (
+          <>
+            <div className="mt-6 hidden lg:block">
+              <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
+            </div>
 
-        <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="metric-label">Market Snapshot</p>
-            <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-              {getReplaySourceLabel(liveReplay)}
-            </span>
-          </div>
-          <div className="mt-3 divide-y divide-[var(--demo-card-divider)] text-sm">
-            <div className="flex items-baseline justify-between gap-4 py-2.5">
-              <span className="text-slate-500">Mid / microprice</span>
-              <span className="font-semibold text-slate-900">
-                {summary.midPrice.toFixed(3)} / {microstructure.microprice.toFixed(3)}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 py-2.5">
-              <span className="text-slate-500">Spread / depth skew</span>
-              <span className="font-semibold text-slate-900">
-                {summary.liquidity.spreadBps.toFixed(1)} bps / {(microstructure.depthSkew * 100).toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 py-2.5">
-              <span className="text-slate-500">Flow / volatility</span>
-              <span className="font-semibold text-slate-900">
-                {(microstructure.orderFlowImbalance * 100).toFixed(1)}% / {microstructure.realizedVolatility.toFixed(4)}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 py-2.5">
-              <span className="text-slate-500">Depth / activity</span>
-              <span className="font-semibold text-slate-900">
-                {summary.liquidity.totalBidDepth.toFixed(0)} / {summary.liquidity.totalAskDepth.toFixed(0)} · {microstructure.tradeIntensity.toFixed(1)}
-              </span>
-            </div>
-          </div>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            {showingBackendMetrics ? "Computed from the active FastAPI stream window." : "Estimated from the latest REST snapshot."}
-          </p>
-        </div>
-
-        <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="metric-label">Large Trade Monitor</p>
-            <span className="text-xs tabular-nums text-slate-500">
-              {whaleActivity.sampleSize} prints
-            </span>
-          </div>
-          {whaleActivity.status === "detected" ? (
-            <div className="mt-3 divide-y divide-[var(--demo-card-divider)]">
-              {whaleActivity.largeTrades.slice(0, 3).map((trade) => (
-                <div
-                  key={trade.tradeId}
-                  className="grid grid-cols-[auto_1fr_auto] items-baseline gap-3 py-2.5 text-sm"
-                >
-                  <span
-                    className={`font-semibold uppercase ${
-                      trade.side === "buy" ? "text-emerald-700" : "text-rose-700"
-                    }`}
-                  >
-                    {trade.side}
-                  </span>
-                  <span className="text-slate-600">
-                    {trade.historicalSizeMultiple.toFixed(1)}x median ·{" "}
-                    {(trade.executableDepthShare * 100).toFixed(1)}% depth
-                    {trade.walletAddress ? ` · ${formatWalletAddress(trade.walletAddress)}` : ""}
-                  </span>
-                  <span className="font-semibold tabular-nums text-slate-900">
-                    ${trade.notionalUsd.toLocaleString()}
+            <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="metric-label">Market Snapshot</p>
+                <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                  {getReplaySourceLabel(liveReplay)}
+                </span>
+              </div>
+              <div className="mt-3 divide-y divide-[var(--demo-card-divider)] text-sm">
+                <div className="flex items-baseline justify-between gap-4 py-2.5">
+                  <span className="text-slate-500">Mid / microprice</span>
+                  <span className="font-semibold text-slate-900">
+                    {summary.midPrice.toFixed(3)} / {microstructure.microprice.toFixed(3)}
                   </span>
                 </div>
-              ))}
+                <div className="flex items-baseline justify-between gap-4 py-2.5">
+                  <span className="text-slate-500">Spread / depth skew</span>
+                  <span className="font-semibold text-slate-900">
+                    {summary.liquidity.spreadBps.toFixed(1)} bps / {(microstructure.depthSkew * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-4 py-2.5">
+                  <span className="text-slate-500">Flow / volatility</span>
+                  <span className="font-semibold text-slate-900">
+                    {(microstructure.orderFlowImbalance * 100).toFixed(1)}% / {microstructure.realizedVolatility.toFixed(4)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-4 py-2.5">
+                  <span className="text-slate-500">Depth / activity</span>
+                  <span className="font-semibold text-slate-900">
+                    {summary.liquidity.totalBidDepth.toFixed(0)} / {summary.liquidity.totalAskDepth.toFixed(0)} · {microstructure.tradeIntensity.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                {showingBackendMetrics ? "Computed from the active FastAPI stream window." : "Estimated from the latest REST snapshot."}
+              </p>
             </div>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              {whaleActivity.status === "clear"
-                ? "No recent print meets both relative thresholds."
-                : whaleActivity.sampleSize >= whaleActivity.minimumSampleSize
-                  ? "Relative detection is unavailable from the current data source."
-                  : `At least ${whaleActivity.minimumSampleSize} normalized prints and two-sided depth are required.`}
-            </p>
-          )}
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            {whaleActivity.walletConcentrationStatus === "available" &&
-            whaleActivity.walletConcentrationScore !== null &&
-            whaleActivity.topWalletVolumeShare !== null
-              ? `Wallet concentration ${whaleActivity.walletConcentrationScore.toFixed(1)}/100 · top public wallet ${(
-                  whaleActivity.topWalletVolumeShare * 100
-                ).toFixed(1)}% · ${whaleActivity.uniqueWalletCount} wallets · ${
-                  whaleActivity.attributedTradeCount
-                } attributed prints`
-              : whaleActivity.walletConcentrationStatus === "insufficient-data"
-                ? `${whaleActivity.attributedTradeCount} attributed prints · ${whaleActivity.walletSampleMinimum} required for concentration scoring`
-                : "Public wallet attribution is unavailable for this sample."}
-          </p>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            Flagged at {whaleActivity.historicalMultipleThreshold}x median size and{" "}
-            {(whaleActivity.depthShareThreshold * 100).toFixed(0)}% of executable depth. Public trades do not
-            establish wallet identity or insider activity.
-          </p>
-        </div>
 
-        {selectedRegionHasPair ? (
+            <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="metric-label">Large Trade Monitor</p>
+                <span className="text-xs tabular-nums text-slate-500">
+                  {whaleActivity.sampleSize} prints
+                </span>
+              </div>
+              {whaleActivity.status === "detected" ? (
+                <div className="mt-3 divide-y divide-[var(--demo-card-divider)]">
+                  {whaleActivity.largeTrades.slice(0, 3).map((trade) => (
+                    <div
+                      key={trade.tradeId}
+                      className="grid grid-cols-[auto_1fr_auto] items-baseline gap-3 py-2.5 text-sm"
+                    >
+                      <span
+                        className={`font-semibold uppercase ${
+                          trade.side === "buy" ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        {trade.side}
+                      </span>
+                      <span className="text-slate-600">
+                        {trade.historicalSizeMultiple.toFixed(1)}x median ·{" "}
+                        {(trade.executableDepthShare * 100).toFixed(1)}% depth
+                        {trade.walletAddress ? ` · ${formatWalletAddress(trade.walletAddress)}` : ""}
+                      </span>
+                      <span className="font-semibold tabular-nums text-slate-900">
+                        ${trade.notionalUsd.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  {whaleActivity.status === "clear"
+                    ? "No recent print meets both relative thresholds."
+                    : whaleActivity.sampleSize >= whaleActivity.minimumSampleSize
+                      ? "Relative detection is unavailable from the current data source."
+                      : `At least ${whaleActivity.minimumSampleSize} normalized prints and two-sided depth are required.`}
+                </p>
+              )}
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                {whaleActivity.walletConcentrationStatus === "available" &&
+                whaleActivity.walletConcentrationScore !== null &&
+                whaleActivity.topWalletVolumeShare !== null
+                  ? `Wallet concentration ${whaleActivity.walletConcentrationScore.toFixed(1)}/100 · top public wallet ${(
+                      whaleActivity.topWalletVolumeShare * 100
+                    ).toFixed(1)}% · ${whaleActivity.uniqueWalletCount} wallets · ${
+                      whaleActivity.attributedTradeCount
+                    } attributed prints`
+                  : whaleActivity.walletConcentrationStatus === "insufficient-data"
+                    ? `${whaleActivity.attributedTradeCount} attributed prints · ${whaleActivity.walletSampleMinimum} required for concentration scoring`
+                    : "Public wallet attribution is unavailable for this sample."}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Flagged at {whaleActivity.historicalMultipleThreshold}x median size and{" "}
+                {(whaleActivity.depthShareThreshold * 100).toFixed(0)}% of executable depth. Public trades do not
+                establish wallet identity or insider activity.
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="mt-6 border-y border-amber-300 bg-amber-50 py-4">
+            <p className="font-sans text-xs font-semibold uppercase text-amber-900">Coverage unavailable</p>
+            <p className="mt-2 text-sm leading-6 text-amber-900">
+              The selected region does not match the loaded fallback market. Pair-specific depth, trades, and wallet
+              metrics are withheld.
+            </p>
+          </div>
+        )}
+
+        {selectedRegionHasPair && marketMatchesActiveRegion ? (
           <p className="mt-5 text-sm text-slate-600">
             Pair: <span className="font-medium text-slate-900">{activePairLabel}</span>
           </p>

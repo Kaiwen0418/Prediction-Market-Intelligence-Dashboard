@@ -1,6 +1,7 @@
 "use client";
 
 import type { RegionMarketSignal } from "@/components/maps/marketSignals";
+import type { MarketSnapshot } from "@/types/market";
 
 export type RegionMarketStatus = "live" | "watch" | "research";
 
@@ -230,4 +231,19 @@ export function getRegionMarketPairLabel(region: RegionMarket) {
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+export function marketMatchesRegion(
+  region: RegionMarket | null | undefined,
+  market: Pick<MarketSnapshot, "slug" | "eventSlug"> | null | undefined
+) {
+  if (!region) {
+    return true;
+  }
+
+  if (!market) {
+    return false;
+  }
+
+  return market.slug === region.liveMarketSlug || market.eventSlug === region.liveMarketSlug;
 }

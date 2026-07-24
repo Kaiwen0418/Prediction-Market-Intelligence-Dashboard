@@ -185,6 +185,7 @@ Acceptance criteria:
 - The first desktop viewport contains at least one actionable signal and the map.
 - Mobile reaches the ranked anomaly scanner before the geographic visualization.
 - Every selected market shows its source mode and update time.
+- Pair-specific metrics are never rendered for a fallback market that does not match the selected region.
 - The map communicates its highest-priority anomalies without requiring legend cross-reference.
 - Users can watch a region or open its matching venue market from the selected rail.
 - Only one deep evidence view is expanded at a time.
@@ -211,3 +212,4 @@ Acceptance criteria:
 - [x] Replace the Home hero with a product-first market intelligence shell.
 - [x] Add explicit source provenance, in-map anomaly labels, and selected-market actions.
 - [x] Reduce mobile depth with scanner-first ordering and tabbed evidence views.
+- [x] Withhold pair-specific metrics and charts when regional market coverage does not match.

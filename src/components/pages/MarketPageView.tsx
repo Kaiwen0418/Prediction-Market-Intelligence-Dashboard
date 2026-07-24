@@ -16,7 +16,8 @@ import type {
 import {
   COUNTRY_MARKET_MAPS,
   getRegionMarketPairLabel,
-  getSpotlightState
+  getSpotlightState,
+  marketMatchesRegion
 } from "@/components/maps/spotlightStates";
 import { UsMarketMap } from "@/components/maps/UsMarketMap";
 import { TopNav } from "@/components/navigation/TopNav";
@@ -134,10 +135,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       ? liveReplayQuery.data
       : null;
   const historyMeta = marketContextQuery.data?.priceHistoryMeta;
-  const marketMatchesSelectedRegion =
-    !selectedState ||
-    market?.slug === selectedState.liveMarketSlug ||
-    market?.eventSlug === selectedState.liveMarketSlug;
+  const marketMatchesSelectedRegion = marketMatchesRegion(selectedState, market);
   const displayMarketTitle =
     selectedState && !marketMatchesSelectedRegion
       ? getRegionMarketPairLabel(selectedState)
@@ -145,7 +143,9 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const primarySource = sources["market-context"] ?? sources["featured-market"];
   const signalSource = sources["region-signals"];
   const dataState =
-    primarySource?.state === "failed" || signalSource?.state === "failed"
+    !marketMatchesSelectedRegion
+      ? "Coverage unavailable"
+      : primarySource?.state === "failed" || signalSource?.state === "failed"
       ? "Unavailable"
       : primarySource?.state === "live" && signalSource?.state === "live"
         ? "Live"
@@ -157,7 +157,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       ? "bg-emerald-500"
       : dataState === "Fallback"
         ? "bg-amber-400"
-        : dataState === "Unavailable"
+        : dataState === "Unavailable" || dataState === "Coverage unavailable"
           ? "bg-rose-500"
           : "bg-slate-300";
   const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
@@ -252,6 +252,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         </div>
       </section>
 
+      {marketMatchesSelectedRegion ? (
       <section className="border-t border-[var(--demo-card-divider)] pt-8">
         <div className="mb-7 flex border-b border-[var(--demo-card-divider)] font-sans" role="tablist" aria-label="Market evidence">
           <button
@@ -320,6 +321,16 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           </div>
         )}
       </section>
+      ) : (
+        <section className="border-t border-[var(--demo-card-divider)] py-10">
+          <p className="metric-label">Market Evidence</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900">Coverage unavailable for this pair</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            Signal context remains visible, but order-book replay and price history are withheld because the loaded
+            fallback market does not match the selected region.
+          </p>
+        </section>
+      )}
     </>
   );
 
