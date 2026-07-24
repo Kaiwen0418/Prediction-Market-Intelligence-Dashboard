@@ -291,7 +291,9 @@ export function UsMarketMap({
   const activeSignal = activeRegion ? signalByRegion.get(activeRegion.code) ?? activeRegion.signal : null;
   const liveSignalCount = regionSignals.filter((signal) => signal.source === "live").length;
   const signalModeLabel =
-    liveSignalCount === regionMarkets.length && regionMarkets.length > 0
+    regionSignals.some((signal) => signal.freshness === "stale")
+      ? "Stale live data"
+      : liveSignalCount === regionMarkets.length && regionMarkets.length > 0
       ? "Live signals"
       : liveSignalCount > 0
         ? "Live + fallback"
@@ -589,7 +591,7 @@ export function UsMarketMap({
             <p className="mt-2 text-xs text-slate-400">
               {activeSignal.source === "fixture"
                 ? "Demo signal snapshot"
-                : `Live signal · ${Math.round((activeSignal.confidence ?? 0) * 100)}% component coverage`}
+                : `${activeSignal.freshness === "stale" ? "Stale live signal" : "Live signal"} · ${Math.round((activeSignal.confidence ?? 0) * 100)}% component coverage`}
             </p>
           </div>
         ) : null}

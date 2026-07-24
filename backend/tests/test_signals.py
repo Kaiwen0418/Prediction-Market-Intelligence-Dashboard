@@ -13,7 +13,7 @@ from app.schemas.live import (
     LiveStreamStatusResponse,
 )
 from app.schemas.signals import RegionSignalResponse, RegionSignalsResponse
-from app.services.region_signals import build_region_signals
+from app.services.region_signals import RegionSignalBaselineCache, build_region_signals
 from app.streaming.polymarket_ws import live_stream_manager
 
 
@@ -66,6 +66,23 @@ class SignalAnalyticsTestCase(unittest.TestCase):
         self.assertEqual(get_signal_severity(50), "elevated")
         self.assertEqual(get_signal_severity(70), "high")
         self.assertEqual(get_signal_severity(85), "critical")
+
+    def test_baseline_cache_reuses_unchanged_replay_window(self) -> None:
+        cache = RegionSignalBaselineCache()
+        samples = [
+            sample("2026-07-24T09:00:00Z", 0.50, 10, 0.1),
+            sample("2026-07-24T09:01:00Z", 0.57, 30, 0.8),
+        ]
+
+        first = cache.resolve("market", samples)
+        second = cache.resolve("market", samples)
+        changed = cache.resolve(
+            "market",
+            [*samples, sample("2026-07-24T09:02:00Z", 0.58, 32, 0.7)],
+        )
+
+        self.assertIs(first, second)
+        self.assertIsNot(first, changed)
 
 
 class SignalServiceTestCase(unittest.IsolatedAsyncioTestCase):
@@ -127,6 +144,10 @@ class SignalServiceTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(california.source, "live")
         self.assertEqual(california.confidence, 0.75)
         self.assertEqual(len(california.components), 5)
+        self.assertEqual(california.freshness, "stale")
+        self.assertGreater(california.age_seconds or 0, 90)
+        self.assertEqual(response.freshness, "stale")
+        self.assertTrue(response.degradation_reasons)
         self.assertEqual(texas.source, "fixture")
 
     async def test_stream_failure_keeps_fixture_batch_available(self) -> None:
@@ -175,6 +196,7 @@ class SignalRoutesTestCase(unittest.TestCase):
                 countryCode=country_code.upper(),
                 generatedAt="2026-07-24T09:00:00Z",
                 source="live",
+                freshness="fresh",
                 signals=[
                     RegionSignalResponse(
                         regionCode="CA",
@@ -190,6 +212,8 @@ class SignalRoutesTestCase(unittest.TestCase):
                         confidence=0.75,
                         baselineWindow="24 stream samples",
                         components=[],
+                        freshness="fresh",
+                        ageSeconds=0,
                     )
                 ],
             )

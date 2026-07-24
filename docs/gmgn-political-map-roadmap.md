@@ -96,7 +96,7 @@ Acceptance criteria:
 
 ### Phase 2: Backend Signal API
 
-Status: in progress
+Status: complete
 
 - Add FastAPI region-market registry and signal response schemas.
 - Calculate volume anomaly, price velocity, order-flow imbalance, and liquidity stress.
@@ -220,3 +220,4 @@ Acceptance criteria:
 - [x] Withhold pair-specific metrics and charts when regional market coverage does not match.
 - [x] Keep the country map camera stable while selecting regional trading pairs.
 - [x] Add the United Kingdom regional map, political-pair registry, signal fixtures, and ONS boundary provenance.
+- [x] Cache unchanged replay baselines and expose stale signal degradation through the API and scanner.

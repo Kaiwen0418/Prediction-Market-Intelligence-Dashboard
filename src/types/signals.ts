@@ -30,6 +30,9 @@ export type RegionMarketSignal = {
   confidence?: number;
   baselineWindow?: string;
   components?: RegionSignalComponent[];
+  freshness?: "fixture" | "fresh" | "stale";
+  ageSeconds?: number | null;
+  degradationReasons?: string[];
 };
 
 export type RegionSignal = RegionMarketSignal & {
@@ -46,5 +49,7 @@ export type RegionSignalsResponse = {
   countryCode: string;
   generatedAt: string;
   source: "fixture" | "mixed" | "live";
+  freshness: "fixture" | "fresh" | "stale";
+  degradationReasons: string[];
   signals: RegionSignal[];
 };

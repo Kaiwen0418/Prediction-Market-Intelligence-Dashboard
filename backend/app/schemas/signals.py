@@ -14,6 +14,7 @@ SignalKind = Literal[
 SignalSeverity = Literal["normal", "elevated", "high", "critical"]
 SignalSource = Literal["fixture", "live"]
 SignalBatchSource = Literal["fixture", "mixed", "live"]
+SignalFreshness = Literal["fixture", "fresh", "stale"]
 
 
 class SignalComponentResponse(BaseModel):
@@ -40,6 +41,9 @@ class RegionSignalResponse(BaseModel):
     confidence: float = Field(ge=0, le=1)
     baseline_window: str = Field(alias="baselineWindow")
     components: list[SignalComponentResponse]
+    freshness: SignalFreshness = "fixture"
+    age_seconds: int | None = Field(default=None, alias="ageSeconds", ge=0)
+    degradation_reasons: list[str] = Field(default_factory=list, alias="degradationReasons")
 
     model_config = {"populate_by_name": True}
 
@@ -49,5 +53,7 @@ class RegionSignalsResponse(BaseModel):
     generated_at: str = Field(alias="generatedAt")
     source: SignalBatchSource
     signals: list[RegionSignalResponse]
+    freshness: SignalFreshness = "fixture"
+    degradation_reasons: list[str] = Field(default_factory=list, alias="degradationReasons")
 
     model_config = {"populate_by_name": True}

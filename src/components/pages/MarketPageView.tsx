@@ -147,6 +147,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const dataState =
     !marketMatchesSelectedRegion
       ? "Coverage unavailable"
+      : regionSignalsQuery.data?.freshness === "stale"
+        ? "Delayed"
       : primarySource?.state === "failed" || signalSource?.state === "failed"
       ? "Unavailable"
       : primarySource?.state === "live" && signalSource?.state === "live"
@@ -161,6 +163,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         ? "bg-amber-400"
         : dataState === "Unavailable" || dataState === "Coverage unavailable"
           ? "bg-rose-500"
+          : dataState === "Delayed"
+            ? "bg-amber-500"
           : "bg-slate-300";
   const isLoading = (marketContextQuery.isLoading && !contextMarket) || featuredMarketQuery.isLoading || snapshotQuery.isLoading;
   const errorMessage = marketContextQuery.error instanceof Error

@@ -1,13 +1,61 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Sequence
 
-from app.analytics.signals import calculate_region_activity_score, get_signal_severity
+from app.analytics.signals import (
+    RegionActivityScore,
+    calculate_region_activity_score,
+    get_signal_severity,
+)
+from app.schemas.live import LiveMetricSampleResponse
 from app.schemas.signals import (
     RegionSignalResponse,
     RegionSignalsResponse,
     SignalComponentResponse,
 )
 from app.streaming.polymarket_ws import live_stream_manager
+
+LIVE_SIGNAL_STALE_AFTER_SECONDS = 90
+
+
+@dataclass(frozen=True)
+class CachedRegionBaseline:
+    latest_timestamp: str
+    sample_count: int
+    activity: RegionActivityScore | None
+
+
+class RegionSignalBaselineCache:
+    def __init__(self) -> None:
+        self._entries: dict[str, CachedRegionBaseline] = {}
+
+    def resolve(
+        self,
+        market_slug: str,
+        samples: Sequence[LiveMetricSampleResponse],
+    ) -> RegionActivityScore | None:
+        latest_timestamp = samples[-1].timestamp if samples else ""
+        cached = self._entries.get(market_slug)
+        if (
+            cached is not None
+            and cached.latest_timestamp == latest_timestamp
+            and cached.sample_count == len(samples)
+        ):
+            return cached.activity
+
+        activity = calculate_region_activity_score(samples)
+        self._entries[market_slug] = CachedRegionBaseline(
+            latest_timestamp=latest_timestamp,
+            sample_count=len(samples),
+            activity=activity,
+        )
+        return activity
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+
+region_signal_baseline_cache = RegionSignalBaselineCache()
 
 
 @dataclass(frozen=True)
@@ -174,10 +222,27 @@ def _live_headline(kind: str) -> str:
     return "Live activity is above baseline"
 
 
+def _live_freshness(observed_at: str, now: datetime) -> tuple[str, int, list[str]]:
+    try:
+        observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+    except ValueError:
+        return "stale", LIVE_SIGNAL_STALE_AFTER_SECONDS, ["Live sample timestamp is invalid."]
+
+    age_seconds = max(0, int((now - observed.astimezone(timezone.utc)).total_seconds()))
+    if age_seconds > LIVE_SIGNAL_STALE_AFTER_SECONDS:
+        return (
+            "stale",
+            age_seconds,
+            [f"Live sample is {age_seconds} seconds old."],
+        )
+    return "fresh", age_seconds, []
+
+
 async def build_region_signals(
     country_code: str,
     active_slug: str | None = None,
 ) -> RegionSignalsResponse:
+    now = datetime.now(timezone.utc)
     normalized_country = country_code.strip().upper()
     fixtures = [fixture for fixture in REGION_SIGNAL_FIXTURES if fixture.country_code == normalized_country]
     signals = [_fixture_response(fixture) for fixture in fixtures]
@@ -192,12 +257,16 @@ async def build_region_signals(
             replay = None
 
         activity = (
-            calculate_region_activity_score(replay.samples)
+            region_signal_baseline_cache.resolve(active_slug, replay.samples)
             if replay is not None and replay.source == "stream"
             else None
         )
 
         if activity is not None and snapshot is not None and snapshot.microstructure is not None and replay is not None:
+            freshness, age_seconds, degradation_reasons = _live_freshness(
+                replay.samples[-1].timestamp,
+                now,
+            )
             components = [
                 SignalComponentResponse(
                     key=component.key,
@@ -228,6 +297,9 @@ async def build_region_signals(
                 confidence=activity.confidence,
                 baselineWindow=f"{len(replay.samples)} stream samples",
                 components=components,
+                freshness=freshness,
+                ageSeconds=age_seconds,
+                degradationReasons=degradation_reasons,
             )
             signals = [
                 live_signal if signal.region_code == active_fixture.region_code else signal
@@ -236,9 +308,22 @@ async def build_region_signals(
 
     live_count = sum(signal.source == "live" for signal in signals)
     source = "live" if live_count == len(signals) and signals else "mixed" if live_count else "fixture"
+    stale_signals = [signal for signal in signals if signal.freshness == "stale"]
+    freshness = "stale" if stale_signals else "fresh" if live_count else "fixture"
+    degradation_reasons = [
+        f"{signal.region_code}: {reason}"
+        for signal in stale_signals
+        for reason in signal.degradation_reasons
+    ]
+    if source == "mixed":
+        degradation_reasons.append(
+            f"{len(signals) - live_count} configured regions are using signal fixtures."
+        )
     return RegionSignalsResponse(
         countryCode=normalized_country,
-        generatedAt=datetime.now(timezone.utc).isoformat(),
+        generatedAt=now.isoformat(),
         source=source,
         signals=signals,
+        freshness=freshness,
+        degradationReasons=degradation_reasons,
     )
