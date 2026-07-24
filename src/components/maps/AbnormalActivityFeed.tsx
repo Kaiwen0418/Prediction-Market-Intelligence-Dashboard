@@ -104,7 +104,7 @@ export function AbnormalActivityFeed({
   );
 
   return (
-    <section className="border-t border-[var(--demo-card-divider)] pt-5" aria-labelledby="activity-feed-title">
+    <section className="pt-2" aria-labelledby="activity-feed-title">
       <div>
         <div>
           <p className="metric-label">Signal Scanner</p>
@@ -193,12 +193,12 @@ export function AbnormalActivityFeed({
         ) : null}
       </div>
 
-      <div className="mt-4 border-y border-[var(--demo-card-divider)]">
+      <div className="mt-4">
         <div className="hidden grid-cols-[42px_80px_minmax(0,1fr)_100px_64px_44px] gap-3 border-b border-[var(--demo-card-divider)] px-2 py-2 text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:grid">
           <span>Rank</span>
           <span>Region</span>
           <span>Signal</span>
-          <span>Freshness</span>
+          <span>Updated</span>
           <span className="text-right">Score</span>
           <span className="text-center">Watch</span>
         </div>
@@ -236,11 +236,7 @@ export function AbnormalActivityFeed({
                       <span className="mt-0.5 block text-xs text-slate-500">{getMarketSignalLabel(signal)}</span>
                     </span>
                     <span className="hidden text-xs text-slate-500 sm:block">
-                      {signal.source === "live"
-                        ? signal.freshness === "stale"
-                          ? `stale · ${relativeTime(signal.observedAt)}`
-                          : relativeTime(signal.observedAt)
-                        : "demo snapshot"}
+                      {relativeTime(signal.observedAt)}
                     </span>
                     <span className="text-right text-xl font-semibold tabular-nums text-slate-900">
                       {signal.score}

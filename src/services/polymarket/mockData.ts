@@ -53,29 +53,139 @@ const californiaGovernorElectionMarket: MarketSnapshot = {
   updatedAt: now.toISOString()
 };
 
-export function getMockFeaturedMarket(): MarketSnapshot {
-  if (polymarketConfig.featuredMarketSlug === "texas-republican-senate-primary-winner") {
-    return texasRepublicanSenatePrimaryMarket;
+const ukMarkets: MarketSnapshot[] = [
+  {
+    marketId: "scotland-independence-referendum",
+    eventId: "event-scotland-independence-referendum",
+    tokenId: "token-scotland-independence-yes",
+    slug: "will-scotland-hold-an-independence-referendum-before-2030",
+    eventSlug: "will-scotland-hold-an-independence-referendum-before-2030",
+    title: "Scotland Independence Referendum Before 2030",
+    category: "Politics",
+    probability: 0.42,
+    volume24h: 384_000,
+    openInterest: 1_740_000,
+    liquidity: 620_000,
+    outcomeLabel: "Will Scotland hold an independence referendum before 2030?",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "next-london-mayoral-election",
+    eventId: "event-next-london-mayoral-election",
+    tokenId: "token-london-mayor-leading-outcome",
+    slug: "next-london-mayoral-election-winner",
+    eventSlug: "next-london-mayoral-election-winner",
+    title: "Next London Mayoral Election Winner",
+    category: "Politics",
+    probability: 0.61,
+    volume24h: 276_000,
+    openInterest: 980_000,
+    liquidity: 410_000,
+    outcomeLabel: "Leading outcome in the next London mayoral election",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "welsh-parliament-most-seats",
+    eventId: "event-welsh-parliament-most-seats",
+    tokenId: "token-welsh-parliament-leading-outcome",
+    slug: "welsh-parliament-election-most-seats",
+    eventSlug: "welsh-parliament-election-most-seats",
+    title: "Welsh Parliament Election Most Seats",
+    category: "Politics",
+    probability: 0.54,
+    volume24h: 192_000,
+    openInterest: 740_000,
+    liquidity: 330_000,
+    outcomeLabel: "Leading outcome for most seats in the Welsh Parliament election",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "northern-ireland-assembly-most-seats",
+    eventId: "event-northern-ireland-assembly-most-seats",
+    tokenId: "token-northern-ireland-leading-outcome",
+    slug: "northern-ireland-assembly-election-most-seats",
+    eventSlug: "northern-ireland-assembly-election-most-seats",
+    title: "Northern Ireland Assembly Election Most Seats",
+    category: "Politics",
+    probability: 0.47,
+    volume24h: 148_000,
+    openInterest: 560_000,
+    liquidity: 270_000,
+    outcomeLabel: "Leading outcome for most seats in the Northern Ireland Assembly election",
+    updatedAt: now.toISOString()
+  }
+];
+
+const mockMarkets = [
+  defaultFeaturedMarket,
+  texasRepublicanSenatePrimaryMarket,
+  californiaGovernorElectionMarket,
+  ...ukMarkets
+];
+
+function titleFromSlug(slug: string) {
+  return slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function probabilityFromSlug(slug: string) {
+  const hash = Array.from(slug).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  return Number((0.35 + (hash % 31) / 100).toFixed(2));
+}
+
+export function getMockMarketBySlug(slug: string): MarketSnapshot {
+  const configuredMarket = mockMarkets.find((market) => market.slug === slug);
+  if (configuredMarket) {
+    return { ...configuredMarket, updatedAt: new Date().toISOString() };
   }
 
-  if (polymarketConfig.featuredMarketSlug === "california-governor-election-2026") {
-    return californiaGovernorElectionMarket;
+  const title = titleFromSlug(slug);
+  return {
+    ...defaultFeaturedMarket,
+    marketId: `market-${slug}`,
+    eventId: `event-${slug}`,
+    tokenId: `token-${slug}`,
+    slug,
+    eventSlug: slug,
+    title,
+    outcomeLabel: title,
+    probability: probabilityFromSlug(slug),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function getMockMarketByTokenId(tokenId?: string): MarketSnapshot {
+  const configuredMarket = mockMarkets.find((market) => market.tokenId === tokenId);
+  if (configuredMarket) {
+    return { ...configuredMarket, updatedAt: new Date().toISOString() };
   }
 
-  return defaultFeaturedMarket;
+  return tokenId?.startsWith("token-")
+    ? getMockMarketBySlug(tokenId.slice("token-".length))
+    : getMockMarketBySlug(polymarketConfig.featuredMarketSlug);
+}
+
+export function getMockFeaturedMarket(slug = polymarketConfig.featuredMarketSlug): MarketSnapshot {
+  return getMockMarketBySlug(slug);
 }
 
 export const featuredMarket = getMockFeaturedMarket();
 
-export const marketSeries: TimePoint[] = Array.from({ length: 30 }, (_, index) => {
-  const timestamp = subDays(now, 29 - index).toISOString();
-  const drift = 0.43 + index * 0.004;
-  const oscillation = Math.sin(index / 3) * 0.03;
-  return {
-    timestamp,
-    value: Number((drift + oscillation).toFixed(3))
-  };
-});
+export function createMarketSeries(market = getMockFeaturedMarket()): TimePoint[] {
+  return Array.from({ length: 30 }, (_, index) => {
+    const timestamp = subDays(now, 29 - index).toISOString();
+    const drift = market.probability - 0.06 + index * (0.06 / 29);
+    const oscillation = Math.sin(index / 3) * 0.018;
+    return {
+      timestamp,
+      value: Number(Math.min(0.98, Math.max(0.02, drift + oscillation)).toFixed(3))
+    };
+  });
+}
+
+export const marketSeries = createMarketSeries();
 
 export const pollSeries: PollPoint[] = Array.from({ length: 30 }, (_, index) => {
   const timestamp = subDays(now, 29 - index).toISOString();
@@ -96,14 +206,15 @@ function generateSide(start: number, direction: 1 | -1): OrderbookLevel[] {
   })).sort((a, b) => (direction === -1 ? b.price - a.price : a.price - b.price));
 }
 
-export function createOrderbookSnapshot(): OrderbookState {
-  const market = getMockFeaturedMarket();
-  const bids = generateSide(0.56, -1);
-  const asks = generateSide(0.58, 1);
+export function createOrderbookSnapshot(market = getMockFeaturedMarket()): OrderbookState {
+  const bestBid = Math.max(0.02, market.probability - 0.01);
+  const bestAsk = Math.min(0.98, market.probability + 0.01);
+  const bids = generateSide(bestBid, -1);
+  const asks = generateSide(bestAsk, 1);
   const trades: TradePrint[] = Array.from({ length: 20 }, (_, index) => ({
     id: `trade-${index}`,
     side: index % 3 === 0 ? ("sell" as const) : ("buy" as const),
-    price: Number((0.55 + Math.random() * 0.04).toFixed(2)),
+    price: Number((market.probability - 0.02 + Math.random() * 0.04).toFixed(2)),
     size: Math.round(100 + Math.random() * 1500),
     timestamp: subHours(now, 20 - index).toISOString()
   })).reverse();

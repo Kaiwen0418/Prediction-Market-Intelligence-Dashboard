@@ -5,17 +5,13 @@ import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "re
 import usAtlas from "us-atlas/states-10m.json";
 import ukRegions from "@/components/maps/data/uk-regions.json";
 import { DepthChart } from "@/components/charts/DepthChart";
+import { summarizeMarketMovement } from "@/analytics/marketMovement";
 import { AbnormalActivityFeed } from "@/components/maps/AbnormalActivityFeed";
 import type {
   ActivitySignalFilter,
-  ActivityTimeWindow
+  ActivityTimeWindow,
+  MapViewMode
 } from "@/components/maps/activityFeedFilters";
-import {
-  buildBackendHealthDetail,
-  buildBackendHealthLine,
-  getReplaySourceLabel,
-  getSourceDotColorClass
-} from "@/components/maps/liveRailDiagnostics";
 import {
   getMarketSignalColor,
   getMarketSignalLabel,
@@ -31,17 +27,15 @@ import {
   inferSpotlightCodeFromMarket,
   marketMatchesRegion
 } from "@/components/maps/spotlightStates";
+import type { CountryMarketMap } from "@/components/maps/spotlightStates";
 import type {
-  LiveDegradation,
   LiveMicrostructureMetrics,
-  LiveReadiness,
-  LiveRegistryHealth,
   LiveReplay,
   MarketSnapshot,
   OrderbookState,
-  OrderbookSummary
+  OrderbookSummary,
+  TimePoint
 } from "@/types/market";
-import type { SourceDiagnostics } from "@/types/service";
 import type { RegionSignal } from "@/types/signals";
 import { formatTimestamp, relativeTime } from "@/utils/time";
 import { useSignalWatchlist } from "@/hooks/useSignalWatchlist";
@@ -50,38 +44,54 @@ function formatWalletAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function formatCompactCurrency(value?: number) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(value);
+}
+
+function formatMovement(value: number | null) {
+  if (value === null) {
+    return "—";
+  }
+
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)} pts`;
+}
+
+function movementTone(value: number | null) {
+  if (value === null || value === 0) {
+    return "text-slate-500";
+  }
+  return value > 0 ? "text-emerald-700" : "text-rose-700";
+}
+
 type UsMarketMapProps = {
   market: MarketSnapshot;
   orderbook: OrderbookState;
   orderbookSummary?: OrderbookSummary | null;
   liveMicrostructure?: LiveMicrostructureMetrics | null;
   liveReplay?: LiveReplay | null;
-  liveReadiness?: LiveReadiness | null;
-  liveDegradation?: LiveDegradation | null;
-  liveRegistryHealth?: LiveRegistryHealth | null;
+  marketSeries?: TimePoint[];
   selectedCode?: string | null;
   selectedCountryCode?: string;
   regionSignals?: RegionSignal[];
   activityThreshold?: number;
   activitySignalKind?: ActivitySignalFilter;
   activityMaxAgeHours?: ActivityTimeWindow;
+  mapView?: MapViewMode;
   onActivityThresholdChange?: (score: number) => void;
   onActivitySignalKindChange?: (kind: ActivitySignalFilter) => void;
   onActivityMaxAgeHoursChange?: (hours: ActivityTimeWindow) => void;
+  onMapViewChange?: (view: MapViewMode) => void;
   onSelectCode?: (code: string | null) => void;
   onSelectCountryCode?: (code: string) => void;
-  sources: {
-    featuredMarket?: SourceDiagnostics;
-    liveStream?: SourceDiagnostics;
-    liveReplay?: SourceDiagnostics;
-    liveReadiness?: SourceDiagnostics;
-    liveDegradation?: SourceDiagnostics;
-    liveRegistry?: SourceDiagnostics;
-    orderbook?: SourceDiagnostics;
-    orderbookSummary?: SourceDiagnostics;
-    regionSignals?: SourceDiagnostics;
-    trades?: SourceDiagnostics;
-  };
 };
 
 export function UsMarketMap({
@@ -90,21 +100,20 @@ export function UsMarketMap({
   orderbookSummary,
   liveMicrostructure,
   liveReplay,
-  liveReadiness,
-  liveDegradation,
-  liveRegistryHealth,
+  marketSeries = [],
   selectedCode,
   selectedCountryCode = "US",
   regionSignals = [],
   activityThreshold = 50,
   activitySignalKind = "all",
   activityMaxAgeHours = 0,
+  mapView = "country",
   onActivityThresholdChange,
   onActivitySignalKindChange,
   onActivityMaxAgeHoursChange,
+  onMapViewChange,
   onSelectCode,
-  onSelectCountryCode,
-  sources
+  onSelectCountryCode
 }: UsMarketMapProps) {
   const defaultCode = useMemo(() => inferSpotlightCodeFromMarket(market), [market]);
   const availableCountries = useMemo(() => getCountryMarketMaps(), []);
@@ -117,6 +126,25 @@ export function UsMarketMap({
   const signalByRegion = useMemo(
     () => new Map(regionSignals.map((signal) => [signal.regionCode, signal])),
     [regionSignals]
+  );
+  const countrySummaries = useMemo(
+    () =>
+      availableCountries.map((country) => {
+        const regions = getRegionMarketsByCountry(country.code);
+        const topRegion = regions
+          .map((region) => ({
+            region,
+            signal: signalByRegion.get(region.code) ?? region.signal
+          }))
+          .sort((left, right) => right.signal.score - left.signal.score)[0];
+
+        return {
+          country,
+          regions,
+          topRegion
+        };
+      }),
+    [availableCountries, signalByRegion]
   );
   const labeledRegions = useMemo(
     () =>
@@ -188,22 +216,6 @@ export function UsMarketMap({
         : null;
 
   const compactTitle = market.title.length > 56 ? `${market.title.slice(0, 56)}...` : market.title;
-
-  const sourceDots = [
-    { diagnostics: sources.regionSignals, label: "signals" },
-    { diagnostics: sources.featuredMarket, label: "featured" },
-    { diagnostics: sources.liveStream, label: "stream" },
-    { diagnostics: sources.liveReplay, label: "replay" },
-    { diagnostics: sources.liveReadiness, label: "ready" },
-    { diagnostics: sources.liveDegradation, label: "degrade" },
-    { diagnostics: sources.liveRegistry, label: "registry" },
-    { diagnostics: sources.orderbookSummary, label: "summary" },
-    { diagnostics: sources.orderbook, label: "orderbook" },
-    { diagnostics: sources.trades, label: "trades" }
-  ];
-
-  const backendHealthLine = buildBackendHealthLine(liveReadiness, liveDegradation, liveRegistryHealth);
-  const backendHealthDetail = buildBackendHealthDetail(liveReadiness, liveDegradation);
 
   const summary = orderbookSummary ?? {
     bestBid: orderbook.bids[0]?.price ?? 0,
@@ -295,17 +307,12 @@ export function UsMarketMap({
   };
   const microstructure = liveMicrostructure ?? fallbackMicrostructure;
   const showingBackendMetrics = Boolean(liveMicrostructure);
+  const marketMovement = useMemo(
+    () => summarizeMarketMovement(marketSeries, market.probability),
+    [market.probability, marketSeries]
+  );
   const selectedRegionHasPair = Boolean(activeRegion?.liveMarketSlug);
   const activeSignal = activeRegion ? signalByRegion.get(activeRegion.code) ?? activeRegion.signal : null;
-  const liveSignalCount = regionSignals.filter((signal) => signal.source === "live").length;
-  const signalModeLabel =
-    regionSignals.some((signal) => signal.freshness === "stale")
-      ? "Stale live data"
-      : liveSignalCount === regionMarkets.length && regionMarkets.length > 0
-      ? "Live signals"
-      : liveSignalCount > 0
-        ? "Live + fallback"
-        : "Demo snapshots";
   const marketMatchesActiveRegion = Boolean(activeRegion) && marketMatchesRegion(activeRegion, market);
   const activePairLabel =
     activeRegion && marketMatchesActiveRegion
@@ -333,35 +340,166 @@ export function UsMarketMap({
     return getMarketSignalColor(signal?.score);
   };
 
+  const selectCountry = (country: CountryMarketMap) => {
+    onSelectCountryCode?.(country.code);
+    selectCode(country.defaultRegionCode);
+    onMapViewChange?.("country");
+  };
+
+  if (mapView === "world") {
+    const activeMarketCount = countrySummaries.reduce(
+      (total, summary) => total + summary.regions.length,
+      0
+    );
+
+    return (
+      <section aria-labelledby="global-map-title">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="metric-label">Global Overview</p>
+            <h3 id="global-map-title" className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">
+              Select a country
+            </h3>
+          </div>
+          <p className="font-sans text-xs text-slate-500">
+            {availableCountries.length} supported countries · {activeMarketCount} active markets
+          </p>
+        </div>
+
+        <div className="mt-7 grid gap-10 lg:grid-cols-2">
+          {countrySummaries.map(({ country, regions, topRegion }) => {
+            const regionById = new Map(regions.map((region) => [region.featureId, region]));
+            const geography = country.code === "US" ? usAtlas : ukRegions;
+
+            return (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => selectCountry(country)}
+                className="group min-w-0 text-left"
+                aria-label={`Open ${country.label} political markets`}
+              >
+                <div className="relative aspect-[5/3] overflow-hidden bg-slate-50/60">
+                  <ComposableMap
+                    projection={country.projection}
+                    projectionConfig={
+                      country.projectionScale
+                        ? {
+                            center: country.defaultCenter,
+                            scale: country.projectionScale
+                          }
+                        : undefined
+                    }
+                    width={600}
+                    height={360}
+                    className="h-full w-full transition-transform duration-200 group-hover:scale-[1.015]"
+                    aria-hidden="true"
+                  >
+                    <ZoomableGroup center={country.defaultCenter} zoom={country.defaultZoom}>
+                      <Geographies geography={geography}>
+                        {({ geographies }) =>
+                          geographies.map((geo) => {
+                            const featureId = country.featureIdProperty
+                              ? String(geo.properties?.[country.featureIdProperty] ?? "")
+                              : String(geo.id).padStart(2, "0");
+                            const region = regionById.get(featureId);
+
+                            return (
+                              <Geography
+                                key={geo.rsmKey}
+                                geography={geo}
+                                tabIndex={-1}
+                                style={{
+                                  default: {
+                                    fill: getRegionFill(region?.code),
+                                    outline: "none",
+                                    stroke: "#ffffff",
+                                    strokeWidth: 0.8
+                                  },
+                                  hover: {
+                                    fill: getRegionFill(region?.code),
+                                    outline: "none",
+                                    stroke: "#ffffff",
+                                    strokeWidth: 0.8
+                                  },
+                                  pressed: {
+                                    fill: getRegionFill(region?.code),
+                                    outline: "none",
+                                    stroke: "#ffffff",
+                                    strokeWidth: 0.8
+                                  }
+                                }}
+                              />
+                            );
+                          })
+                        }
+                      </Geographies>
+                    </ZoomableGroup>
+                  </ComposableMap>
+                </div>
+                <div className="mt-4 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-semibold text-slate-900">{country.label}</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {regions.length} markets · Top signal {topRegion?.region.label ?? "Unavailable"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-semibold tabular-nums text-slate-900">
+                      {topRegion?.signal.score ?? 0}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                      {getMarketSignalSeverity(topRegion?.signal.score)}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600">
+          <span className="font-medium text-slate-900">Activity score</span>
+          {SIGNAL_LEGEND.map((item) => (
+            <span key={item.severity} className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: getMarketSignalColor(
+                    item.severity === "critical"
+                      ? 85
+                      : item.severity === "high"
+                        ? 70
+                        : item.severity === "elevated"
+                          ? 50
+                          : 0
+                  )
+                }}
+              />
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] lg:items-start xl:grid-cols-[3fr_1fr]">
       <div className="min-w-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="font-sans text-xs font-medium text-slate-600">
-            {regionMarkets.length} configured markets · {highPriorityCount} high priority
+            {regionMarkets.length} active markets · {highPriorityCount} high priority
             {activeRegion ? ` · Focus ${activeRegion.label}` : ""}
           </p>
           {availableCountries.length > 1 ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Country</span>
-              <select
-                value={activeCountry.code}
-                onChange={(event) => {
-                  const nextCountry =
-                    COUNTRY_MARKET_MAPS.find((country) => country.code === event.target.value) ??
-                    COUNTRY_MARKET_MAPS[0];
-                  onSelectCountryCode?.(nextCountry.code);
-                  selectCode(nextCountry.defaultRegionCode);
-                }}
-                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm"
-              >
-                {availableCountries.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <button
+              type="button"
+              onClick={() => onMapViewChange?.("world")}
+              className="border border-slate-200 bg-white px-3 py-2 font-sans text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+            >
+              All countries
+            </button>
           ) : null}
         </div>
 
@@ -506,7 +644,6 @@ export function UsMarketMap({
                 {item.label}
               </span>
             ))}
-            <span className="text-slate-400">{signalModeLabel}</span>
             <a
               href={activeCountry.boundarySourceUrl}
               target="_blank"
@@ -543,8 +680,8 @@ export function UsMarketMap({
         </div>
       </div>
 
-      <div className="border-t border-slate-200 pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-        <p className="metric-label">Realtime Market Rail</p>
+      <div className="pt-4 lg:pl-2 lg:pt-0">
+        <p className="metric-label">Market Overview</p>
         <h3 className="mt-2 text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
           {activeRegion?.label ?? compactTitle}
         </h3>
@@ -552,6 +689,45 @@ export function UsMarketMap({
           <p className="mt-3 text-sm leading-6 text-slate-600">
             {activeRegion.countryLabel} · {activeRegion.note}
           </p>
+        ) : null}
+
+        {marketMatchesActiveRegion ? (
+          <div className="mt-6 font-sans">
+            <div className="flex items-end justify-between gap-5">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Probability</p>
+                <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">
+                  {(market.probability * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">24h volume</p>
+                <p className="mt-1 text-base font-semibold tabular-nums text-slate-900">
+                  {formatCompactCurrency(market.volume24h)}
+                </p>
+              </div>
+            </div>
+            <dl className="mt-5 grid grid-cols-4 gap-3">
+              {([
+                ["1h", marketMovement.oneHour],
+                ["24h", marketMovement.twentyFourHours],
+                ["7d", marketMovement.sevenDays]
+              ] satisfies Array<[string, number | null]>).map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-[10px] uppercase tracking-[0.16em] text-slate-400">{label}</dt>
+                  <dd className={`mt-1 text-xs font-semibold tabular-nums ${movementTone(value)}`}>
+                    {formatMovement(value)}
+                  </dd>
+                </div>
+              ))}
+              <div className="text-right">
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Liquidity</dt>
+                <dd className="mt-1 text-xs font-semibold tabular-nums text-slate-900">
+                  {formatCompactCurrency(market.liquidity)}
+                </dd>
+              </div>
+            </dl>
+          </div>
         ) : null}
 
         <div className="mt-5 flex flex-wrap gap-2 font-sans">
@@ -582,7 +758,7 @@ export function UsMarketMap({
         </div>
 
         {activeSignal ? (
-          <div className="mt-5 border-y border-[var(--demo-card-divider)] py-4">
+          <div className="mt-8">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="metric-label">{getMarketSignalLabel(activeSignal)}</p>
@@ -597,32 +773,13 @@ export function UsMarketMap({
             </div>
             <p className="mt-2 text-sm leading-6 text-slate-600">{activeSignal.detail}</p>
             <p className="mt-2 text-xs text-slate-400">
-              {activeSignal.source === "fixture"
-                ? "Demo signal snapshot"
-                : `${activeSignal.freshness === "stale" ? "Stale live signal" : "Live signal"} · ${Math.round((activeSignal.confidence ?? 0) * 100)}% component coverage`}
+              Updated {relativeTime(activeSignal.observedAt)}
+              {activeSignal.confidence !== undefined && activeSignal.confidence > 0
+                ? ` · ${Math.round(activeSignal.confidence * 100)}% confidence`
+                : ""}
             </p>
           </div>
         ) : null}
-
-        <details className="mt-5 border-y border-[var(--demo-card-divider)] py-3 font-sans">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-slate-700">
-            <span>Source status</span>
-            <span className="font-normal text-slate-500">{signalModeLabel}</span>
-          </summary>
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
-            {sourceDots.map(({ diagnostics, label }) => (
-              <div key={label} className="flex items-center gap-2 text-xs text-slate-600">
-                <span className={`h-2 w-2 rounded-full ${getSourceDotColorClass(diagnostics?.state)}`} />
-                <span className="capitalize">{label}</span>
-                <span className="ml-auto text-slate-400">{diagnostics?.state ?? "pending"}</span>
-              </div>
-            ))}
-          </div>
-        </details>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          {backendHealthLine}
-          <span className="text-slate-400"> — {backendHealthDetail}</span>
-        </p>
 
         {/* Depth chart only renders once the parent grid actually has a right panel (lg+).
             Below lg, the layout collapses to a single column and stacking the depth chart
@@ -633,11 +790,11 @@ export function UsMarketMap({
               <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
             </div>
 
-            <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
+            <div className="mt-8">
               <div className="flex items-center justify-between gap-3">
                 <p className="metric-label">Market Snapshot</p>
                 <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-                  {getReplaySourceLabel(liveReplay)}
+                  Updated {relativeTime(orderbook.updatedAt)}
                 </span>
               </div>
               <div className="mt-3 divide-y divide-[var(--demo-card-divider)] text-sm">
@@ -667,11 +824,13 @@ export function UsMarketMap({
                 </div>
               </div>
               <p className="mt-3 text-xs leading-5 text-slate-500">
-                {showingBackendMetrics ? "Computed from the active FastAPI stream window." : "Estimated from the latest REST snapshot."}
+                {showingBackendMetrics
+                  ? "Calculated from recent market activity."
+                  : "Estimated from the latest available order book."}
               </p>
             </div>
 
-            <div className="mt-6 border-t border-[var(--demo-card-divider)] pt-5">
+            <div className="mt-8">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="metric-label">Large Trade Monitor</p>
                 <span className="text-xs tabular-nums text-slate-500">
@@ -708,7 +867,7 @@ export function UsMarketMap({
                   {whaleActivity.status === "clear"
                     ? "No recent print meets both relative thresholds."
                     : whaleActivity.sampleSize >= whaleActivity.minimumSampleSize
-                      ? "Relative detection is unavailable from the current data source."
+                    ? "There is not enough recent trade data to assess large-trade activity."
                       : `At least ${whaleActivity.minimumSampleSize} normalized prints and two-sided depth are required.`}
                 </p>
               )}
@@ -741,11 +900,10 @@ export function UsMarketMap({
             </div>
           </>
         ) : (
-          <div className="mt-6 border-y border-amber-300 bg-amber-50 py-4">
+          <div className="mt-7 border-l-2 border-amber-400 bg-amber-50 py-3 pl-4">
             <p className="font-sans text-xs font-semibold uppercase text-amber-900">Coverage unavailable</p>
             <p className="mt-2 text-sm leading-6 text-amber-900">
-              The selected region does not match the loaded fallback market. Pair-specific depth, trades, and wallet
-              metrics are withheld.
+              Pair-specific depth, trades, and wallet metrics are not available for the selected region.
             </p>
           </div>
         )}

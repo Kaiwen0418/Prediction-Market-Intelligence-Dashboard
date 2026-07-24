@@ -66,14 +66,14 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "48",
     label: "Texas",
     liveMarketSlug: "texas-republican-senate-primary-winner",
-    note: "Configured trading pair with live order-book and microstructure coverage.",
+    note: "Order book and recent market activity are available.",
     zoom: 3.2,
     status: "live",
     signal: {
       kind: "whale-flow",
       score: 92,
       headline: "Whale-sized directional flow",
-      detail: "Large directional trades and one-sided depth make this the highest-priority region in the demo scanner.",
+      detail: "Large directional trades and one-sided depth make this the highest-priority region in the scanner.",
       observedAt: "2026-07-24T09:40:00Z",
       source: "fixture"
     }
@@ -86,7 +86,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "04",
     label: "Arizona",
     liveMarketSlug: "arizona-presidential-election-winner",
-    note: "Configured trading pair with cached price history for political market research.",
+    note: "Historical pricing is available for this political market.",
     zoom: 4.2,
     status: "research",
     signal: {
@@ -106,7 +106,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "13",
     label: "Georgia",
     liveMarketSlug: "georgia-presidential-election-winner",
-    note: "Configured trading pair with cached price history for political market research.",
+    note: "Historical pricing is available for this political market.",
     zoom: 5,
     status: "research",
     signal: {
@@ -126,7 +126,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "26",
     label: "Michigan",
     liveMarketSlug: "michigan-presidential-election-winner",
-    note: "Configured trading pair with cached price history for political market research.",
+    note: "Historical pricing is available for this political market.",
     zoom: 4.1,
     status: "research",
     signal: {
@@ -146,7 +146,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "42",
     label: "Pennsylvania",
     liveMarketSlug: "pennsylvania-presidential-election-winner",
-    note: "Configured trading pair with cached price history for political market research.",
+    note: "Historical pricing is available for this political market.",
     zoom: 5.2,
     status: "research",
     signal: {
@@ -166,7 +166,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "55",
     label: "Wisconsin",
     liveMarketSlug: "wisconsin-presidential-election-winner",
-    note: "Configured trading pair with cached price history for political market research.",
+    note: "Historical pricing is available for this political market.",
     zoom: 5.4,
     status: "research",
     signal: {
@@ -186,7 +186,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "12",
     label: "Florida",
     liveMarketSlug: "florida-presidential-election-winner",
-    note: "Configured watch pair. Select to inspect available market data.",
+    note: "Select this market to inspect available pricing and signals.",
     zoom: 4.2,
     status: "watch",
     signal: {
@@ -206,14 +206,14 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "06",
     label: "California",
     liveMarketSlug: "california-governor-election-2026",
-    note: "Configured trading pair used by the default political market rail.",
+    note: "California governor market with regional signal coverage.",
     zoom: 3.8,
     status: "watch",
     signal: {
       kind: "volume-anomaly",
       score: 79,
       headline: "Unusual volume concentration",
-      detail: "Turnover is concentrated in a short window relative to the demo baseline.",
+      detail: "Turnover is concentrated in a short window relative to its recent baseline.",
       observedAt: "2026-07-24T09:41:00Z",
       source: "fixture"
     }
@@ -226,14 +226,14 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "S92000003",
     label: "Scotland",
     liveMarketSlug: "will-scotland-hold-an-independence-referendum-before-2030",
-    note: "Configured constitutional-politics research pair.",
+    note: "Constitutional politics market with regional signal coverage.",
     zoom: 1,
     status: "research",
     signal: {
       kind: "poll-divergence",
       score: 74,
       headline: "Referendum pricing diverges from polling",
-      detail: "The configured contract is trading away from the latest constitutional polling baseline.",
+      detail: "The market is trading away from the latest constitutional polling baseline.",
       observedAt: "2026-07-24T10:05:00Z",
       source: "fixture"
     }
@@ -246,14 +246,14 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "E12000007",
     label: "London",
     liveMarketSlug: "next-london-mayoral-election-winner",
-    note: "Configured mayoral-election research pair.",
+    note: "Mayoral election market with regional signal coverage.",
     zoom: 1,
     status: "watch",
     signal: {
       kind: "volume-anomaly",
       score: 68,
       headline: "Mayoral market volume is elevated",
-      detail: "Recent turnover is above the configured London political-market baseline.",
+      detail: "Recent turnover is above the London market's recent baseline.",
       observedAt: "2026-07-24T10:02:00Z",
       source: "fixture"
     }
@@ -266,7 +266,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "W92000004",
     label: "Wales",
     liveMarketSlug: "welsh-parliament-election-most-seats",
-    note: "Configured Senedd-election research pair.",
+    note: "Senedd election market with regional signal coverage.",
     zoom: 1,
     status: "research",
     signal: {
@@ -286,7 +286,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "N92000002",
     label: "Northern Ireland",
     liveMarketSlug: "northern-ireland-assembly-election-most-seats",
-    note: "Configured Assembly-election research pair.",
+    note: "Assembly election market with regional signal coverage.",
     zoom: 1,
     status: "research",
     signal: {
