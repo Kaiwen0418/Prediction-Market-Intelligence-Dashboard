@@ -144,10 +144,13 @@ Acceptance criteria:
 
 ### Phase 5: Multi-Country Political Maps
 
+Status: complete
+
 - Generalize map configuration to country-specific GeoJSON or TopoJSON.
 - Add country, region, feature-ID, projection, and market-registry adapters.
 - Launch countries only when reliable market coverage exists.
 - Start with the UK or Canada, then add countries based on venue liquidity.
+- Keep official boundary provenance visible in the map legend.
 
 Acceptance criteria:
 
@@ -216,3 +219,4 @@ Acceptance criteria:
 - [x] Reduce mobile depth with scanner-first ordering and tabbed evidence views.
 - [x] Withhold pair-specific metrics and charts when regional market coverage does not match.
 - [x] Keep the country map camera stable while selecting regional trading pairs.
+- [x] Add the United Kingdom regional map, political-pair registry, signal fixtures, and ONS boundary provenance.

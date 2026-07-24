@@ -40,7 +40,7 @@ type MarketPageViewProps = {
 
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
   const [selectedCountryCode, setSelectedCountryCode] = useState("US");
-  const [selectedStateCode, setSelectedStateCode] = useState<string | null>(null);
+  const [selectedStateCode, setSelectedStateCode] = useState<string | null>("CA");
   const [evidenceView, setEvidenceView] = useState<"flow" | "history">("flow");
   const [activityThreshold, setActivityThreshold] = useState(50);
   const [activitySignalKind, setActivitySignalKind] = useState<ActivitySignalFilter>("all");
@@ -55,7 +55,9 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     const region = getSpotlightState(parsed.regionCode);
 
     setSelectedCountryCode(country.code);
-    setSelectedStateCode(region?.countryCode === country.code ? region.code : null);
+    setSelectedStateCode(
+      region?.countryCode === country.code ? region.code : country.defaultRegionCode
+    );
     setActivityThreshold(parsed.minimumScore);
     setActivitySignalKind(parsed.signalKind);
     setActivityMaxAgeHours(parsed.maxAgeHours);

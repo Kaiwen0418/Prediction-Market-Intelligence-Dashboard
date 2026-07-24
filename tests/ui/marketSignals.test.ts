@@ -8,6 +8,8 @@ import {
 } from "@/components/maps/marketSignals";
 import type { RegionSignal } from "@/types/signals";
 import {
+  getCountryMarketMaps,
+  getRegionMarketsByCountry,
   getRegionMarketPairLabel,
   marketMatchesRegion,
   type RegionMarket
@@ -18,7 +20,7 @@ const REGION_MARKET_FIXTURE: RegionMarket = {
   countryCode: "US",
   countryLabel: "United States",
   center: [-99.3, 31.1],
-  fips: "48",
+  featureId: "48",
   label: "Texas",
   liveMarketSlug: "texas-republican-senate-primary-winner",
   note: "Test",
@@ -203,4 +205,18 @@ test("region coverage only matches the configured market identity", () => {
     }),
     false
   );
+});
+
+test("country adapters expose distinct configured region identifiers", () => {
+  assert.deepEqual(
+    getCountryMarketMaps().map((country) => country.code),
+    ["US", "GB"]
+  );
+
+  const ukRegions = getRegionMarketsByCountry("GB");
+  assert.deepEqual(
+    ukRegions.map((region) => region.code),
+    ["SCT", "LDN", "WLS", "NIR"]
+  );
+  assert.equal(new Set(ukRegions.map((region) => region.featureId)).size, ukRegions.length);
 });

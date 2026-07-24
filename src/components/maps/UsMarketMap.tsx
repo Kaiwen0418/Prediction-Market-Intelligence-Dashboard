@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
+import ukRegions from "@/components/maps/data/uk-regions.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { AbnormalActivityFeed } from "@/components/maps/AbnormalActivityFeed";
 import type {
@@ -109,7 +110,10 @@ export function UsMarketMap({
   const availableCountries = useMemo(() => getCountryMarketMaps(), []);
   const activeCountry = COUNTRY_MARKET_MAPS.find((country) => country.code === selectedCountryCode) ?? COUNTRY_MARKET_MAPS[0];
   const regionMarkets = useMemo(() => getRegionMarketsByCountry(activeCountry.code), [activeCountry.code]);
-  const regionByFips = useMemo(() => new Map(regionMarkets.map((region) => [region.fips, region])), [regionMarkets]);
+  const regionByFeatureId = useMemo(
+    () => new Map(regionMarkets.map((region) => [region.featureId, region])),
+    [regionMarkets]
+  );
   const signalByRegion = useMemo(
     () => new Map(regionSignals.map((signal) => [signal.regionCode, signal])),
     [regionSignals]
@@ -333,8 +337,11 @@ export function UsMarketMap({
               <select
                 value={activeCountry.code}
                 onChange={(event) => {
-                  onSelectCountryCode?.(event.target.value);
-                  selectCode(null);
+                  const nextCountry =
+                    COUNTRY_MARKET_MAPS.find((country) => country.code === event.target.value) ??
+                    COUNTRY_MARKET_MAPS[0];
+                  onSelectCountryCode?.(nextCountry.code);
+                  selectCode(nextCountry.defaultRegionCode);
                 }}
                 className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm"
               >
@@ -350,7 +357,18 @@ export function UsMarketMap({
 
         <div className="grid items-stretch gap-6">
           <div className="relative order-2 overflow-hidden rounded-lg lg:order-1" style={{ border: "1.5px solid var(--demo-card-bg)" }}>
-            <ComposableMap projection="geoAlbersUsa" className="relative h-auto w-full overflow-visible">
+            <ComposableMap
+              projection={activeCountry.projection}
+              projectionConfig={
+                activeCountry.projectionScale
+                  ? {
+                      center: activeCountry.defaultCenter,
+                      scale: activeCountry.projectionScale
+                    }
+                  : undefined
+              }
+              className="relative h-auto w-full overflow-visible"
+            >
               <ZoomableGroup
                 center={activeCountry.defaultCenter}
                 zoom={activeCountry.defaultZoom}
@@ -359,11 +377,13 @@ export function UsMarketMap({
                   [980, 620]
                 ]}
               >
-                <Geographies geography={usAtlas}>
+                <Geographies geography={activeCountry.code === "US" ? usAtlas : ukRegions}>
                   {({ geographies }) =>
                     geographies.map((geo) => {
-                      const fips = String(geo.id).padStart(2, "0");
-                      const region = regionByFips.get(fips);
+                      const featureId = activeCountry.featureIdProperty
+                        ? String(geo.properties?.[activeCountry.featureIdProperty] ?? "")
+                        : String(geo.id).padStart(2, "0");
+                      const region = regionByFeatureId.get(featureId);
                       const fill = getRegionFill(region?.code);
                       const isSelected = region?.code === activeSelectedCode;
                       const signal = region ? signalByRegion.get(region.code) ?? region.signal : null;
@@ -477,6 +497,14 @@ export function UsMarketMap({
               </span>
             ))}
             <span className="text-slate-400">{signalModeLabel}</span>
+            <a
+              href={activeCountry.boundarySourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto text-slate-400 hover:text-slate-700"
+            >
+              Boundaries: {activeCountry.boundarySourceLabel} ↗
+            </a>
           </div>
           <div className="order-1 lg:order-3">
             <AbnormalActivityFeed

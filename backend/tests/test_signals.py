@@ -143,6 +143,17 @@ class SignalServiceTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.source, "fixture")
         self.assertTrue(all(signal.source == "fixture" for signal in response.signals))
 
+    async def test_uk_region_batch_uses_country_specific_registry(self) -> None:
+        response = await build_region_signals("gb")
+
+        self.assertEqual(response.country_code, "GB")
+        self.assertEqual(response.source, "fixture")
+        self.assertEqual(
+            [signal.region_code for signal in response.signals],
+            ["SCT", "LDN", "WLS", "NIR"],
+        )
+        self.assertTrue(all(signal.country_code == "GB" for signal in response.signals))
+
 
 class SignalRoutesTestCase(unittest.TestCase):
     def setUp(self) -> None:
