@@ -1,6 +1,7 @@
 "use client";
 
 import type { RegionMarketSignal } from "@/components/maps/marketSignals";
+import type { MarketSnapshot } from "@/types/market";
 
 export type RegionMarketStatus = "live" | "watch" | "research";
 
@@ -9,7 +10,7 @@ export type RegionMarket = {
   countryCode: string;
   countryLabel: string;
   center: [number, number];
-  fips: string;
+  featureId: string;
   label: string;
   liveMarketSlug: string;
   note: string;
@@ -21,9 +22,14 @@ export type RegionMarket = {
 export type CountryMarketMap = {
   code: string;
   label: string;
-  projection: "geoAlbersUsa";
+  projection: "geoAlbersUsa" | "geoMercator";
+  featureIdProperty?: string;
+  defaultRegionCode: string;
   defaultCenter: [number, number];
   defaultZoom: number;
+  projectionScale?: number;
+  boundarySourceLabel: string;
+  boundarySourceUrl: string;
 };
 
 export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
@@ -31,8 +37,23 @@ export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
     code: "US",
     label: "United States",
     projection: "geoAlbersUsa",
+    defaultRegionCode: "CA",
     defaultCenter: [-96, 38],
-    defaultZoom: 1
+    defaultZoom: 1,
+    boundarySourceLabel: "US Census Bureau",
+    boundarySourceUrl: "https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html"
+  },
+  {
+    code: "GB",
+    label: "United Kingdom",
+    projection: "geoMercator",
+    featureIdProperty: "AREACD",
+    defaultRegionCode: "SCT",
+    defaultCenter: [-3.5, 55.2],
+    defaultZoom: 1,
+    projectionScale: 1_650,
+    boundarySourceLabel: "Office for National Statistics",
+    boundarySourceUrl: "https://github.com/ONSvisual/topojson_boundaries"
   }
 ];
 
@@ -42,7 +63,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-99.3, 31.1],
-    fips: "48",
+    featureId: "48",
     label: "Texas",
     liveMarketSlug: "texas-republican-senate-primary-winner",
     note: "Configured trading pair with live order-book and microstructure coverage.",
@@ -62,7 +83,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-111.7, 34.2],
-    fips: "04",
+    featureId: "04",
     label: "Arizona",
     liveMarketSlug: "arizona-presidential-election-winner",
     note: "Configured trading pair with cached price history for political market research.",
@@ -82,7 +103,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-83.5, 32.7],
-    fips: "13",
+    featureId: "13",
     label: "Georgia",
     liveMarketSlug: "georgia-presidential-election-winner",
     note: "Configured trading pair with cached price history for political market research.",
@@ -102,7 +123,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-85.5, 44.4],
-    fips: "26",
+    featureId: "26",
     label: "Michigan",
     liveMarketSlug: "michigan-presidential-election-winner",
     note: "Configured trading pair with cached price history for political market research.",
@@ -122,7 +143,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-77.7, 40.8],
-    fips: "42",
+    featureId: "42",
     label: "Pennsylvania",
     liveMarketSlug: "pennsylvania-presidential-election-winner",
     note: "Configured trading pair with cached price history for political market research.",
@@ -142,7 +163,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-89.9, 44.6],
-    fips: "55",
+    featureId: "55",
     label: "Wisconsin",
     liveMarketSlug: "wisconsin-presidential-election-winner",
     note: "Configured trading pair with cached price history for political market research.",
@@ -162,7 +183,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-82.3, 28.4],
-    fips: "12",
+    featureId: "12",
     label: "Florida",
     liveMarketSlug: "florida-presidential-election-winner",
     note: "Configured watch pair. Select to inspect available market data.",
@@ -182,7 +203,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     countryCode: "US",
     countryLabel: "United States",
     center: [-119.4, 36.7],
-    fips: "06",
+    featureId: "06",
     label: "California",
     liveMarketSlug: "california-governor-election-2026",
     note: "Configured trading pair used by the default political market rail.",
@@ -194,6 +215,86 @@ export const REGION_MARKETS: RegionMarket[] = [
       headline: "Unusual volume concentration",
       detail: "Turnover is concentrated in a short window relative to the demo baseline.",
       observedAt: "2026-07-24T09:41:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "SCT",
+    countryCode: "GB",
+    countryLabel: "United Kingdom",
+    center: [-4.2, 56.7],
+    featureId: "S92000003",
+    label: "Scotland",
+    liveMarketSlug: "will-scotland-hold-an-independence-referendum-before-2030",
+    note: "Configured constitutional-politics research pair.",
+    zoom: 1,
+    status: "research",
+    signal: {
+      kind: "poll-divergence",
+      score: 74,
+      headline: "Referendum pricing diverges from polling",
+      detail: "The configured contract is trading away from the latest constitutional polling baseline.",
+      observedAt: "2026-07-24T10:05:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "LDN",
+    countryCode: "GB",
+    countryLabel: "United Kingdom",
+    center: [-0.1, 51.5],
+    featureId: "E12000007",
+    label: "London",
+    liveMarketSlug: "next-london-mayoral-election-winner",
+    note: "Configured mayoral-election research pair.",
+    zoom: 1,
+    status: "watch",
+    signal: {
+      kind: "volume-anomaly",
+      score: 68,
+      headline: "Mayoral market volume is elevated",
+      detail: "Recent turnover is above the configured London political-market baseline.",
+      observedAt: "2026-07-24T10:02:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "WLS",
+    countryCode: "GB",
+    countryLabel: "United Kingdom",
+    center: [-3.7, 52.3],
+    featureId: "W92000004",
+    label: "Wales",
+    liveMarketSlug: "welsh-parliament-election-most-seats",
+    note: "Configured Senedd-election research pair.",
+    zoom: 1,
+    status: "research",
+    signal: {
+      kind: "price-move",
+      score: 57,
+      headline: "Senedd pricing is repricing",
+      detail: "The leading-outcome probability has moved faster than its recent baseline.",
+      observedAt: "2026-07-24T09:58:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "NIR",
+    countryCode: "GB",
+    countryLabel: "United Kingdom",
+    center: [-6.8, 54.7],
+    featureId: "N92000002",
+    label: "Northern Ireland",
+    liveMarketSlug: "northern-ireland-assembly-election-most-seats",
+    note: "Configured Assembly-election research pair.",
+    zoom: 1,
+    status: "research",
+    signal: {
+      kind: "order-flow",
+      score: 43,
+      headline: "Assembly market flow remains balanced",
+      detail: "Directional activity remains below the abnormal-flow threshold.",
+      observedAt: "2026-07-24T09:55:00Z",
       source: "fixture"
     }
   }
@@ -230,4 +331,19 @@ export function getRegionMarketPairLabel(region: RegionMarket) {
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+export function marketMatchesRegion(
+  region: RegionMarket | null | undefined,
+  market: Pick<MarketSnapshot, "slug" | "eventSlug"> | null | undefined
+) {
+  if (!region) {
+    return true;
+  }
+
+  if (!market) {
+    return false;
+  }
+
+  return market.slug === region.liveMarketSlug || market.eventSlug === region.liveMarketSlug;
 }

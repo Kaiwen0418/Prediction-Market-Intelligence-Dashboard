@@ -236,7 +236,11 @@ export function AbnormalActivityFeed({
                       <span className="mt-0.5 block text-xs text-slate-500">{getMarketSignalLabel(signal)}</span>
                     </span>
                     <span className="hidden text-xs text-slate-500 sm:block">
-                      {signal.source === "live" ? relativeTime(signal.observedAt) : "demo snapshot"}
+                      {signal.source === "live"
+                        ? signal.freshness === "stale"
+                          ? `stale · ${relativeTime(signal.observedAt)}`
+                          : relativeTime(signal.observedAt)
+                        : "demo snapshot"}
                     </span>
                     <span className="text-right text-xl font-semibold tabular-nums text-slate-900">
                       {signal.score}

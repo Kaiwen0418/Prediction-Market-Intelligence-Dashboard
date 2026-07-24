@@ -50,11 +50,11 @@ export async function getHistoricalPollSeries(): Promise<PollPoint[]> {
   return simulateLatency(pollSeries);
 }
 
-export async function getOrderbookSnapshot(tokenId?: string): Promise<OrderbookState> {
+export async function getOrderbookSnapshot(tokenId?: string, conditionId?: string): Promise<OrderbookState> {
   if (tokenId) {
     const liveOrderbook = await fetchOrderbookLive(tokenId).catch(() => null);
     if (liveOrderbook) {
-      const liveTrades = await fetchTradesLive(tokenId).catch(() => []);
+      const liveTrades = conditionId ? await fetchTradesLive(conditionId).catch(() => []) : [];
       return {
         ...liveOrderbook,
         trades: liveTrades.length ? liveTrades : liveOrderbook.trades
@@ -65,7 +65,7 @@ export async function getOrderbookSnapshot(tokenId?: string): Promise<OrderbookS
   return simulateLatency(createOrderbookSnapshot(), 180);
 }
 
-export async function getOrderbookSnapshotStrict(tokenId?: string): Promise<OrderbookState> {
+export async function getOrderbookSnapshotStrict(tokenId?: string, conditionId?: string): Promise<OrderbookState> {
   if (!tokenId) {
     throw new Error("Cannot load live orderbook without a live token id.");
   }
@@ -75,7 +75,7 @@ export async function getOrderbookSnapshotStrict(tokenId?: string): Promise<Orde
     throw new Error("Live orderbook request failed and no fallback is allowed.");
   }
 
-  const liveTrades = await fetchTradesLive(tokenId).catch(() => []);
+  const liveTrades = conditionId ? await fetchTradesLive(conditionId).catch(() => []) : [];
   return {
     ...liveOrderbook,
     trades: liveTrades.length ? liveTrades : liveOrderbook.trades

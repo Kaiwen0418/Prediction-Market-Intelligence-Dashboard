@@ -7,7 +7,34 @@ import {
   rankRegionSignals
 } from "@/components/maps/marketSignals";
 import type { RegionSignal } from "@/types/signals";
-import { getRegionMarketPairLabel } from "@/components/maps/spotlightStates";
+import {
+  getCountryMarketMaps,
+  getRegionMarketsByCountry,
+  getRegionMarketPairLabel,
+  marketMatchesRegion,
+  type RegionMarket
+} from "@/components/maps/spotlightStates";
+
+const REGION_MARKET_FIXTURE: RegionMarket = {
+  code: "TX",
+  countryCode: "US",
+  countryLabel: "United States",
+  center: [-99.3, 31.1],
+  featureId: "48",
+  label: "Texas",
+  liveMarketSlug: "texas-republican-senate-primary-winner",
+  note: "Test",
+  zoom: 3.2,
+  status: "live",
+  signal: {
+    kind: "whale-flow",
+    score: 92,
+    headline: "Whale",
+    detail: "Whale",
+    observedAt: "2026-07-24T09:30:00Z",
+    source: "fixture"
+  }
+};
 
 test("signal scores map to stable severity thresholds", () => {
   assert.equal(getMarketSignalSeverity(null), "inactive");
@@ -153,26 +180,43 @@ test("activity ranking filters by signal kind and freshness window", () => {
 
 test("region pair labels remain readable during market fallback", () => {
   assert.equal(
-    getRegionMarketPairLabel({
-      code: "TX",
-      countryCode: "US",
-      countryLabel: "United States",
-      center: [-99.3, 31.1],
-      fips: "48",
-      label: "Texas",
-      liveMarketSlug: "texas-republican-senate-primary-winner",
-      note: "Test",
-      zoom: 3.2,
-      status: "live",
-      signal: {
-        kind: "whale-flow",
-        score: 92,
-        headline: "Whale",
-        detail: "Whale",
-        observedAt: "2026-07-24T09:30:00Z",
-        source: "fixture"
-      }
-    }),
+    getRegionMarketPairLabel(REGION_MARKET_FIXTURE),
     "Texas Republican Senate Primary Winner"
   );
+});
+
+test("region coverage only matches the configured market identity", () => {
+  assert.equal(
+    marketMatchesRegion(REGION_MARKET_FIXTURE, {
+      slug: "texas-republican-senate-primary-winner"
+    }),
+    true
+  );
+  assert.equal(
+    marketMatchesRegion(REGION_MARKET_FIXTURE, {
+      slug: "outcome-token",
+      eventSlug: "texas-republican-senate-primary-winner"
+    }),
+    true
+  );
+  assert.equal(
+    marketMatchesRegion(REGION_MARKET_FIXTURE, {
+      slug: "california-governor-election-2026"
+    }),
+    false
+  );
+});
+
+test("country adapters expose distinct configured region identifiers", () => {
+  assert.deepEqual(
+    getCountryMarketMaps().map((country) => country.code),
+    ["US", "GB"]
+  );
+
+  const ukRegions = getRegionMarketsByCountry("GB");
+  assert.deepEqual(
+    ukRegions.map((region) => region.code),
+    ["SCT", "LDN", "WLS", "NIR"]
+  );
+  assert.equal(new Set(ukRegions.map((region) => region.featureId)).size, ukRegions.length);
 });

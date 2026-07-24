@@ -32,6 +32,11 @@ export function validateProxyBaseUrls() {
     return NextResponse.json({ error: clobUrlIssue.message }, { status: 500 });
   }
 
+  const dataUrlIssue = validateBaseUrl(polymarketConfig.dataApiBaseUrl, "Data API base URL");
+  if (dataUrlIssue) {
+    return NextResponse.json({ error: dataUrlIssue.message }, { status: 500 });
+  }
+
   return null;
 }
 

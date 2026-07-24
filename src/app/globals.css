@@ -291,6 +291,16 @@ a {
   min-height: 0;
 }
 
+.product-demo-stage--compact .product-demo-card-header {
+  align-items: center;
+}
+
+.product-demo-stage--compact .product-demo-title {
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
 .product-demo-globe {
   position: absolute;
   top: 320px;
@@ -355,7 +365,9 @@ a {
 }
 
 .product-demo-body--compact {
-  margin-top: 28px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--demo-card-divider);
 }
 
 .theme-switch {
@@ -493,6 +505,10 @@ html[data-theme="dark"] .theme-switch-thumb {
     min-height: 560px;
   }
 
+  .product-demo-stage--compact {
+    min-height: 0;
+  }
+
   .product-demo-local-nav {
     width: 100%;
     justify-content: space-between;
@@ -503,6 +519,20 @@ html[data-theme="dark"] .theme-switch-thumb {
   .product-demo-title {
     font-size: clamp(3.35rem, 18vw, 5rem);
     line-height: 0.88;
+  }
+
+  .product-demo-stage--compact .product-demo-card-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .product-demo-stage--compact .product-demo-title {
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+
+  .product-demo-stage--compact .product-demo-local-nav {
+    width: auto;
   }
 
   .product-demo-globe {
@@ -531,11 +561,25 @@ html[data-theme="dark"] .theme-switch-thumb {
     margin-top: -34px;
     padding-top: 54px;
   }
+
+  .product-demo-body--compact {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
 }
 
 @media (max-width: 520px) {
   .product-demo-stage {
     min-height: 500px;
+  }
+
+  .product-demo-stage--compact {
+    min-height: 0;
+  }
+
+  .product-demo-bar .text-center,
+  .product-demo-bar .text-right {
+    display: none;
   }
 
   .product-demo-globe {
@@ -546,6 +590,18 @@ html[data-theme="dark"] .theme-switch-thumb {
 
   .product-demo-local-nav {
     align-items: center;
+  }
+
+  .product-demo-stage--compact .product-demo-card-header {
+    gap: 12px;
+  }
+
+  .product-demo-stage--compact .product-demo-local-nav {
+    gap: 14px;
+  }
+
+  .product-demo-stage--compact .product-demo-local-nav a {
+    display: none;
   }
 
   .product-demo-body {

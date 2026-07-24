@@ -7,19 +7,10 @@ export function HomePageView() {
   return (
     <ProductDemoShell
       barLeft="Prediction Market Intelligence"
-      barCenter="-"
-      barRight="v0.03"
-      title={
-        <>
-          Market
-          <br />
-          Flow
-        </>
-      }
-      footerLabel="Vision & Thesis"
-      footerLeft="MarketFlow turns political prediction markets into an observable market system: region trading-pair navigation, live order-book depth, backend-streamed microstructure, and annotated probability history in one research surface."
-      footerRight="The longer-term thesis is an open predictive-intelligence layer that measures information arrival, liquidity regimes, and event impact across markets—then exposes those signals through reproducible FastAPI and NumPy analytics."
-      showHero
+      barCenter="Political markets"
+      barRight="Map intelligence"
+      title="Market Flow"
+      showHero={false}
     >
       <div className="product-demo-market">
         <MarketPageView embedded strictLive={false} />

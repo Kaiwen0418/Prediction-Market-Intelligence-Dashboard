@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote
@@ -25,8 +26,13 @@ from app.analytics.whale_activity import (
     DEPTH_SHARE_THRESHOLD,
     HISTORICAL_MULTIPLE_THRESHOLD,
     MINIMUM_SAMPLE_SIZE,
+    WALLET_SAMPLE_MINIMUM,
+    WALLET_RESOLVED_MARKET_MINIMUM,
     analyze_whale_activity,
 )
+
+
+WALLET_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
 
 async def fetch_json(url: str) -> Any:
@@ -71,11 +77,14 @@ async def fetch_price_history(market: str) -> Any:
     return await fetch_json(url)
 
 
-async def fetch_trades(token_id: str) -> Any:
+async def fetch_trades(condition_id: str) -> Any:
     settings = get_settings()
-    if not token_id.strip():
-        raise HTTPException(status_code=400, detail="tokenId is required")
-    url = f"{settings.gamma_base_url}/trades?limit=20&market={quote(token_id, safe='')}"
+    if not condition_id.strip():
+        raise HTTPException(status_code=400, detail="conditionId is required")
+    url = (
+        f"{settings.data_api_base_url}/trades?limit=100&takerOnly=true"
+        f"&market={quote(condition_id, safe='')}"
+    )
     return await fetch_json(url)
 
 
@@ -140,6 +149,7 @@ def normalize_featured_market_from_event(payload: Any) -> FeaturedMarketResponse
         candidates.append(
             FeaturedMarketResponse(
                 marketId=_as_string(market.get("id"), _as_string(market.get("conditionId"), token_id)),
+                conditionId=_as_string(market.get("conditionId")) or None,
                 eventId=_as_string(payload.get("id")) or None,
                 tokenId=token_id,
                 slug=_as_string(payload.get("slug"), token_id),
@@ -276,31 +286,50 @@ def _normalize_trades(value: Any) -> list[TradePrint]:
             timestamp = _as_string(raw_timestamp, datetime.now(timezone.utc).isoformat())
         price = _as_number(row.get("price"))
         size = _as_number(row.get("size"))
+        wallet_address = _as_string(row.get("proxyWallet"), _as_string(row.get("proxy_wallet")))
+        if not WALLET_ADDRESS_PATTERN.fullmatch(wallet_address):
+            wallet_address = ""
+        else:
+            wallet_address = wallet_address.lower()
         if price <= 0 or size <= 0:
             continue
         trades.append(
             TradePrint(
-                id=_as_string(row.get("id"), f"trade-{index}"),
+                id=_as_string(
+                    row.get("id"),
+                    _as_string(row.get("transactionHash"), f"trade-{index}"),
+                ),
                 side=side,
                 price=price,
                 size=size,
                 timestamp=timestamp,
+                walletAddress=wallet_address or None,
             )
         )
     return trades
 
 
-async def fetch_orderbook_summary(token_id: str) -> OrderbookSummaryResponse:
+async def fetch_orderbook_summary(
+    token_id: str,
+    condition_id: str | None = None,
+) -> OrderbookSummaryResponse:
     if not token_id.strip():
         raise HTTPException(status_code=400, detail="tokenId is required")
 
     orderbook_payload, trades_payload = await asyncio.gather(
         fetch_orderbook(token_id),
-        fetch_trades(token_id),
+        fetch_trades(condition_id) if condition_id else asyncio.sleep(0, result=[]),
+        return_exceptions=True,
     )
 
+    if isinstance(orderbook_payload, HTTPException):
+        raise orderbook_payload
+    if isinstance(orderbook_payload, BaseException):
+        raise HTTPException(status_code=502, detail="Orderbook request failed") from orderbook_payload
     if not isinstance(orderbook_payload, dict):
         raise HTTPException(status_code=502, detail="Orderbook payload was not an object")
+    if isinstance(trades_payload, BaseException):
+        trades_payload = []
 
     bids = _normalize_levels(orderbook_payload.get("bids"))
     asks = _normalize_levels(orderbook_payload.get("asks"))
@@ -357,7 +386,17 @@ async def fetch_orderbook_summary(token_id: str) -> OrderbookSummaryResponse:
             historicalMultipleThreshold=HISTORICAL_MULTIPLE_THRESHOLD,
             depthShareThreshold=DEPTH_SHARE_THRESHOLD,
             minimumSampleSize=MINIMUM_SAMPLE_SIZE,
-            attributionAvailable=False,
+            attributionAvailable=whale_activity.attributed_trade_count > 0,
+            attributedTradeCount=whale_activity.attributed_trade_count,
+            uniqueWalletCount=whale_activity.unique_wallet_count,
+            walletSampleMinimum=WALLET_SAMPLE_MINIMUM,
+            walletConcentrationStatus=whale_activity.wallet_concentration_status,
+            walletConcentrationScore=whale_activity.wallet_concentration_score,
+            topWalletVolumeShare=whale_activity.top_wallet_volume_share,
+            walletReputationStatus=whale_activity.wallet_reputation_status,
+            walletReputationScore=whale_activity.wallet_reputation_score,
+            walletResolvedMarketCount=whale_activity.wallet_resolved_market_count,
+            walletResolvedMarketMinimum=WALLET_RESOLVED_MARKET_MINIMUM,
             largeTrades=[
                 LargeTradeResponse(
                     tradeId=detection.trade_id,
@@ -368,6 +407,7 @@ async def fetch_orderbook_summary(token_id: str) -> OrderbookSummaryResponse:
                     notionalUsd=detection.notional_usd,
                     historicalSizeMultiple=detection.historical_size_multiple,
                     executableDepthShare=detection.executable_depth_share,
+                    walletAddress=detection.wallet_address,
                 )
                 for detection in whale_activity.detections
             ],
@@ -380,7 +420,10 @@ async def fetch_market_context(slug: str | None = None) -> MarketContextResponse
     featured_market = normalize_featured_market_from_event(featured_event)
 
     orderbook_summary = (
-        await fetch_orderbook_summary(featured_market.token_id)
+        await fetch_orderbook_summary(
+            featured_market.token_id,
+            featured_market.condition_id,
+        )
         if featured_market.token_id
         else None
     )

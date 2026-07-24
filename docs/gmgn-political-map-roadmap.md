@@ -96,7 +96,7 @@ Acceptance criteria:
 
 ### Phase 2: Backend Signal API
 
-Status: in progress
+Status: complete
 
 - Add FastAPI region-market registry and signal response schemas.
 - Calculate volume anomaly, price velocity, order-flow imbalance, and liquidity stress.
@@ -128,7 +128,7 @@ Acceptance criteria:
 
 ### Phase 4: Whale and Smart-Money Intelligence
 
-Status: in progress
+Status: complete
 
 - Normalize public trade and wallet activity where venue data permits.
 - Detect large trades relative to market depth and historical trade size.
@@ -141,13 +141,17 @@ Acceptance criteria:
 - Whale labels are based on transparent relative thresholds.
 - Wallet scores show sample size and resolved-market history.
 - No alert implies insider activity without verifiable evidence.
+- Reputation requires five distinct resolved markets and combines 70% directional hit rate with 30% bounded realized return.
 
 ### Phase 5: Multi-Country Political Maps
+
+Status: complete
 
 - Generalize map configuration to country-specific GeoJSON or TopoJSON.
 - Add country, region, feature-ID, projection, and market-registry adapters.
 - Launch countries only when reliable market coverage exists.
 - Start with the UK or Canada, then add countries based on venue liquidity.
+- Keep official boundary provenance visible in the map legend.
 
 Acceptance criteria:
 
@@ -156,6 +160,8 @@ Acceptance criteria:
 - Country switching clears invalid selection and preserves filters.
 
 ### Phase 6: Divergence and Catalyst Intelligence
+
+Status: complete
 
 - Compare prediction markets with polling, related contracts, and election models.
 - Detect logically inconsistent probabilities across related markets.
@@ -167,6 +173,31 @@ Acceptance criteria:
 - Divergence alerts name both compared sources and their timestamps.
 - Related-market calculations account for fees and liquidity.
 - Automated catalyst summaries remain traceable to source events.
+- Related-outcome checks expose both observation timestamps, fee assumptions, and liquidity gating.
+
+### Phase 7: Product Design and Decision Workflow
+
+Status: complete
+
+- Open directly into the map, scanner, and selected-market context instead of a marketing hero.
+- Make live, delayed, fallback, and fixture provenance visible before users inspect a signal.
+- Label the highest-priority anomalies directly on the map with score and pair context.
+- Keep the country overview stable while region selection updates the outline and detail rail.
+- Preserve a clear detect, select, validate, and act workflow across desktop and mobile.
+- Add watchlist and venue actions to the selected-market rail.
+- Move deep evidence into focused views so mobile does not render every chart at once.
+- Replace unlabeled diagnostics with an inspectable source-status summary.
+
+Acceptance criteria:
+
+- The first desktop viewport contains at least one actionable signal and the map.
+- Mobile reaches the ranked anomaly scanner before the geographic visualization.
+- Every selected market shows its source mode and update time.
+- Pair-specific metrics are never rendered for a fallback market that does not match the selected region.
+- The map communicates its highest-priority anomalies without requiring legend cross-reference.
+- Selecting a region does not remove neighboring signals from geographic context.
+- Users can watch a region or open its matching venue market from the selected rail.
+- Only one deep evidence view is expanded at a time.
 
 ## Deployment and Operations
 
@@ -186,3 +217,14 @@ Acceptance criteria:
 - [x] Add persistent region watchlists, watched-only filtering, and opt-in browser notification preferences.
 - [x] Detect large public trades using transparent median-size and executable-depth thresholds.
 - [x] Remove synthetic wallet identities and placeholder whale-buy claims.
+- [x] Normalize documented public proxy-wallet trades and add sample-gated concentration scoring.
+- [x] Replace the Home hero with a product-first market intelligence shell.
+- [x] Add explicit source provenance, in-map anomaly labels, and selected-market actions.
+- [x] Reduce mobile depth with scanner-first ordering and tabbed evidence views.
+- [x] Withhold pair-specific metrics and charts when regional market coverage does not match.
+- [x] Keep the country map camera stable while selecting regional trading pairs.
+- [x] Add the United Kingdom regional map, political-pair registry, signal fixtures, and ONS boundary provenance.
+- [x] Cache unchanged replay baselines and expose stale signal degradation through the API and scanner.
+- [x] Gate wallet reputation behind five resolved markets and expose the resolved-history sample.
+- [x] Add fee-aware related-market consistency checks and source-linked political catalyst windows.
+- [x] Add a timestamped polling-derived election-model baseline for market comparison.
