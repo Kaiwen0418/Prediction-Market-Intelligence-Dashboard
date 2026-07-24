@@ -175,6 +175,7 @@ Status: in progress
 - Open directly into the map, scanner, and selected-market context instead of a marketing hero.
 - Make live, delayed, fallback, and fixture provenance visible before users inspect a signal.
 - Label the highest-priority anomalies directly on the map with score and pair context.
+- Keep the country overview stable while region selection updates the outline and detail rail.
 - Preserve a clear detect, select, validate, and act workflow across desktop and mobile.
 - Add watchlist and venue actions to the selected-market rail.
 - Move deep evidence into focused views so mobile does not render every chart at once.
@@ -187,6 +188,7 @@ Acceptance criteria:
 - Every selected market shows its source mode and update time.
 - Pair-specific metrics are never rendered for a fallback market that does not match the selected region.
 - The map communicates its highest-priority anomalies without requiring legend cross-reference.
+- Selecting a region does not remove neighboring signals from geographic context.
 - Users can watch a region or open its matching venue market from the selected rail.
 - Only one deep evidence view is expanded at a time.
 
@@ -213,3 +215,4 @@ Acceptance criteria:
 - [x] Add explicit source provenance, in-map anomaly labels, and selected-market actions.
 - [x] Reduce mobile depth with scanner-first ordering and tabbed evidence views.
 - [x] Withhold pair-specific metrics and charts when regional market coverage does not match.
+- [x] Keep the country map camera stable while selecting regional trading pairs.

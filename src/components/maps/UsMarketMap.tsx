@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
@@ -151,11 +151,6 @@ export function UsMarketMap({
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
-  const [view, setView] = useState<{ center: [number, number]; zoom: number }>({
-    center: activeCountry.defaultCenter,
-    zoom: activeCountry.defaultZoom
-  });
-  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!onSelectCode) {
@@ -187,60 +182,6 @@ export function UsMarketMap({
       : defaultRegion?.countryCode === activeCountry.code
         ? defaultRegion
         : null;
-  const zoomState =
-    selectedState?.countryCode === activeCountry.code
-      ? selectedState
-      : defaultRegion?.countryCode === activeCountry.code
-        ? defaultRegion
-        : null;
-
-  useEffect(() => {
-    const targetCenter: [number, number] =
-      selectedState?.countryCode === activeCountry.code ? zoomState?.center ?? activeCountry.defaultCenter : activeCountry.defaultCenter;
-    const targetZoom =
-      selectedState?.countryCode === activeCountry.code ? zoomState?.zoom ?? activeCountry.defaultZoom : activeCountry.defaultZoom;
-
-    const animate = () => {
-      setView((current) => {
-        const nextCenter: [number, number] = [
-          current.center[0] + (targetCenter[0] - current.center[0]) * 0.02,
-          current.center[1] + (targetCenter[1] - current.center[1]) * 0.02
-        ];
-        const nextZoom = current.zoom + (targetZoom - current.zoom) * 0.02;
-
-        const settled =
-          Math.abs(targetCenter[0] - nextCenter[0]) < 0.05 &&
-          Math.abs(targetCenter[1] - nextCenter[1]) < 0.05 &&
-          Math.abs(targetZoom - nextZoom) < 0.01;
-
-        if (!settled) {
-          animationFrameRef.current = window.requestAnimationFrame(animate);
-          return {
-            center: nextCenter,
-            zoom: nextZoom
-          };
-        }
-
-        animationFrameRef.current = null;
-        return {
-          center: targetCenter,
-          zoom: targetZoom
-        };
-      });
-    };
-
-    if (animationFrameRef.current) {
-      window.cancelAnimationFrame(animationFrameRef.current);
-    }
-
-    animationFrameRef.current = window.requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [activeCountry, selectedState, zoomState]);
 
   const compactTitle = market.title.length > 56 ? `${market.title.slice(0, 56)}...` : market.title;
 
@@ -411,8 +352,8 @@ export function UsMarketMap({
           <div className="relative order-2 overflow-hidden rounded-lg lg:order-1" style={{ border: "1.5px solid var(--demo-card-bg)" }}>
             <ComposableMap projection="geoAlbersUsa" className="relative h-auto w-full overflow-visible">
               <ZoomableGroup
-                center={view.center}
-                zoom={view.zoom}
+                center={activeCountry.defaultCenter}
+                zoom={activeCountry.defaultZoom}
                 translateExtent={[
                   [0, 0],
                   [980, 620]
