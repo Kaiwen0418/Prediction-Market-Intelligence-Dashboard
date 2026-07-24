@@ -7,6 +7,7 @@ from app.api.routes_analytics import router as analytics_router
 from app.api.routes_live import router as live_router
 from app.api.routes_polymarket import router as polymarket_router
 from app.api.routes_research import router as research_router
+from app.api.routes_signals import router as signals_router
 from app.core.config import get_settings
 from app.streaming.polymarket_ws import live_stream_manager
 
@@ -43,6 +44,7 @@ app.include_router(polymarket_router)
 app.include_router(analytics_router)
 app.include_router(research_router)
 app.include_router(live_router)
+app.include_router(signals_router)
 
 
 @app.get("/health")
