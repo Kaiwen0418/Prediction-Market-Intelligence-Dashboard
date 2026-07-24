@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchRecentMarketTrades } from "@/services/polymarket/rest";
 
-export function useRecentMarketTrades(limit = 60) {
+export function useRecentMarketTrades(limit = 100) {
   return useQuery({
     queryKey: ["recent-market-trades", limit],
     queryFn: () => fetchRecentMarketTrades(limit),

@@ -358,6 +358,15 @@ Status: complete
 - [x] Add result ranges, page jumps, and previous/next controls.
 - [x] Reset or clamp pages when filters and result counts change.
 
+### Phase 22: Regional Trade and Country Navigation
+
+Status: complete
+
+- [x] Restrict the live map tape to configured regional political market pairs.
+- [x] Remove the opaque trade-tape surface so the map remains visible beneath it.
+- [x] Keep non-focused configured countries colored and selectable during country detail mode.
+- [x] Render the focused country's subdivisions while other countries remain single polygons.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -394,7 +403,8 @@ Status: complete
 - [x] Add an interruptible live tour across verified-open high-activity regions.
 - [x] Launch the Europe country-market layer with five open political contracts.
 - [x] Split European markets into country-accurate world and regional detail layers.
-- [x] Add a rolling all-market live trade tape to the map.
+- [x] Add a rolling regional-pair live trade tape to the map.
 - [x] Animate and debounce region-to-region auto-tour camera movement.
 - [x] Add a fullscreen map control beside auto-tour.
 - [x] Page the complete signal ranking without hiding normal-score regions.
+- [x] Preserve country navigation while a focused country's subregions are visible.

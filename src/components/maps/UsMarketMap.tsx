@@ -664,10 +664,14 @@ export function UsMarketMap({
                       const isSelectedCountry =
                         mapView === "country" && country?.code === activeCountry.code;
                       const countryInteractive =
-                        mapView === "world" ? country : undefined;
+                        mapView === "world"
+                          ? country
+                          : country?.code === activeCountry.code
+                            ? undefined
+                            : country;
                       const fill = isSelectedCountry
                         ? "#cbd5e1"
-                        : mapView === "world" && topSignal
+                        : topSignal
                           ? getMarketSignalColor(topSignal.score)
                           : "#e5e7eb";
 
@@ -936,7 +940,12 @@ export function UsMarketMap({
                 </p>
               </div>
             ) : null}
-            <MapLiveTradeTape trades={liveTrades} />
+            <MapLiveTradeTape
+              marketSlugs={allRegionMarkets.map(
+                (region) => region.liveMarketSlug
+              )}
+              trades={liveTrades}
+            />
             <div
               data-map-control
               className="absolute right-3 top-3 z-10 flex gap-2"

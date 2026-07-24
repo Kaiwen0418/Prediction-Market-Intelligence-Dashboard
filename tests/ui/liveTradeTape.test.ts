@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getVisibleMarketTrades } from "@/components/maps/MapLiveTradeTape";
+import {
+  filterRegionMarketTrades,
+  getVisibleMarketTrades
+} from "@/components/maps/MapLiveTradeTape";
 import type { MarketTradePrint } from "@/types/market";
 
 const trades = ["one", "two", "three", "four"].map(
@@ -16,10 +19,26 @@ const trades = ["one", "two", "three", "four"].map(
   })
 );
 
-test("live trade tape rotates and wraps through the global feed", () => {
+test("live trade tape rotates and wraps through the filtered feed", () => {
   assert.deepEqual(
     getVisibleMarketTrades(trades, 3).map((trade) => trade.marketSlug),
     ["four", "one", "two"]
   );
   assert.deepEqual(getVisibleMarketTrades([], 0), []);
+});
+
+test("live trade tape only includes configured regional market pairs", () => {
+  const eventMatch = {
+    ...trades[1],
+    id: "event-match",
+    eventSlug: "configured-event"
+  };
+
+  assert.deepEqual(
+    filterRegionMarketTrades(
+      [trades[0], eventMatch, trades[2]],
+      ["one", "configured-event"]
+    ).map((trade) => trade.id),
+    ["one", "event-match"]
+  );
 });
