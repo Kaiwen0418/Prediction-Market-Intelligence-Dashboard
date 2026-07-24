@@ -7,6 +7,7 @@ import {
   rankRegionSignals
 } from "@/components/maps/marketSignals";
 import type {
+  ActivityCountryScope,
   ActivitySignalFilter,
   ActivityTimeWindow
 } from "@/components/maps/activityFeedFilters";
@@ -23,17 +24,20 @@ type AbnormalActivityFeedProps = {
   signalKind: ActivitySignalFilter;
   maxAgeHours: ActivityTimeWindow;
   countryCode: string;
+  countryLabel: string;
+  countryScope: ActivityCountryScope;
   watchlist: string[];
   watchedOnly: boolean;
   alertsEnabled: boolean;
   alertPermission: NotificationPermission | "unsupported";
+  onCountryScopeChange: (scope: ActivityCountryScope) => void;
   onMinimumScoreChange: (score: number) => void;
   onSignalKindChange: (kind: ActivitySignalFilter) => void;
   onMaxAgeHoursChange: (hours: ActivityTimeWindow) => void;
   onWatchedOnlyChange: (watchedOnly: boolean) => void;
   onAlertsEnabledChange: (enabled: boolean) => void;
   onToggleWatch: (countryCode: string, regionCode: string) => void;
-  onSelect: (code: string) => void;
+  onSelect: (region: RegionMarket) => void;
 };
 
 const THRESHOLDS = [
@@ -68,10 +72,13 @@ export function AbnormalActivityFeed({
   signalKind,
   maxAgeHours,
   countryCode,
+  countryLabel,
+  countryScope,
   watchlist,
   watchedOnly,
   alertsEnabled,
   alertPermission,
+  onCountryScopeChange,
   onMinimumScoreChange,
   onSignalKindChange,
   onMaxAgeHoursChange,
@@ -83,7 +90,7 @@ export function AbnormalActivityFeed({
   const rankedSignals = useMemo(
     () =>
       rankRegionSignals(
-        filterWatchedRegions(regions, countryCode, watchlist, watchedOnly),
+        filterWatchedRegions(regions, watchlist, watchedOnly),
         signals,
         {
           minimumScore,
@@ -115,6 +122,38 @@ export function AbnormalActivityFeed({
       </div>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div>
+          <p className="mb-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            Scope
+          </p>
+          <div
+            className="flex divide-x divide-slate-200 overflow-hidden rounded-md border border-slate-200"
+            role="group"
+            aria-label="Signal country scope"
+          >
+            {([
+              ["global", "All countries"],
+              ["country", countryLabel]
+            ] satisfies Array<[ActivityCountryScope, string]>).map(([scope, label]) => {
+              const isActive = countryScope === scope;
+              return (
+                <button
+                  key={scope}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => onCountryScopeChange(scope)}
+                  className={`px-3 py-1.5 text-xs font-medium transition ${
+                    isActive
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div
           className="flex divide-x divide-slate-200 overflow-hidden rounded-md border border-slate-200"
           role="group"
@@ -206,11 +245,12 @@ export function AbnormalActivityFeed({
         {rankedSignals.length ? (
           <div className="divide-y divide-[var(--demo-card-divider)]">
             {rankedSignals.map(({ region, signal }, index) => {
-              const isSelected = region.code === selectedCode;
-              const watched = watchlist.includes(`${countryCode}:${region.code}`);
+              const isSelected =
+                region.countryCode === countryCode && region.code === selectedCode;
+              const watched = watchlist.includes(`${region.countryCode}:${region.code}`);
               return (
                 <div
-                  key={region.code}
+                  key={`${region.countryCode}:${region.code}`}
                   className={`flex items-stretch transition ${
                     isSelected ? "bg-slate-50" : "hover:bg-slate-50"
                   }`}
@@ -218,7 +258,7 @@ export function AbnormalActivityFeed({
                   <button
                     type="button"
                     aria-pressed={isSelected}
-                    onClick={() => onSelect(region.code)}
+                    onClick={() => onSelect(region)}
                     className="grid min-w-0 flex-1 grid-cols-[52px_minmax(0,1fr)_44px] items-center gap-3 px-2 py-3 text-left sm:grid-cols-[42px_80px_minmax(0,1fr)_100px_64px]"
                   >
                     <span className="hidden text-xs tabular-nums text-slate-400 sm:block">
@@ -247,7 +287,7 @@ export function AbnormalActivityFeed({
                     <input
                       type="checkbox"
                       checked={watched}
-                      onChange={() => onToggleWatch(countryCode, region.code)}
+                      onChange={() => onToggleWatch(region.countryCode, region.code)}
                       className="h-4 w-4 accent-slate-900"
                     />
                   </label>

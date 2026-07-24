@@ -210,7 +210,7 @@ test("region coverage only matches the configured market identity", () => {
 test("country adapters expose distinct configured region identifiers", () => {
   assert.deepEqual(
     getCountryMarketMaps().map((country) => country.code),
-    ["US", "GB"]
+    ["US", "GB", "EU"]
   );
 
   const ukRegions = getRegionMarketsByCountry("GB");
@@ -219,4 +219,15 @@ test("country adapters expose distinct configured region identifiers", () => {
     ["SCT", "LDN", "WLS", "NIR"]
   );
   assert.equal(new Set(ukRegions.map((region) => region.featureId)).size, ukRegions.length);
+
+  const europeRegions = getRegionMarketsByCountry("EU");
+  assert.deepEqual(
+    europeRegions.map((region) => region.code),
+    ["FR", "DE", "ES", "IT", "IS"]
+  );
+  assert.equal(
+    new Set(europeRegions.map((region) => region.featureId)).size,
+    europeRegions.length
+  );
+  assert.ok(europeRegions.every((region) => region.marketStatus === "open"));
 });

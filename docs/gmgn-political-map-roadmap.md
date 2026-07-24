@@ -266,6 +266,48 @@ Status: complete
 - [x] Reject malformed dates and unsafe resolution-source links.
 - [x] Validate contract context across live and latest-available market states.
 
+### Phase 13: Market Lifecycle Clarity
+
+Status: complete
+
+- [x] Normalize open, closed, inactive, and unknown lifecycle states from venue flags.
+- [x] Mark closed markets beside the primary title and selected-region title.
+- [x] Label closed-market probability and volume as historical statistics.
+- [x] Replace execution-oriented copy for closed contracts with historical viewing language.
+- [x] Keep a verified open political contract as the default market.
+
+### Phase 14: Unified Global Signal Map
+
+Status: complete
+
+- [x] Render a persistent Natural Earth world layer and country-region signal layers in one map canvas.
+- [x] Support pointer drag and zoom without switching to separate country map containers.
+- [x] Select supported countries or configured regions directly from the world view.
+- [x] Default the signal scanner to all countries while preserving selected-country live overrides.
+- [x] Add a manual country scope and persist it with map, region, and signal filters in the URL.
+- [x] Preserve scanner-first mobile ordering and prevent horizontal map overflow.
+
+### Phase 15: Interruptible Live Map Tour
+
+Status: complete
+
+- [x] Start the default home route on the live world map with global signal scope.
+- [x] Rotate through verified-open regions ranked by abnormal activity.
+- [x] Move the existing map camera and selected market without mounting a second map.
+- [x] Stop rotation after country selection, region selection, pointer drag, or map click.
+- [x] Keep explicit shared URLs paused and provide a compact play/pause control.
+- [x] Exclude closed and unknown-lifecycle contracts from automatic rotation.
+
+### Phase 16: Europe Political Markets
+
+Status: complete
+
+- [x] Add Europe as a continental map adapter using Natural Earth country boundaries.
+- [x] Add open political markets for France, Germany, Spain, Italy, and Iceland.
+- [x] Reuse global scanner, watchlist, lifecycle, venue, and URL-selection behavior.
+- [x] Add verified-open fallback identity, probability, liquidity, and close-time context.
+- [x] Validate Europe focus and global-to-Europe navigation on desktop and mobile.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -297,3 +339,7 @@ Status: complete
 - [x] Add a timestamped polling-derived election-model baseline for market comparison.
 - [x] Add a compact selected-market trading summary with time-aware movement windows.
 - [x] Add verified venue, close-time, and contract-resolution context.
+- [x] Distinguish closed contracts from open markets in titles, statistics, and actions.
+- [x] Unify world and regional navigation in one pannable map with global signal scope.
+- [x] Add an interruptible live tour across verified-open high-activity regions.
+- [x] Launch the Europe country-market layer with five open political contracts.

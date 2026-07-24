@@ -12,7 +12,8 @@ test("activity filters parse a valid shareable query", () => {
   );
 
   assert.deepEqual(filters, {
-    mapView: "country",
+    mapView: "world",
+    countryScope: "global",
     countryCode: "US",
     regionCode: "TX",
     minimumScore: 85,
@@ -38,6 +39,7 @@ test("activity filter serialization preserves unrelated query values", () => {
     {
       countryCode: "US",
       mapView: "country",
+      countryScope: "country",
       regionCode: "PA",
       minimumScore: 70,
       signalKind: "poll-divergence",
@@ -48,22 +50,38 @@ test("activity filter serialization preserves unrelated query values", () => {
 
   assert.equal(
     params.toString(),
-    "campaign=general&region=PA&score=70&signal=poll-divergence&window=24"
+    "campaign=general&view=country&scope=country&region=PA&score=70&signal=poll-divergence&window=24"
   );
 });
 
 test("activity filters preserve the global map view with country context", () => {
   const parsed = parseActivityFeedFilters(
-    "?view=world&country=GB&region=SCT&score=70&signal=poll-divergence"
+    "?country=GB&region=SCT&score=70&signal=poll-divergence"
   );
 
   assert.equal(parsed.mapView, "world");
+  assert.equal(parsed.countryScope, "global");
   assert.equal(parsed.countryCode, "GB");
   assert.equal(parsed.regionCode, "SCT");
 
   const params = serializeActivityFeedFilters(parsed);
   assert.equal(
     params.toString(),
-    "view=world&country=GB&region=SCT&score=70&signal=poll-divergence"
+    "country=GB&region=SCT&score=70&signal=poll-divergence"
+  );
+});
+
+test("activity filters preserve manual country scope", () => {
+  const parsed = parseActivityFeedFilters(
+    "?view=country&scope=country&country=GB&region=SCT"
+  );
+
+  assert.equal(parsed.mapView, "country");
+  assert.equal(parsed.countryScope, "country");
+
+  const params = serializeActivityFeedFilters(parsed);
+  assert.equal(
+    params.toString(),
+    "view=country&scope=country&country=GB&region=SCT"
   );
 });

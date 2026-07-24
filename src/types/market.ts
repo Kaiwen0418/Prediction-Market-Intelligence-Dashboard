@@ -3,6 +3,8 @@ export type TimePoint = {
   value: number;
 };
 
+export type MarketStatus = "open" | "closed" | "inactive" | "unknown";
+
 export type MarketSnapshot = {
   marketId: string;
   conditionId?: string;
@@ -21,6 +23,7 @@ export type MarketSnapshot = {
   endDate?: string;
   resolutionSource?: string;
   venue?: string;
+  status: MarketStatus;
   outcomeLabel?: string;
   contractLabel?: string;
   updatedAt: string;

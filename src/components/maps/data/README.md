@@ -9,3 +9,9 @@ Source: https://github.com/ONSvisual/topojson_boundaries
 The file contains the nine English regions plus Scotland, Wales, and Northern
 Ireland. The product registry makes only regions with configured political
 markets interactive.
+
+`world-countries-110m.json` is the 1:110m Natural Earth country topology
+distributed by the `world-atlas` project. It provides the persistent world
+navigation layer; country-specific boundary files provide the signal layer.
+
+Source: https://github.com/topojson/world-atlas

@@ -3,9 +3,11 @@ import type { MarketSignalKind } from "@/types/signals";
 export type ActivitySignalFilter = "all" | MarketSignalKind;
 export type ActivityTimeWindow = 0 | 1 | 6 | 24;
 export type MapViewMode = "world" | "country";
+export type ActivityCountryScope = "global" | "country";
 
 export type ActivityFeedFilterState = {
   mapView: MapViewMode;
+  countryScope: ActivityCountryScope;
   countryCode: string;
   regionCode: string | null;
   minimumScore: number;
@@ -14,7 +16,8 @@ export type ActivityFeedFilterState = {
 };
 
 export const DEFAULT_ACTIVITY_FILTERS: ActivityFeedFilterState = {
-  mapView: "country",
+  mapView: "world",
+  countryScope: "global",
   countryCode: "US",
   regionCode: null,
   minimumScore: 50,
@@ -38,7 +41,8 @@ export function parseActivityFeedFilters(
   input: string | URLSearchParams
 ): ActivityFeedFilterState {
   const params = typeof input === "string" ? new URLSearchParams(input) : input;
-  const mapView = params.get("view") === "world" ? "world" : DEFAULT_ACTIVITY_FILTERS.mapView;
+  const mapView = params.get("view") === "country" ? "country" : DEFAULT_ACTIVITY_FILTERS.mapView;
+  const countryScope = params.get("scope") === "country" ? "country" : DEFAULT_ACTIVITY_FILTERS.countryScope;
   const countryCode = params.get("country")?.trim().toUpperCase() || DEFAULT_ACTIVITY_FILTERS.countryCode;
   const rawRegionCode = params.get("region")?.trim().toUpperCase() || null;
   const scoreParam = params.get("score");
@@ -49,6 +53,7 @@ export function parseActivityFeedFilters(
 
   return {
     mapView,
+    countryScope,
     countryCode: /^[A-Z]{2}$/.test(countryCode) ? countryCode : DEFAULT_ACTIVITY_FILTERS.countryCode,
     regionCode: rawRegionCode && /^[A-Z0-9]{2,3}$/.test(rawRegionCode) ? rawRegionCode : null,
     minimumScore: SCORE_THRESHOLDS.has(rawScore) ? rawScore : DEFAULT_ACTIVITY_FILTERS.minimumScore,
@@ -72,6 +77,7 @@ export function serializeActivityFeedFilters(
   };
 
   setOrDelete("view", filters.mapView, DEFAULT_ACTIVITY_FILTERS.mapView);
+  setOrDelete("scope", filters.countryScope, DEFAULT_ACTIVITY_FILTERS.countryScope);
   setOrDelete("country", filters.countryCode, DEFAULT_ACTIVITY_FILTERS.countryCode);
   setOrDelete("region", filters.regionCode, DEFAULT_ACTIVITY_FILTERS.regionCode);
   setOrDelete("score", String(filters.minimumScore), String(DEFAULT_ACTIVITY_FILTERS.minimumScore));

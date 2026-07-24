@@ -16,11 +16,13 @@ export type RegionMarket = {
   note: string;
   zoom: number;
   status: RegionMarketStatus;
+  marketStatus?: MarketSnapshot["status"];
   signal: RegionMarketSignal;
 };
 
 export type CountryMarketMap = {
   code: string;
+  worldFeatureIds: string[];
   label: string;
   projection: "geoAlbersUsa" | "geoMercator";
   featureIdProperty?: string;
@@ -35,6 +37,7 @@ export type CountryMarketMap = {
 export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
   {
     code: "US",
+    worldFeatureIds: ["840"],
     label: "United States",
     projection: "geoAlbersUsa",
     defaultRegionCode: "CA",
@@ -45,6 +48,7 @@ export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
   },
   {
     code: "GB",
+    worldFeatureIds: ["826"],
     label: "United Kingdom",
     projection: "geoMercator",
     featureIdProperty: "AREACD",
@@ -54,6 +58,17 @@ export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
     projectionScale: 1_650,
     boundarySourceLabel: "Office for National Statistics",
     boundarySourceUrl: "https://github.com/ONSvisual/topojson_boundaries"
+  },
+  {
+    code: "EU",
+    worldFeatureIds: ["250", "276", "380", "724", "352"],
+    label: "Europe",
+    projection: "geoMercator",
+    defaultRegionCode: "FR",
+    defaultCenter: [10, 51],
+    defaultZoom: 1,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
   }
 ];
 
@@ -69,6 +84,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     note: "Order book and recent market activity are available.",
     zoom: 3.2,
     status: "live",
+    marketStatus: "closed",
     signal: {
       kind: "whale-flow",
       score: 92,
@@ -209,6 +225,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     note: "California governor market with regional signal coverage.",
     zoom: 3.8,
     status: "watch",
+    marketStatus: "open",
     signal: {
       kind: "volume-anomaly",
       score: 79,
@@ -235,6 +252,112 @@ export const REGION_MARKETS: RegionMarket[] = [
       headline: "Referendum pricing diverges from polling",
       detail: "The market is trading away from the latest constitutional polling baseline.",
       observedAt: "2026-07-24T10:05:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "FR",
+    countryCode: "EU",
+    countryLabel: "Europe",
+    center: [2.2, 46.3],
+    featureId: "250",
+    label: "France",
+    liveMarketSlug: "next-french-presidential-election",
+    note: "French presidential market with active liquidity and regional signal coverage.",
+    zoom: 5,
+    status: "live",
+    marketStatus: "open",
+    signal: {
+      kind: "volume-anomaly",
+      score: 88,
+      headline: "Presidential market turnover is accelerating",
+      detail: "French election turnover is elevated relative to the broader European political market set.",
+      observedAt: "2026-07-24T14:25:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "DE",
+    countryCode: "EU",
+    countryLabel: "Europe",
+    center: [10.4, 51.1],
+    featureId: "276",
+    label: "Germany",
+    liveMarketSlug: "berlin-state-election-winner",
+    note: "Berlin state election market represented at country level in the Europe scanner.",
+    zoom: 5,
+    status: "live",
+    marketStatus: "open",
+    signal: {
+      kind: "order-flow",
+      score: 76,
+      headline: "Berlin election flow is one-sided",
+      detail: "Directional order flow in the Berlin state election is elevated against its recent baseline.",
+      observedAt: "2026-07-24T14:20:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "ES",
+    countryCode: "EU",
+    countryLabel: "Europe",
+    center: [-3.7, 40.2],
+    featureId: "724",
+    label: "Spain",
+    liveMarketSlug: "next-prime-minister-of-spain-20260625005215443",
+    note: "Next-prime-minister market with country-level signal coverage.",
+    zoom: 5,
+    status: "watch",
+    marketStatus: "open",
+    signal: {
+      kind: "price-move",
+      score: 69,
+      headline: "Leadership pricing moved sharply",
+      detail: "The leading Spanish prime-minister outcome has repriced faster than its recent range.",
+      observedAt: "2026-07-24T14:18:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "IT",
+    countryCode: "EU",
+    countryLabel: "Europe",
+    center: [12.6, 42.8],
+    featureId: "380",
+    label: "Italy",
+    liveMarketSlug: "next-prime-minister-of-italy",
+    note: "Next-prime-minister market with country-level signal coverage.",
+    zoom: 5,
+    status: "watch",
+    marketStatus: "open",
+    signal: {
+      kind: "poll-divergence",
+      score: 58,
+      headline: "Leadership market differs from baseline",
+      detail: "Italian leadership pricing is moderately separated from the current comparison baseline.",
+      observedAt: "2026-07-24T14:15:00Z",
+      source: "fixture"
+    }
+  },
+  {
+    code: "IS",
+    countryCode: "EU",
+    countryLabel: "Europe",
+    center: [-18.6, 64.9],
+    featureId: "352",
+    label: "Iceland",
+    liveMarketSlug:
+      "icelandic-european-union-membership-negotiations-referendum-passes-20260609135241589",
+    note: "European Union membership referendum market with country-level signal coverage.",
+    zoom: 5,
+    status: "research",
+    marketStatus: "open",
+    signal: {
+      kind: "volume-anomaly",
+      score: 52,
+      headline: "Referendum activity is above baseline",
+      detail: "Trading in Iceland's EU membership referendum is beginning to accelerate.",
+      observedAt: "2026-07-24T14:12:00Z",
       source: "fixture"
     }
   },

@@ -42,10 +42,13 @@ test("market normalization preserves verified contract context", () => {
     question: "Will the measure pass?",
     description: "Resolves Yes if the certified result approves the measure.",
     endDate: "2026-11-04T00:00:00Z",
-    resolutionSource: "https://example.gov/elections/results"
+    resolutionSource: "https://example.gov/elections/results",
+    active: true,
+    closed: false
   });
 
   assert.equal(market?.venue, "Polymarket");
+  assert.equal(market?.status, "open");
   assert.equal(market?.endDate, "2026-11-04T00:00:00.000Z");
   assert.equal(market?.resolutionSource, "https://example.gov/elections/results");
   assert.equal(
@@ -76,4 +79,35 @@ test("event normalization prefers market rules and rejects unsafe contract metad
   assert.equal(market?.description, "Resolves from the certified election result.");
   assert.equal(market?.endDate, undefined);
   assert.equal(market?.resolutionSource, undefined);
+  assert.equal(market?.status, "unknown");
+});
+
+test("closed status takes precedence and non-orderable markets are inactive", () => {
+  const closedMarket = normalizeGammaEvent({
+    id: "closed-event",
+    title: "Closed election",
+    active: true,
+    closed: true,
+    markets: [
+      {
+        id: "closed-market",
+        clobTokenIds: "[\"closed-token\"]",
+        question: "Will the candidate win?",
+        active: true,
+        closed: true,
+        acceptingOrders: false
+      }
+    ]
+  });
+  const inactiveMarket = normalizeGammaMarket({
+    id: "inactive-market",
+    clobTokenIds: "[\"inactive-token\"]",
+    question: "Will trading resume?",
+    active: true,
+    closed: false,
+    acceptingOrders: false
+  });
+
+  assert.equal(closedMarket?.status, "closed");
+  assert.equal(inactiveMarket?.status, "inactive");
 });
