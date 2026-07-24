@@ -25,6 +25,7 @@ type MarketPageViewProps = {
 };
 
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
+  const [selectedCountryCode, setSelectedCountryCode] = useState("US");
   const [selectedStateCode, setSelectedStateCode] = useState<string | null>(null);
   const selectedState = getSpotlightState(selectedStateCode);
   const selectedSlug = selectedState?.liveMarketSlug;
@@ -108,8 +109,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           </div>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:leading-7">
-          The map is now the primary navigation surface. Click a state to zoom in and move the current live market
-          context into the right-side rail.
+          The map is the primary market selector. Colored regions have configured trading pairs; click one to load its
+          active political market into the right-side rail.
         </p>
         <div className="mt-6">
           <UsMarketMap
@@ -118,7 +119,9 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             orderbookSummary={resolvedOrderbookSummary}
             liveMicrostructure={liveMicrostructure}
             liveReplay={liveReplay}
+            selectedCountryCode={selectedCountryCode}
             selectedCode={selectedStateCode}
+            onSelectCountryCode={setSelectedCountryCode}
             onSelectCode={setSelectedStateCode}
             sources={{
               featuredMarket: sources["market-context"] ?? sources["featured-market"],
@@ -163,7 +166,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="metric-label">Price History</p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">Republican win probability over time</h2>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">Selected market probability over time</h2>
           </div>
           <p className="text-sm leading-6 text-slate-500 md:max-w-[280px] md:text-right">
             {historicalSeriesQuery.isLoading
@@ -172,11 +175,9 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           </p>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:leading-7">
-          The line tracks Polymarket&rsquo;s implied probability that the Republican candidate wins, sourced from live
-          contract history when available and the local fallback series otherwise. Each value is the last traded price of
-          the &ldquo;Republican&rdquo; outcome — 50% means the market sees the race as a coin flip, while moves above
-          imply the GOP is favored. Annotations call out polling shifts, campaign events, and macro releases that
-          repriced the contract.
+          The line tracks Polymarket&rsquo;s implied probability for the selected outcome, sourced from live contract history
+          when available and the local fallback series otherwise. Annotations call out political events, polling shifts,
+          and market catalysts that repriced the contract.
         </p>
         <div className="mt-6">
           <PolymarketHistoryChart events={deferredEvents} series={marketSeries} />

@@ -11,7 +11,19 @@ import {
   getReplaySourceLabel,
   getSourceDotColorClass
 } from "@/components/maps/liveRailDiagnostics";
-import { getSpotlightState, inferSpotlightCodeFromMarket, SPOTLIGHT_STATES } from "@/components/maps/spotlightStates";
+import {
+  getMarketSignalColor,
+  getMarketSignalLabel,
+  getMarketSignalSeverity,
+  SIGNAL_LEGEND
+} from "@/components/maps/marketSignals";
+import {
+  COUNTRY_MARKET_MAPS,
+  getCountryMarketMaps,
+  getRegionMarketsByCountry,
+  getSpotlightState,
+  inferSpotlightCodeFromMarket
+} from "@/components/maps/spotlightStates";
 import type {
   LiveDegradation,
   LiveMicrostructureMetrics,
@@ -35,7 +47,9 @@ type UsMarketMapProps = {
   liveDegradation?: LiveDegradation | null;
   liveRegistryHealth?: LiveRegistryHealth | null;
   selectedCode?: string | null;
+  selectedCountryCode?: string;
   onSelectCode?: (code: string | null) => void;
+  onSelectCountryCode?: (code: string) => void;
   sources: {
     featuredMarket?: SourceDiagnostics;
     liveStream?: SourceDiagnostics;
@@ -59,15 +73,21 @@ export function UsMarketMap({
   liveDegradation,
   liveRegistryHealth,
   selectedCode,
+  selectedCountryCode = "US",
   onSelectCode,
+  onSelectCountryCode,
   sources
 }: UsMarketMapProps) {
   const defaultCode = useMemo(() => inferSpotlightCodeFromMarket(market), [market]);
+  const availableCountries = useMemo(() => getCountryMarketMaps(), []);
+  const activeCountry = COUNTRY_MARKET_MAPS.find((country) => country.code === selectedCountryCode) ?? COUNTRY_MARKET_MAPS[0];
+  const regionMarkets = useMemo(() => getRegionMarketsByCountry(activeCountry.code), [activeCountry.code]);
+  const regionByFips = useMemo(() => new Map(regionMarkets.map((region) => [region.fips, region])), [regionMarkets]);
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
   const [view, setView] = useState<{ center: [number, number]; zoom: number }>({
-    center: [-96, 38],
-    zoom: 1
+    center: activeCountry.defaultCenter,
+    zoom: activeCountry.defaultZoom
   });
   const animationFrameRef = useRef<number | null>(null);
 
@@ -94,11 +114,25 @@ export function UsMarketMap({
   }, [selectedCode]);
 
   const selectedState = getSpotlightState(activeSelectedCode);
-  const zoomState = selectedState ?? getSpotlightState(defaultCode);
+  const defaultRegion = getSpotlightState(defaultCode);
+  const activeRegion =
+    selectedState?.countryCode === activeCountry.code
+      ? selectedState
+      : defaultRegion?.countryCode === activeCountry.code
+        ? defaultRegion
+        : null;
+  const zoomState =
+    selectedState?.countryCode === activeCountry.code
+      ? selectedState
+      : defaultRegion?.countryCode === activeCountry.code
+        ? defaultRegion
+        : null;
 
   useEffect(() => {
-    const targetCenter: [number, number] = selectedState ? zoomState?.center ?? [-96, 38] : [-96, 38];
-    const targetZoom = selectedState ? zoomState?.zoom ?? 1 : 1;
+    const targetCenter: [number, number] =
+      selectedState?.countryCode === activeCountry.code ? zoomState?.center ?? activeCountry.defaultCenter : activeCountry.defaultCenter;
+    const targetZoom =
+      selectedState?.countryCode === activeCountry.code ? zoomState?.zoom ?? activeCountry.defaultZoom : activeCountry.defaultZoom;
 
     const animate = () => {
       setView((current) => {
@@ -140,7 +174,7 @@ export function UsMarketMap({
         window.cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [selectedState, zoomState]);
+  }, [activeCountry, selectedState, zoomState]);
 
   const compactTitle = market.title.length > 56 ? `${market.title.slice(0, 56)}...` : market.title;
 
@@ -209,15 +243,46 @@ export function UsMarketMap({
   };
   const microstructure = liveMicrostructure ?? fallbackMicrostructure;
   const showingBackendMetrics = Boolean(liveMicrostructure);
+  const selectedRegionHasPair = Boolean(activeRegion?.liveMarketSlug);
+  const defaultRegionLabel = defaultRegion?.countryCode === activeCountry.code ? defaultRegion.label : regionMarkets[0]?.label;
+
+  const getRegionFill = (regionCode?: string) => {
+    const region = getSpotlightState(regionCode);
+    return getMarketSignalColor(region?.signal.score);
+  };
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] lg:items-start xl:grid-cols-[3fr_1fr]">
       <div className="min-w-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm leading-6 text-slate-600">
-            Click a spotlight state to open market context. Current live focus defaults to{" "}
-            <span className="font-medium text-slate-900">{SPOTLIGHT_STATES.find((state) => state.code === defaultCode)?.label ?? "Texas"}</span>.
+            Colored regions have configured trading pairs. Click a region to select its active political market.
+            {defaultRegionLabel ? (
+              <>
+                {" "}
+                Current live focus defaults to <span className="font-medium text-slate-900">{defaultRegionLabel}</span>.
+              </>
+            ) : null}
           </p>
+          {availableCountries.length > 1 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Country</span>
+              <select
+                value={activeCountry.code}
+                onChange={(event) => {
+                  onSelectCountryCode?.(event.target.value);
+                  selectCode(null);
+                }}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm"
+              >
+                {availableCountries.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid items-stretch gap-6">
@@ -235,40 +300,46 @@ export function UsMarketMap({
                   {({ geographies }) =>
                     geographies.map((geo) => {
                       const fips = String(geo.id).padStart(2, "0");
-                      const spotlight = SPOTLIGHT_STATES.find((state) => state.fips === fips);
-                      const isSelected = spotlight?.code === activeSelectedCode;
-                      const isDefault = spotlight?.code === defaultCode;
-                      const fill = isSelected
-                        ? spotlight?.status === "live"
-                          ? "#9f5f71"
-                          : spotlight?.status === "research"
-                            ? "#5c7ea6"
-                            : "#1f2937"
-                        : isDefault
-                          ? "#c47a8c"
-                          : spotlight?.status === "research"
-                            ? "#9eb5cf"
-                            : "#e5e7eb";
+                      const region = regionByFips.get(fips);
+                      const fill = getRegionFill(region?.code);
+                      const isSelected = region?.code === activeSelectedCode;
 
                       return (
                         <Geography
                           key={geo.rsmKey}
                           geography={geo}
-                          onClick={() => spotlight && selectCode(spotlight.code)}
+                          onClick={region ? () => selectCode(region.code) : undefined}
+                          onKeyDown={
+                            region
+                              ? (event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    selectCode(region.code);
+                                  }
+                                }
+                              : undefined
+                          }
+                          aria-label={
+                            region
+                              ? `${region.label}: activity score ${region.signal.score}, ${getMarketSignalSeverity(region.signal.score)}`
+                              : undefined
+                          }
+                          role={region ? "button" : "presentation"}
+                          tabIndex={region ? 0 : -1}
                           style={{
                             default: {
                               fill,
                               outline: "none",
-                              stroke: "#ffffff",
-                              strokeWidth: 0.8,
-                              cursor: spotlight ? "pointer" : "default"
+                              stroke: isSelected ? "#111827" : "#ffffff",
+                              strokeWidth: isSelected ? 2.2 : 0.8,
+                              cursor: region ? "pointer" : "default"
                             },
-                          hover: {
-                            fill: spotlight?.status === "live" ? "#b36f82" : spotlight?.status === "research" ? "#7092ba" : "#d4d4d8",
-                            outline: "none",
-                            stroke: "#ffffff",
-                            strokeWidth: 0.8,
-                              cursor: spotlight ? "pointer" : "default"
+                            hover: {
+                              fill: region ? fill : "#d4d4d8",
+                              outline: "none",
+                              stroke: region ? "#111827" : "#ffffff",
+                              strokeWidth: region ? 1.8 : 0.8,
+                              cursor: region ? "pointer" : "default"
                             },
                             pressed: {
                               fill: "#020617",
@@ -292,15 +363,53 @@ export function UsMarketMap({
               }}
             />
           </div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600">
+            <span className="font-medium text-slate-900">Activity score</span>
+            {SIGNAL_LEGEND.map((item) => (
+              <span key={item.severity} className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: getMarketSignalColor(item.severity === "critical" ? 85 : item.severity === "high" ? 70 : item.severity === "elevated" ? 50 : 0) }}
+                />
+                {item.label}
+              </span>
+            ))}
+            <span className="text-slate-400">Demo snapshots</span>
+          </div>
         </div>
       </div>
 
       <div className="border-t border-slate-200 pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
         <p className="metric-label">Realtime Market Rail</p>
         <h3 className="mt-2 text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
-          {selectedState?.label ?? compactTitle}
+          {activeRegion?.label ?? compactTitle}
         </h3>
-        {selectedState ? <p className="mt-3 text-sm leading-6 text-slate-600">{selectedState.note}</p> : null}
+        {activeRegion ? (
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {activeRegion.countryLabel} · {activeRegion.note}
+          </p>
+        ) : null}
+
+        {activeRegion?.signal ? (
+          <div className="mt-5 border-y border-[var(--demo-card-divider)] py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="metric-label">{getMarketSignalLabel(activeRegion.signal)}</p>
+                <p className="mt-2 font-semibold text-slate-900">{activeRegion.signal.headline}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-semibold text-slate-900">{activeRegion.signal.score}</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                  {getMarketSignalSeverity(activeRegion.signal.score)}
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{activeRegion.signal.detail}</p>
+            <p className="mt-2 text-xs text-slate-400">
+              {activeRegion.signal.source === "fixture" ? "Demo signal snapshot" : "Live signal"}
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           {sourceDots.map(({ diagnostics, label }) => {
@@ -375,7 +484,7 @@ export function UsMarketMap({
           </p>
         </div>
 
-        {selectedState ? (
+        {selectedRegionHasPair ? (
           <p className="mt-5 text-sm text-slate-600">
             Live focus: <span className="font-medium text-slate-900">{compactTitle}</span>
           </p>
