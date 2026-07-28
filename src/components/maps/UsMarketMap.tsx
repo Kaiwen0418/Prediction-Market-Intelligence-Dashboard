@@ -51,7 +51,8 @@ import type {
   MarketTradePrint,
   OrderbookState,
   OrderbookSummary,
-  TimePoint
+  TimePoint,
+  VenueMarketSummary
 } from "@/types/market";
 import type { RegionSignal } from "@/types/signals";
 import { formatTimestamp, relativeTime } from "@/utils/time";
@@ -113,6 +114,7 @@ type UsMarketMapProps = {
   liveReplay?: LiveReplay | null;
   marketSeries?: TimePoint[];
   liveTrades?: MarketTradePrint[];
+  kalshiMarkets?: VenueMarketSummary[];
   selectedCode?: string | null;
   selectedCountryCode?: string;
   regionSignals?: RegionSignal[];
@@ -140,6 +142,7 @@ export function UsMarketMap({
   liveReplay,
   marketSeries = [],
   liveTrades = [],
+  kalshiMarkets = [],
   selectedCode,
   selectedCountryCode = "US",
   regionSignals = [],
@@ -552,7 +555,9 @@ export function UsMarketMap({
     () => summarizeMarketMovement(marketSeries, market.probability),
     [market.probability, marketSeries]
   );
-  const selectedRegionHasPair = Boolean(activeRegion?.liveMarketSlug);
+  const selectedRegionHasPair = Boolean(
+    activeRegion?.liveMarketSlug || activeRegion?.kalshiEventTicker
+  );
   const activeSignal = activeRegion ? getRegionSignal(activeRegion) : null;
   const marketMatchesActiveRegion = Boolean(activeRegion) && marketMatchesRegion(activeRegion, market);
   const activePairLabel =
@@ -564,7 +569,7 @@ export function UsMarketMap({
   const activeRegionWatched = activeRegion
     ? signalWatchlist.watchlist.includes(`${activeCountry.code}:${activeRegion.code}`)
     : false;
-  const liveVenueUrl = marketMatchesActiveRegion
+  const polymarketVenueUrl = marketMatchesActiveRegion
     ? `https://polymarket.com/event/${market.eventSlug ?? market.slug}`
     : null;
   const marketCloseLabel = formatContractDate(market.endDate, market.status);
@@ -941,8 +946,8 @@ export function UsMarketMap({
               </div>
             ) : null}
             <MapLiveTradeTape
-              marketSlugs={allRegionMarkets.map(
-                (region) => region.liveMarketSlug
+              marketSlugs={allRegionMarkets.flatMap((region) =>
+                region.liveMarketSlug ? [region.liveMarketSlug] : []
               )}
               trades={liveTrades}
             />
@@ -1124,17 +1129,72 @@ export function UsMarketMap({
               {activeRegionWatched ? "Watching" : "Watch region"}
             </button>
           ) : null}
-          {liveVenueUrl ? (
-            <a
-              href={liveVenueUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-900"
-            >
-              {market.status === "open" ? "Open market ↗" : "View market ↗"}
-            </a>
-          ) : null}
         </div>
+
+        {polymarketVenueUrl || kalshiMarkets.length ? (
+          <section
+            aria-label="Available trading pairs"
+            className="mt-5 border-t border-slate-200 font-sans"
+          >
+            <div className="flex items-center justify-between py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Trading pairs
+              </p>
+              <p className="text-[10px] text-slate-400">
+                {Number(Boolean(polymarketVenueUrl)) + kalshiMarkets.length} pairs
+              </p>
+            </div>
+            {polymarketVenueUrl ? (
+              <a
+                href={polymarketVenueUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-200 py-3 transition hover:bg-slate-50"
+              >
+                <span className="text-[10px] font-semibold uppercase text-slate-500">
+                  Polymarket
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold text-slate-900">
+                    {compactTitle}
+                  </span>
+                  <span className="mt-1 block text-[10px] text-slate-500">
+                    {market.status === "open" ? "Open" : "View only"} · 24h{" "}
+                    {formatCompactCurrency(market.volume24h)}
+                  </span>
+                </span>
+                <span className="text-xs font-semibold tabular-nums text-slate-900">
+                  {(market.probability * 100).toFixed(0)}% ↗
+                </span>
+              </a>
+            ) : null}
+            {kalshiMarkets.map((kalshiMarket) => (
+              <a
+                key={kalshiMarket.eventTicker}
+                href={kalshiMarket.url}
+                target="_blank"
+                rel="noreferrer"
+                className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-200 py-3 transition hover:bg-slate-50"
+              >
+                <span className="text-[10px] font-semibold uppercase text-slate-500">
+                  Kalshi
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold text-slate-900">
+                    {kalshiMarket.title}
+                  </span>
+                  <span className="mt-1 block truncate text-[10px] text-slate-500">
+                    {kalshiMarket.outcomeLabel ?? "Leading outcome"} · 24h{" "}
+                    {formatCompactCurrency(kalshiMarket.volume24h)}
+                  </span>
+                </span>
+                <span className="text-xs font-semibold tabular-nums text-slate-900">
+                  {(kalshiMarket.probability * 100).toFixed(0)}% ↗
+                </span>
+              </a>
+            ))}
+          </section>
+        ) : null}
 
         {marketMatchesActiveRegion &&
         (market.venue || marketCloseLabel || market.description || market.resolutionSource) ? (
@@ -1324,6 +1384,16 @@ export function UsMarketMap({
               </p>
             </div>
           </>
+        ) : activeRegion?.kalshiEventTicker && !activeRegion.liveMarketSlug ? (
+          <div className="mt-7 border-l-2 border-slate-300 py-3 pl-4">
+            <p className="font-sans text-xs font-semibold uppercase text-slate-700">
+              Kalshi analytics pending
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Live probability and volume are available. Kalshi depth, trades,
+              and wallet-derived signals are not connected yet.
+            </p>
+          </div>
         ) : (
           <div className="mt-7 border-l-2 border-amber-400 bg-amber-50 py-3 pl-4">
             <p className="font-sans text-xs font-semibold uppercase text-amber-900">Coverage unavailable</p>
