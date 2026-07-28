@@ -66,6 +66,31 @@ test("signal labels are readable", () => {
   assert.equal(getMarketSignalLabel(null), "No active signal");
 });
 
+test("configured US regions include Polymarket-comparable and Kalshi-only pairs", () => {
+  const usRegions = getRegionMarketsByCountry("US");
+  const polymarketComparable = usRegions.filter(
+    (region) => region.liveMarketSlug
+  );
+  const kalshiOnly = usRegions.filter((region) => !region.liveMarketSlug);
+
+  assert.equal(polymarketComparable.length, 8);
+  assert.equal(kalshiOnly.length, 20);
+  assert.ok(
+    usRegions.every((region) =>
+      /^[A-Z0-9-]+$/.test(region.kalshiEventTicker ?? "")
+    )
+  );
+  assert.equal(
+    usRegions.find((region) => region.code === "CA")?.kalshiEventTicker,
+    "KXGOVCA-26"
+  );
+  assert.equal(
+    kalshiOnly.find((region) => region.code === "OH")?.kalshiMarketLabel,
+    "Ohio Governor winner?"
+  );
+  assert.ok(kalshiOnly.every((region) => region.marketStatus === "open"));
+});
+
 test("activity ranking applies backend overrides and minimum score", () => {
   const regions = [
     {

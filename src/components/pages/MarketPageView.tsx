@@ -18,6 +18,7 @@ import type {
 } from "@/components/maps/activityFeedFilters";
 import {
   COUNTRY_MARKET_MAPS,
+  getRegionKalshiEventTickers,
   getRegionMarketPairLabel,
   getSpotlightState,
   marketMatchesRegion
@@ -28,6 +29,7 @@ import { useMarketContext } from "@/hooks/useMarketContext";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useLiveReplay } from "@/hooks/useLiveReplay";
 import { useLiveMarketStream } from "@/hooks/useLiveMarketStream";
+import { useKalshiMarkets } from "@/hooks/useKalshiMarkets";
 import { useRecentMarketTrades } from "@/hooks/useRecentMarketTrades";
 import { useOrderbook } from "@/hooks/useOrderbook";
 import { useOrderbookSummary } from "@/hooks/useOrderbookSummary";
@@ -109,18 +111,24 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
 
   const selectedState = getSpotlightState(selectedStateCode);
   const selectedSlug = selectedState?.liveMarketSlug;
-  const marketContextQuery = useMarketContext(selectedSlug);
+  const kalshiMarketsQuery = useKalshiMarkets(
+    getRegionKalshiEventTickers(selectedState)
+  );
+  const marketContextQuery = useMarketContext(
+    selectedSlug,
+    Boolean(selectedSlug)
+  );
   const contextMarket = marketContextQuery.data?.featuredMarket ?? null;
   const { featuredMarketQuery, featuredMarket: market, historicalSeriesQuery, marketSeries } = useMarketData({
     slug: selectedSlug,
-    strictFeaturedMarket: strictLive,
+    strictFeaturedMarket: strictLive && Boolean(selectedSlug),
     initialFeaturedMarket: contextMarket
   });
   const { orderbook, snapshotQuery } = useOrderbook(market?.tokenId, {
     conditionId: market?.conditionId,
-    strictSnapshot: strictLive,
+    strictSnapshot: strictLive && Boolean(selectedSlug),
     allowMockStreamFallback: !strictLive,
-    enableRealtime: strictLive
+    enableRealtime: strictLive && Boolean(selectedSlug)
   });
   const liveStream = useLiveMarketStream(selectedSlug ?? market?.slug);
   const recentMarketTradesQuery = useRecentMarketTrades();
@@ -162,14 +170,18 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       : selectedState && !marketMatchesSelectedRegion
       ? getRegionMarketPairLabel(selectedState)
       : market?.outcomeLabel ?? market?.title;
+  const displayUpdatedAt = marketMatchesSelectedRegion
+    ? orderbook?.updatedAt
+    : kalshiMarketsQuery.data?.[0]?.updatedAt;
   const primarySource = sources["market-context"] ?? sources["featured-market"];
   const signalSource = sources["region-signals"];
   const operationalNotice =
     !marketMatchesSelectedRegion
       ? {
-          tone: "warning" as const,
-          title: "Limited coverage for this region",
-          detail: "Regional signals remain available, but pair-specific market depth and history cannot be shown."
+          tone: "info" as const,
+          title: "Kalshi market coverage",
+          detail:
+            "Live Kalshi probability and volume are available below. Venue-specific depth and anomaly scoring are not connected yet."
         }
       : market?.status === "closed"
         ? {
@@ -247,9 +259,12 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         </div>
         {mapView === "country" ? (
           <>
-            <p className="mt-3 font-sans text-xs text-slate-500">
-              Updated {formatTimestamp(orderbook.updatedAt, "MMM d, HH:mm:ss")}
-            </p>
+            {displayUpdatedAt ? (
+              <p className="mt-3 font-sans text-xs text-slate-500">
+                {marketMatchesSelectedRegion ? "Updated" : "Checked"}{" "}
+                {formatTimestamp(displayUpdatedAt, "MMM d, HH:mm:ss")}
+              </p>
+            ) : null}
             {operationalNotice ? (
               <div className="mt-4 max-w-2xl">
                 <OperationalNotice {...operationalNotice} />
@@ -266,6 +281,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             liveReplay={liveReplay}
             marketSeries={marketSeries}
             liveTrades={recentMarketTradesQuery.data}
+            kalshiMarkets={kalshiMarketsQuery.data}
             regionSignals={regionSignalsQuery.data?.signals}
             activityThreshold={activityThreshold}
             autoTourEnabled={autoTourEnabled}
@@ -287,7 +303,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         </div>
       </section>
 
-      {mapView === "world" ? null : marketMatchesSelectedRegion ? (
+      {mapView === "world" ||
+      (selectedState?.kalshiEventTicker && !selectedSlug) ? null : marketMatchesSelectedRegion ? (
       <section className="pt-2">
         <div className="mb-7 flex border-b border-[var(--demo-card-divider)] font-sans" role="tablist" aria-label="Market evidence">
           {market.status === "closed" ? null : (

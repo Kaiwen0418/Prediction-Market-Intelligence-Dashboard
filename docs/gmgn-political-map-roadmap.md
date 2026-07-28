@@ -367,6 +367,26 @@ Status: complete
 - [x] Keep non-focused configured countries colored and selectable during country detail mode.
 - [x] Render the focused country's subdivisions while other countries remain single polygons.
 
+### Phase 23: Kalshi Political Pairs
+
+Status: complete
+
+- [x] Register verified-open Kalshi election events for the eight Polymarket-comparable US regions.
+- [x] Proxy Kalshi's public Events API through a validated server route.
+- [x] Normalize leading outcome, probability, 24-hour volume, lifecycle, and source metadata.
+- [x] Display Polymarket and Kalshi as distinct trading pairs in the selected-region rail.
+- [x] Keep Kalshi data unavailable rather than substituting synthetic prices.
+
+### Phase 24: Kalshi-Only US Political Coverage
+
+Status: complete
+
+- [x] Allow a map region to exist without a Polymarket market slug.
+- [x] Add 20 open Kalshi-only state election markets selected by liquidity and regional relevance.
+- [x] Keep Kalshi-only regions out of the abnormal auto-tour until venue signal scoring exists.
+- [x] Show truthful zero-score signal context instead of fabricating whale or anomaly activity.
+- [x] Preserve scanner pagination, map selection, watchlists, and mobile trading-pair layout.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -408,3 +428,5 @@ Status: complete
 - [x] Add a fullscreen map control beside auto-tour.
 - [x] Page the complete signal ranking without hiding normal-score regions.
 - [x] Preserve country navigation while a focused country's subregions are visible.
+- [x] Add live Kalshi political pairs for the configured US regions.
+- [x] Add liquid Kalshi-only state political markets without requiring Polymarket equivalents.

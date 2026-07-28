@@ -29,6 +29,22 @@ export type MarketSnapshot = {
   updatedAt: string;
 };
 
+export type VenueMarketSummary = {
+  venue: "Kalshi";
+  eventTicker: string;
+  seriesTicker: string;
+  title: string;
+  outcomeLabel?: string;
+  probability: number;
+  volume24h: number;
+  liquidity?: number;
+  status: MarketStatus;
+  endDate?: string;
+  resolutionSource?: string;
+  url: string;
+  updatedAt: string;
+};
+
 export type OrderbookLevel = {
   price: number;
   size: number;

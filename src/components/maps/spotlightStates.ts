@@ -13,7 +13,9 @@ export type RegionMarket = {
   center: [number, number];
   featureId: string;
   label: string;
-  liveMarketSlug: string;
+  liveMarketSlug?: string;
+  kalshiEventTicker?: string;
+  kalshiMarketLabel?: string;
   note: string;
   zoom: number;
   status: RegionMarketStatus;
@@ -34,6 +36,48 @@ export type CountryMarketMap = {
   boundarySourceLabel: string;
   boundarySourceUrl: string;
 };
+
+function kalshiOnlyRegion({
+  center,
+  code,
+  featureId,
+  kalshiEventTicker,
+  kalshiMarketLabel,
+  label,
+  zoom
+}: {
+  center: [number, number];
+  code: string;
+  featureId: string;
+  kalshiEventTicker: string;
+  kalshiMarketLabel: string;
+  label: string;
+  zoom: number;
+}): RegionMarket {
+  return {
+    code,
+    countryCode: "US",
+    countryLabel: "United States",
+    center,
+    featureId,
+    label,
+    kalshiEventTicker,
+    kalshiMarketLabel,
+    note: "Open Kalshi election market without a configured Polymarket equivalent.",
+    zoom,
+    status: "live",
+    marketStatus: "open",
+    signal: {
+      kind: "normal",
+      score: 0,
+      headline: "Signal scoring not connected",
+      detail:
+        "This region has an open Kalshi political market. Venue-specific anomaly scoring is not active yet.",
+      observedAt: "2026-07-28T00:00:00Z",
+      source: "fixture"
+    }
+  };
+}
 
 export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
   {
@@ -128,6 +172,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "48",
     label: "Texas",
     liveMarketSlug: "texas-republican-senate-primary-winner",
+    kalshiEventTicker: "SENATETX-26",
     note: "Order book and recent market activity are available.",
     zoom: 3.2,
     status: "live",
@@ -149,6 +194,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "04",
     label: "Arizona",
     liveMarketSlug: "arizona-presidential-election-winner",
+    kalshiEventTicker: "GOVPARTYAZ-26",
     note: "Historical pricing is available for this political market.",
     zoom: 4.2,
     status: "research",
@@ -169,6 +215,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "13",
     label: "Georgia",
     liveMarketSlug: "georgia-presidential-election-winner",
+    kalshiEventTicker: "SENATEGA-26",
     note: "Historical pricing is available for this political market.",
     zoom: 5,
     status: "research",
@@ -189,6 +236,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "26",
     label: "Michigan",
     liveMarketSlug: "michigan-presidential-election-winner",
+    kalshiEventTicker: "KXMISENATE-26",
     note: "Historical pricing is available for this political market.",
     zoom: 4.1,
     status: "research",
@@ -209,6 +257,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "42",
     label: "Pennsylvania",
     liveMarketSlug: "pennsylvania-presidential-election-winner",
+    kalshiEventTicker: "GOVPARTYPA-26",
     note: "Historical pricing is available for this political market.",
     zoom: 5.2,
     status: "research",
@@ -229,6 +278,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "55",
     label: "Wisconsin",
     liveMarketSlug: "wisconsin-presidential-election-winner",
+    kalshiEventTicker: "GOVPARTYWI-26",
     note: "Historical pricing is available for this political market.",
     zoom: 5.4,
     status: "research",
@@ -249,6 +299,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "12",
     label: "Florida",
     liveMarketSlug: "florida-presidential-election-winner",
+    kalshiEventTicker: "GOVPARTYFL-26",
     note: "Select this market to inspect available pricing and signals.",
     zoom: 4.2,
     status: "watch",
@@ -269,6 +320,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "06",
     label: "California",
     liveMarketSlug: "california-governor-election-2026",
+    kalshiEventTicker: "KXGOVCA-26",
     note: "California governor market with regional signal coverage.",
     zoom: 3.8,
     status: "watch",
@@ -282,6 +334,186 @@ export const REGION_MARKETS: RegionMarket[] = [
       source: "fixture"
     }
   },
+  kalshiOnlyRegion({
+    code: "OH",
+    featureId: "39",
+    label: "Ohio",
+    center: [-82.8, 40.4],
+    zoom: 5,
+    kalshiEventTicker: "GOVPARTYOH-26",
+    kalshiMarketLabel: "Ohio Governor winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "SC",
+    featureId: "45",
+    label: "South Carolina",
+    center: [-80.9, 33.8],
+    zoom: 5.4,
+    kalshiEventTicker: "KXSCRSENS-26",
+    kalshiMarketLabel: "South Carolina Republican Senate special primary winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "ME",
+    featureId: "23",
+    label: "Maine",
+    center: [-69, 45.2],
+    zoom: 5,
+    kalshiEventTicker: "SENATEME-26",
+    kalshiMarketLabel: "Maine Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "CO",
+    featureId: "08",
+    label: "Colorado",
+    center: [-105.5, 39],
+    zoom: 5,
+    kalshiEventTicker: "GOVPARTYCO-26",
+    kalshiMarketLabel: "Colorado Governor winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "KS",
+    featureId: "20",
+    label: "Kansas",
+    center: [-98.4, 38.5],
+    zoom: 5,
+    kalshiEventTicker: "KXGOVKSNOMR-26",
+    kalshiMarketLabel: "Kansas Republican Governor nominee?"
+  }),
+  kalshiOnlyRegion({
+    code: "AK",
+    featureId: "02",
+    label: "Alaska",
+    center: [-152, 64],
+    zoom: 3.5,
+    kalshiEventTicker: "SENATEAK-26",
+    kalshiMarketLabel: "Alaska Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "MN",
+    featureId: "27",
+    label: "Minnesota",
+    center: [-94.5, 46],
+    zoom: 4.5,
+    kalshiEventTicker: "KXGOVMNNOMR-26",
+    kalshiMarketLabel: "Minnesota Republican Governor nominee?"
+  }),
+  kalshiOnlyRegion({
+    code: "TN",
+    featureId: "47",
+    label: "Tennessee",
+    center: [-86, 35.8],
+    zoom: 5,
+    kalshiEventTicker: "KXGOVTNNOMR-2-26",
+    kalshiMarketLabel: "Tennessee Republican Governor nominee?"
+  }),
+  kalshiOnlyRegion({
+    code: "MS",
+    featureId: "28",
+    label: "Mississippi",
+    center: [-89.7, 32.7],
+    zoom: 5.2,
+    kalshiEventTicker: "SENATEMS-26",
+    kalshiMarketLabel: "Mississippi Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "LA",
+    featureId: "22",
+    label: "Louisiana",
+    center: [-92, 31],
+    zoom: 5.2,
+    kalshiEventTicker: "KXSENATELA-26NOV",
+    kalshiMarketLabel: "Louisiana Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "MT",
+    featureId: "30",
+    label: "Montana",
+    center: [-109.5, 47],
+    zoom: 4.5,
+    kalshiEventTicker: "SENATEMT-26",
+    kalshiMarketLabel: "Montana Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "OR",
+    featureId: "41",
+    label: "Oregon",
+    center: [-120.5, 44],
+    zoom: 4.7,
+    kalshiEventTicker: "GOVPARTYOR-26",
+    kalshiMarketLabel: "Oregon Governor winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "NJ",
+    featureId: "34",
+    label: "New Jersey",
+    center: [-74.5, 40.1],
+    zoom: 6,
+    kalshiEventTicker: "SENATENJ-26",
+    kalshiMarketLabel: "New Jersey Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "OK",
+    featureId: "40",
+    label: "Oklahoma",
+    center: [-97.5, 35.5],
+    zoom: 5,
+    kalshiEventTicker: "SENATEOK-26",
+    kalshiMarketLabel: "Oklahoma Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "SD",
+    featureId: "46",
+    label: "South Dakota",
+    center: [-100, 44.5],
+    zoom: 5,
+    kalshiEventTicker: "SENATESD-26",
+    kalshiMarketLabel: "South Dakota Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "NE",
+    featureId: "31",
+    label: "Nebraska",
+    center: [-99.8, 41.5],
+    zoom: 5,
+    kalshiEventTicker: "SENATENE-26",
+    kalshiMarketLabel: "Nebraska Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "NC",
+    featureId: "37",
+    label: "North Carolina",
+    center: [-79, 35.5],
+    zoom: 5.2,
+    kalshiEventTicker: "SENATENC-26",
+    kalshiMarketLabel: "North Carolina Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "IA",
+    featureId: "19",
+    label: "Iowa",
+    center: [-93.5, 42],
+    zoom: 5,
+    kalshiEventTicker: "SENATEIA-26",
+    kalshiMarketLabel: "Iowa Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "WV",
+    featureId: "54",
+    label: "West Virginia",
+    center: [-80.5, 38.6],
+    zoom: 5.6,
+    kalshiEventTicker: "SENATEWV-26",
+    kalshiMarketLabel: "West Virginia Senate winner?"
+  }),
+  kalshiOnlyRegion({
+    code: "NY",
+    featureId: "36",
+    label: "New York",
+    center: [-75, 43],
+    zoom: 4.8,
+    kalshiEventTicker: "GOVPARTYNY-26",
+    kalshiMarketLabel: "New York Governor winner?"
+  }),
   {
     code: "SCT",
     countryCode: "GB",
@@ -487,7 +719,9 @@ export function getRegionMarketsByCountry(countryCode: string) {
 export function inferSpotlightCodeFromMarket(input: { slug: string; eventSlug?: string; title: string }) {
   const text = `${input.slug} ${input.eventSlug ?? ""} ${input.title}`.toLowerCase();
   const match = REGION_MARKETS.find(
-    (region) => input.slug === region.liveMarketSlug || text.includes(region.label.toLowerCase())
+    (region) =>
+      (region.liveMarketSlug && input.slug === region.liveMarketSlug) ||
+      text.includes(region.label.toLowerCase())
   );
   return match?.code ?? "TX";
 }
@@ -501,10 +735,20 @@ export function getRegionMarket(code?: string | null) {
 }
 
 export function getRegionMarketPairLabel(region: RegionMarket) {
-  return region.liveMarketSlug
+  if (region.kalshiMarketLabel && !region.liveMarketSlug) {
+    return region.kalshiMarketLabel;
+  }
+
+  return (region.liveMarketSlug ?? region.kalshiEventTicker ?? region.label)
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+export function getRegionKalshiEventTickers(
+  region: RegionMarket | null | undefined
+) {
+  return region?.kalshiEventTicker ? [region.kalshiEventTicker] : [];
 }
 
 export function marketMatchesRegion(
@@ -516,6 +760,10 @@ export function marketMatchesRegion(
   }
 
   if (!market) {
+    return false;
+  }
+
+  if (!region.liveMarketSlug) {
     return false;
   }
 
