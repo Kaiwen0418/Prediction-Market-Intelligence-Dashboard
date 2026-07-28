@@ -2,10 +2,10 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { PolymarketHistoryChart } from "@/components/charts/PolymarketHistoryChart";
-import { MicrostructureReplayChart } from "@/components/charts/MicrostructureReplayChart";
 import { ErrorState } from "@/components/layout/ErrorState";
 import { LoadingState } from "@/components/layout/LoadingState";
 import { OperationalNotice } from "@/components/layout/OperationalNotice";
+import { OrderFlowEvidence } from "@/components/orderbook/OrderFlowEvidence";
 import {
   parseActivityFeedFilters,
   serializeActivityFeedFilters
@@ -229,6 +229,13 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const recentMarketTradesQuery = useRecentMarketTrades();
   const liveReplayQuery = useLiveReplay(selectedSlug ?? polymarketMarket?.slug, 48);
   const regionSignalsQuery = useRegionSignals(selectedCountryCode, selectedSlug ?? polymarketMarket?.slug);
+  const activeRegionSignal = selectedState
+    ? regionSignalsQuery.data?.signals.find(
+        (signal) =>
+          signal.countryCode === selectedState.countryCode &&
+          signal.regionCode === selectedState.code
+      ) ?? selectedState.signal
+    : null;
   const orderbookSummaryQuery = useOrderbookSummary(polymarketMarket?.tokenId, polymarketMarket?.conditionId);
   const sources = useSourceDiagnostics();
   const liveStreamMatchesMarket =
@@ -467,10 +474,6 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         <div className="mt-7">
           <UsMarketMap
             market={market}
-            orderbook={orderbook}
-            orderbookSummary={resolvedOrderbookSummary}
-            liveMicrostructure={liveMicrostructure}
-            liveReplay={liveReplay}
             marketSeries={marketSeries}
             liveTrades={recentMarketTradesQuery.data}
             polymarketMarkets={polymarketMarkets}
@@ -539,19 +542,22 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           <div role="tabpanel">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="metric-label">Market Dynamics</p>
+                <p className="metric-label">Order Flow</p>
                 <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">
-                  Liquidity and order flow through time
+                  Current liquidity and trade evidence
                 </h2>
               </div>
               <p className="text-sm leading-6 text-slate-500 md:max-w-[320px] md:text-right">
-                {liveReplay?.sampleCount
-                  ? `${liveReplay.sampleCount} recent observations`
-                  : "Collecting recent market activity"}
+                Snapshot metrics and large-print detection update with the selected market.
               </p>
             </div>
             <div className="mt-6">
-              <MicrostructureReplayChart samples={liveReplay?.samples ?? []} />
+              <OrderFlowEvidence
+                liveMicrostructure={liveMicrostructure}
+                orderbook={orderbook}
+                orderbookSummary={resolvedOrderbookSummary}
+                signal={activeRegionSignal}
+              />
             </div>
           </div>
         ) : (

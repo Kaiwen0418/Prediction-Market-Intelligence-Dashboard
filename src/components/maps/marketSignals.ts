@@ -27,9 +27,10 @@ export const SIGNAL_LEGEND: Array<{
 
 const INACTIVE_SIGNAL_COLOR = "#dededb";
 const SIGNAL_COLOR_STOPS = [
-  { score: 0, color: [212, 212, 208] },
-  { score: 50, color: [224, 207, 112] },
-  { score: 100, color: [250, 204, 21] }
+  { score: 0, color: [255, 244, 194] },
+  { score: 50, color: [250, 188, 64] },
+  { score: 70, color: [239, 120, 35] },
+  { score: 100, color: [190, 45, 32] }
 ] as const;
 
 function interpolateChannel(start: number, end: number, progress: number) {
@@ -64,10 +65,13 @@ export function getMarketSignalColor(score?: number | null) {
   }
 
   const boundedScore = Math.max(0, Math.min(100, score));
-  const [start, end] =
-    boundedScore <= SIGNAL_COLOR_STOPS[1].score
-      ? [SIGNAL_COLOR_STOPS[0], SIGNAL_COLOR_STOPS[1]]
-      : [SIGNAL_COLOR_STOPS[1], SIGNAL_COLOR_STOPS[2]];
+  const endIndex = SIGNAL_COLOR_STOPS.findIndex(
+    (stop) => boundedScore <= stop.score
+  );
+  const boundedEndIndex =
+    endIndex <= 0 ? 1 : Math.min(endIndex, SIGNAL_COLOR_STOPS.length - 1);
+  const start = SIGNAL_COLOR_STOPS[boundedEndIndex - 1];
+  const end = SIGNAL_COLOR_STOPS[boundedEndIndex];
   const progress = (boundedScore - start.score) / (end.score - start.score);
   const color = start.color.map((channel, index) =>
     interpolateChannel(channel, end.color[index], progress)

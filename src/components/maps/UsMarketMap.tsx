@@ -9,7 +9,6 @@ import ukRegions from "@/components/maps/data/uk-regions.json";
 import ukraineOblasts from "@/components/maps/data/ukraine-oblasts.json";
 import worldCountries from "@/components/maps/data/world-countries-110m.json";
 import { normalizeD3PolygonWinding } from "@/components/maps/geoJson";
-import { DepthChart } from "@/components/charts/DepthChart";
 import { summarizeMarketMovement } from "@/analytics/marketMovement";
 import { AbnormalActivityFeed } from "@/components/maps/AbnormalActivityFeed";
 import type {
@@ -21,7 +20,6 @@ import type {
 } from "@/components/maps/activityFeedFilters";
 import {
   getMarketSignalColor,
-  getMarketSignalLabel,
   getMarketSignalSeverity,
   SIGNAL_LEGEND
 } from "@/components/maps/marketSignals";
@@ -39,6 +37,7 @@ import {
   getRegionMarketVolume,
   qualifiesByVolume
 } from "@/components/maps/marketVolume";
+import { paginateTradingPairs } from "@/components/maps/tradingPairPagination";
 import {
   COUNTRY_MARKET_MAPS,
   REGION_MARKETS,
@@ -56,22 +55,14 @@ import type {
   RegionMarket
 } from "@/components/maps/spotlightStates";
 import type {
-  LiveMicrostructureMetrics,
-  LiveReplay,
   MarketSnapshot,
   MarketTradePrint,
-  OrderbookState,
-  OrderbookSummary,
   TimePoint,
   VenueMarketSummary
 } from "@/types/market";
 import type { RegionSignal } from "@/types/signals";
-import { formatTimestamp, relativeTime } from "@/utils/time";
+import { formatTimestamp } from "@/utils/time";
 import { useSignalWatchlist } from "@/hooks/useSignalWatchlist";
-
-function formatWalletAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
 
 const UKRAINE_LOCALITY_LABEL_OFFSETS: Record<
   string,
@@ -132,10 +123,6 @@ function formatContractDate(value: string | undefined, status: MarketSnapshot["s
 
 type UsMarketMapProps = {
   market: MarketSnapshot;
-  orderbook: OrderbookState;
-  orderbookSummary?: OrderbookSummary | null;
-  liveMicrostructure?: LiveMicrostructureMetrics | null;
-  liveReplay?: LiveReplay | null;
   marketSeries?: TimePoint[];
   liveTrades?: MarketTradePrint[];
   polymarketMarkets?: MarketSnapshot[];
@@ -166,10 +153,6 @@ type UsMarketMapProps = {
 
 export function UsMarketMap({
   market,
-  orderbook,
-  orderbookSummary,
-  liveMicrostructure,
-  liveReplay,
   marketSeries = [],
   liveTrades = [],
   polymarketMarkets = [],
@@ -313,6 +296,7 @@ export function UsMarketMap({
     [allRegionMarkets, regionSignals]
   );
   const signalWatchlist = useSignalWatchlist(alertSignals);
+  const [tradingPairPage, setTradingPairPage] = useState(0);
   const [localSelectedCode, setLocalSelectedCode] = useState<string | null>(null);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
   const [hoveredBoundaryLabel, setHoveredBoundaryLabel] = useState<string | null>(
@@ -373,6 +357,33 @@ export function UsMarketMap({
       return right.volume24h - left.volume24h;
     });
   }, [activeRegion, market, polymarketMarkets]);
+  const tradingPairs = useMemo(
+    () => [
+      ...selectedPolymarketMarkets.map((pair) => ({
+        venue: "polymarket" as const,
+        pair
+      })),
+      ...selectedKalshiMarkets.map((pair) => ({
+        venue: "kalshi" as const,
+        pair
+      }))
+    ],
+    [selectedKalshiMarkets, selectedPolymarketMarkets]
+  );
+  const paginatedTradingPairs = useMemo(
+    () => paginateTradingPairs(tradingPairs, tradingPairPage),
+    [tradingPairPage, tradingPairs]
+  );
+
+  useEffect(() => {
+    setTradingPairPage(0);
+  }, [activeCountry.code, activeRegion?.code]);
+
+  useEffect(() => {
+    if (tradingPairPage !== paginatedTradingPairs.page) {
+      setTradingPairPage(paginatedTradingPairs.page);
+    }
+  }, [paginatedTradingPairs.page, tradingPairPage]);
 
   useEffect(() => {
     if (!onSelectCode) {
@@ -554,117 +565,17 @@ export function UsMarketMap({
     tourTransitioning
   ]);
 
-  const compactTitle = market.title.length > 56 ? `${market.title.slice(0, 56)}...` : market.title;
-
-  const summary = orderbookSummary ?? {
-    bestBid: orderbook.bids[0]?.price ?? 0,
-    bestAsk: orderbook.asks[0]?.price ?? 0,
-    midPrice: orderbook.midPrice,
-    bidLevels: orderbook.bids.length,
-    askLevels: orderbook.asks.length,
-    tradeCount: orderbook.trades.length,
-    liquidity: {
-      totalBidDepth: orderbook.bids.reduce((sum, level) => sum + level.size, 0),
-      totalAskDepth: orderbook.asks.reduce((sum, level) => sum + level.size, 0),
-      imbalance: 0,
-      spreadBps: orderbook.midPrice === 0 ? 0 : Number(((orderbook.spread / orderbook.midPrice) * 10_000).toFixed(1))
-    },
-    tradePressure: {
-      buyVolume: 0,
-      sellVolume: 0,
-      ratio: 0,
-      pressure: "balanced" as const
-    },
-    whaleActivity: {
-      status: "insufficient-data" as const,
-      sampleSize: orderbook.trades.length,
-      medianTradeSize: 0,
-      historicalMultipleThreshold: 3,
-      depthShareThreshold: 0.05,
-      minimumSampleSize: 5,
-      attributionAvailable: false,
-      attributedTradeCount: 0,
-      uniqueWalletCount: 0,
-      walletSampleMinimum: 10,
-      walletConcentrationStatus: "unavailable" as const,
-      walletConcentrationScore: null,
-      topWalletVolumeShare: null,
-      walletReputationStatus: "unavailable" as const,
-      walletReputationScore: null,
-      walletResolvedMarketCount: 0,
-      walletResolvedMarketMinimum: 5,
-      largeTrades: []
-    }
-  };
-  summary.liquidity.imbalance =
-    summary.liquidity.totalBidDepth + summary.liquidity.totalAskDepth === 0
-      ? 0
-      : Number(
-          (
-            (summary.liquidity.totalBidDepth - summary.liquidity.totalAskDepth) /
-            (summary.liquidity.totalBidDepth + summary.liquidity.totalAskDepth)
-          ).toFixed(3)
-        );
-  const whaleActivity = summary.whaleActivity ?? {
-    status: "insufficient-data" as const,
-    sampleSize: orderbook.trades.length,
-    medianTradeSize: 0,
-    historicalMultipleThreshold: 3,
-    depthShareThreshold: 0.05,
-    minimumSampleSize: 5,
-    attributionAvailable: false,
-    attributedTradeCount: 0,
-    uniqueWalletCount: 0,
-    walletSampleMinimum: 10,
-    walletConcentrationStatus: "unavailable" as const,
-    walletConcentrationScore: null,
-    topWalletVolumeShare: null,
-    walletReputationStatus: "unavailable" as const,
-    walletReputationScore: null,
-    walletResolvedMarketCount: 0,
-    walletResolvedMarketMinimum: 5,
-    largeTrades: []
-  };
-
-  const fallbackMicrostructure: LiveMicrostructureMetrics = {
-    microprice: summary.midPrice,
-    depthSkew: summary.liquidity.imbalance,
-    realizedVolatility: 0,
-    tradeIntensity:
-      summary.tradeCount > 0
-        ? Number(((summary.tradePressure.buyVolume + summary.tradePressure.sellVolume) / summary.tradeCount).toFixed(4))
-        : 0,
-    orderFlowImbalance:
-      summary.tradePressure.buyVolume + summary.tradePressure.sellVolume === 0
-        ? 0
-        : Number(
-            (
-              (summary.tradePressure.buyVolume - summary.tradePressure.sellVolume) /
-              (summary.tradePressure.buyVolume + summary.tradePressure.sellVolume)
-            ).toFixed(3)
-          )
-  };
-  const microstructure = liveMicrostructure ?? fallbackMicrostructure;
-  const showingBackendMetrics = Boolean(liveMicrostructure);
+  const compactTitle =
+    market.title.length > 56 ? `${market.title.slice(0, 56)}...` : market.title;
   const marketMovement = useMemo(
     () => summarizeMarketMovement(marketSeries, market.probability),
     [market.probability, marketSeries]
   );
-  const selectedRegionHasPair = Boolean(
-    activeRegion?.liveMarketSlug || activeRegion?.kalshiEventTicker
-  );
-  const activeSignal = activeRegion ? getRegionSignal(activeRegion) : null;
   const marketMatchesActiveRegion =
     Boolean(activeRegion) &&
     (marketMatchesRegion(activeRegion, market) ||
       (market.venue === "Kalshi" &&
         market.eventId === activeRegion?.kalshiEventTicker));
-  const activePairLabel =
-    activeRegion && marketMatchesActiveRegion
-      ? compactTitle
-      : activeRegion
-        ? getRegionMarketPairLabel(activeRegion)
-        : compactTitle;
   const activeRegionWatched = activeRegion
     ? signalWatchlist.watchlist.includes(`${activeCountry.code}:${activeRegion.code}`)
     : false;
@@ -1363,7 +1274,7 @@ export function UsMarketMap({
           ) : null}
         </div>
 
-        {selectedPolymarketMarkets.length || selectedKalshiMarkets.length ? (
+        {tradingPairs.length ? (
           <section
             aria-label="Available trading pairs"
             className="mt-5 border-t border-slate-200 font-sans"
@@ -1373,84 +1284,119 @@ export function UsMarketMap({
                 Trading pairs
               </p>
               <p className="text-[10px] text-slate-400">
-                {selectedPolymarketMarkets.length + selectedKalshiMarkets.length} pairs
+                {paginatedTradingPairs.start + 1}–{paginatedTradingPairs.end} of {tradingPairs.length}
               </p>
             </div>
-            {selectedPolymarketMarkets.map((polymarketMarket) => {
-              const eventSlug =
-                polymarketMarket.eventSlug ?? polymarketMarket.slug;
-              const selected =
-                market.venue !== "Kalshi" &&
-                (market.eventSlug ?? market.slug) === eventSlug;
+            {paginatedTradingPairs.items.map((tradingPair) => {
+              if (tradingPair.venue === "polymarket") {
+                const polymarketMarket = tradingPair.pair;
+                const eventSlug =
+                  polymarketMarket.eventSlug ?? polymarketMarket.slug;
+                const selected =
+                  market.venue !== "Kalshi" &&
+                  (market.eventSlug ?? market.slug) === eventSlug;
+                return (
+                  <div
+                    key={eventSlug}
+                    className={`grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t py-3 ${
+                      selected
+                        ? "border-slate-300 bg-slate-50"
+                        : "border-slate-200"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onSelectMarketSlug?.(eventSlug)}
+                      className="col-span-2 grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-center gap-3 text-left"
+                      aria-pressed={selected}
+                    >
+                      <span className="text-[10px] font-semibold uppercase text-slate-500">
+                        Polymarket
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-semibold text-slate-900">
+                          {polymarketMarket.title}
+                        </span>
+                        <span className="mt-1 block text-[10px] text-slate-500">
+                          {polymarketMarket.status === "open"
+                            ? selected
+                              ? "Selected"
+                              : "Open"
+                            : "View only"}{" "}
+                          · 24h {formatCompactCurrency(polymarketMarket.volume24h)}
+                        </span>
+                      </span>
+                    </button>
+                    <a
+                      href={`https://polymarket.com/event/${eventSlug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Open ${polymarketMarket.title} on Polymarket`}
+                      className="text-xs font-semibold tabular-nums text-slate-900"
+                    >
+                      {(polymarketMarket.probability * 100).toFixed(0)}% ↗
+                    </a>
+                  </div>
+                );
+              }
+
+              const kalshiMarket = tradingPair.pair;
               return (
-                <div
-                  key={eventSlug}
-                  className={`grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t py-3 ${
-                    selected
-                      ? "border-slate-300 bg-slate-50"
-                      : "border-slate-200"
-                  }`}
+                <a
+                  key={kalshiMarket.eventTicker}
+                  href={kalshiMarket.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-200 py-3 transition hover:bg-slate-50"
                 >
-                  <button
-                    type="button"
-                    onClick={() => onSelectMarketSlug?.(eventSlug)}
-                    className="col-span-2 grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-center gap-3 text-left"
-                    aria-pressed={selected}
-                  >
-                    <span className="text-[10px] font-semibold uppercase text-slate-500">
-                      Polymarket
+                  <span className="text-[10px] font-semibold uppercase text-slate-500">
+                    Kalshi
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold text-slate-900">
+                      {kalshiMarket.title}
                     </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold text-slate-900">
-                        {polymarketMarket.title}
-                      </span>
-                      <span className="mt-1 block text-[10px] text-slate-500">
-                        {polymarketMarket.status === "open"
-                          ? selected
-                            ? "Selected"
-                            : "Open"
-                          : "View only"}{" "}
-                        · 24h {formatCompactCurrency(polymarketMarket.volume24h)}
-                      </span>
+                    <span className="mt-1 block truncate text-[10px] text-slate-500">
+                      {kalshiMarket.outcomeLabel ?? "Leading outcome"} · 24h{" "}
+                      {formatCompactCurrency(kalshiMarket.volume24h)}
                     </span>
-                  </button>
-                  <a
-                    href={`https://polymarket.com/event/${eventSlug}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`Open ${polymarketMarket.title} on Polymarket`}
-                    className="text-xs font-semibold tabular-nums text-slate-900"
-                  >
-                    {(polymarketMarket.probability * 100).toFixed(0)}% ↗
-                  </a>
-                </div>
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-slate-900">
+                    {(kalshiMarket.probability * 100).toFixed(0)}% ↗
+                  </span>
+                </a>
               );
             })}
-            {selectedKalshiMarkets.map((kalshiMarket) => (
-              <a
-                key={kalshiMarket.eventTicker}
-                href={kalshiMarket.url}
-                target="_blank"
-                rel="noreferrer"
-                className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-200 py-3 transition hover:bg-slate-50"
-              >
-                <span className="text-[10px] font-semibold uppercase text-slate-500">
-                  Kalshi
+            {paginatedTradingPairs.pageCount > 1 ? (
+              <div className="flex items-center justify-end gap-2 border-t border-slate-200 py-3">
+                <button
+                  type="button"
+                  title="Previous trading-pair page"
+                  aria-label="Previous trading-pair page"
+                  disabled={paginatedTradingPairs.page === 0}
+                  onClick={() => setTradingPairPage((page) => page - 1)}
+                  className="grid h-7 w-7 place-items-center border border-slate-300 text-sm text-slate-700 transition hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  ‹
+                </button>
+                <span className="text-[10px] tabular-nums text-slate-500">
+                  {paginatedTradingPairs.page + 1} / {paginatedTradingPairs.pageCount}
                 </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold text-slate-900">
-                    {kalshiMarket.title}
-                  </span>
-                  <span className="mt-1 block truncate text-[10px] text-slate-500">
-                    {kalshiMarket.outcomeLabel ?? "Leading outcome"} · 24h{" "}
-                    {formatCompactCurrency(kalshiMarket.volume24h)}
-                  </span>
-                </span>
-                <span className="text-xs font-semibold tabular-nums text-slate-900">
-                  {(kalshiMarket.probability * 100).toFixed(0)}% ↗
-                </span>
-              </a>
-            ))}
+                <button
+                  type="button"
+                  title="Next trading-pair page"
+                  aria-label="Next trading-pair page"
+                  disabled={
+                    paginatedTradingPairs.page ===
+                    paginatedTradingPairs.pageCount - 1
+                  }
+                  onClick={() => setTradingPairPage((page) => page + 1)}
+                  className="grid h-7 w-7 place-items-center border border-slate-300 text-sm text-slate-700 transition hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  ›
+                </button>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -1492,180 +1438,6 @@ export function UsMarketMap({
           </div>
         ) : null}
 
-        {activeSignal ? (
-          <div className="mt-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="metric-label">{getMarketSignalLabel(activeSignal)}</p>
-                <p className="mt-2 font-semibold text-slate-900">{activeSignal.headline}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-semibold text-slate-900">{activeSignal.score}</p>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-                  {getMarketSignalSeverity(activeSignal.score)}
-                </p>
-              </div>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{activeSignal.detail}</p>
-            <p className="mt-2 text-xs text-slate-400">
-              Updated {relativeTime(activeSignal.observedAt)}
-              {activeSignal.confidence !== undefined && activeSignal.confidence > 0
-                ? ` · ${Math.round(activeSignal.confidence * 100)}% confidence`
-                : ""}
-            </p>
-          </div>
-        ) : null}
-
-        {/* Depth chart only renders once the parent grid actually has a right panel (lg+).
-            Below lg, the layout collapses to a single column and stacking the depth chart
-            beneath the map looks broken — so we hide it entirely in that range. */}
-        {marketMatchesActiveRegion && market.status === "closed" ? (
-          <div className="mt-8">
-            <p className="metric-label">Historical Contract</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Live depth, trade flow, and wallet activity are unavailable after market closure.
-              Use price history to review how the contract resolved.
-            </p>
-          </div>
-        ) : marketMatchesActiveRegion ? (
-          <>
-            <div className="mt-6 hidden lg:block">
-              <DepthChart askColor="#9f5f71" bidColor="#5c7ea6" orderbook={orderbook} height={300} />
-            </div>
-
-            <div className="mt-8">
-              <div className="flex items-center justify-between gap-3">
-                <p className="metric-label">Market Snapshot</p>
-                <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-                  Updated {relativeTime(orderbook.updatedAt)}
-                </span>
-              </div>
-              <div className="mt-3 divide-y divide-[var(--demo-card-divider)] text-sm">
-                <div className="flex items-baseline justify-between gap-4 py-2.5">
-                  <span className="text-slate-500">Mid / microprice</span>
-                  <span className="font-semibold text-slate-900">
-                    {summary.midPrice.toFixed(3)} / {microstructure.microprice.toFixed(3)}
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between gap-4 py-2.5">
-                  <span className="text-slate-500">Spread / depth skew</span>
-                  <span className="font-semibold text-slate-900">
-                    {summary.liquidity.spreadBps.toFixed(1)} bps / {(microstructure.depthSkew * 100).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between gap-4 py-2.5">
-                  <span className="text-slate-500">Flow / volatility</span>
-                  <span className="font-semibold text-slate-900">
-                    {(microstructure.orderFlowImbalance * 100).toFixed(1)}% / {microstructure.realizedVolatility.toFixed(4)}
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between gap-4 py-2.5">
-                  <span className="text-slate-500">Depth / activity</span>
-                  <span className="font-semibold text-slate-900">
-                    {summary.liquidity.totalBidDepth.toFixed(0)} / {summary.liquidity.totalAskDepth.toFixed(0)} · {microstructure.tradeIntensity.toFixed(1)}
-                  </span>
-                </div>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">
-                {showingBackendMetrics
-                  ? "Calculated from recent market activity."
-                  : "Estimated from the latest available order book."}
-              </p>
-            </div>
-
-            <div className="mt-8">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="metric-label">Large Trade Monitor</p>
-                <span className="text-xs tabular-nums text-slate-500">
-                  {whaleActivity.sampleSize} prints
-                </span>
-              </div>
-              {whaleActivity.status === "detected" ? (
-                <div className="mt-3 divide-y divide-[var(--demo-card-divider)]">
-                  {whaleActivity.largeTrades.slice(0, 3).map((trade) => (
-                    <div
-                      key={trade.tradeId}
-                      className="grid grid-cols-[auto_1fr_auto] items-baseline gap-3 py-2.5 text-sm"
-                    >
-                      <span
-                        className={`font-semibold uppercase ${
-                          trade.side === "buy" ? "text-emerald-700" : "text-rose-700"
-                        }`}
-                      >
-                        {trade.side}
-                      </span>
-                      <span className="text-slate-600">
-                        {trade.historicalSizeMultiple.toFixed(1)}x median ·{" "}
-                        {(trade.executableDepthShare * 100).toFixed(1)}% depth
-                        {trade.walletAddress ? ` · ${formatWalletAddress(trade.walletAddress)}` : ""}
-                      </span>
-                      <span className="font-semibold tabular-nums text-slate-900">
-                        ${trade.notionalUsd.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  {whaleActivity.status === "clear"
-                    ? "No recent print meets both relative thresholds."
-                    : whaleActivity.sampleSize >= whaleActivity.minimumSampleSize
-                    ? "There is not enough recent trade data to assess large-trade activity."
-                      : `At least ${whaleActivity.minimumSampleSize} normalized prints and two-sided depth are required.`}
-                </p>
-              )}
-              <p className="mt-3 text-xs leading-5 text-slate-500">
-                {whaleActivity.walletConcentrationStatus === "available" &&
-                whaleActivity.walletConcentrationScore !== null &&
-                whaleActivity.topWalletVolumeShare !== null
-                  ? `Wallet concentration ${whaleActivity.walletConcentrationScore.toFixed(1)}/100 · top public wallet ${(
-                      whaleActivity.topWalletVolumeShare * 100
-                    ).toFixed(1)}% · ${whaleActivity.uniqueWalletCount} wallets · ${
-                      whaleActivity.attributedTradeCount
-                    } attributed prints`
-                  : whaleActivity.walletConcentrationStatus === "insufficient-data"
-                    ? `${whaleActivity.attributedTradeCount} attributed prints · ${whaleActivity.walletSampleMinimum} required for concentration scoring`
-                    : "Public wallet attribution is unavailable for this sample."}
-              </p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                {whaleActivity.walletReputationStatus === "available" &&
-                whaleActivity.walletReputationScore !== null
-                  ? `Resolved-history score ${whaleActivity.walletReputationScore.toFixed(1)}/100 · ${whaleActivity.walletResolvedMarketCount} resolved markets`
-                  : whaleActivity.walletReputationStatus === "insufficient-history"
-                    ? `Resolved history ${whaleActivity.walletResolvedMarketCount}/${whaleActivity.walletResolvedMarketMinimum} markets · score withheld`
-                    : `Wallet reputation unavailable · ${whaleActivity.walletResolvedMarketCount} resolved markets`}
-              </p>
-              <p className="mt-3 text-xs leading-5 text-slate-500">
-                Flagged at {whaleActivity.historicalMultipleThreshold}x median size and{" "}
-                {(whaleActivity.depthShareThreshold * 100).toFixed(0)}% of executable depth. Public trades do not
-                establish wallet identity or insider activity.
-              </p>
-            </div>
-          </>
-        ) : activeRegion?.kalshiEventTicker && !activeRegion.liveMarketSlug ? (
-          <div className="mt-7 border-l-2 border-slate-300 py-3 pl-4">
-            <p className="font-sans text-xs font-semibold uppercase text-slate-700">
-              Kalshi analytics unavailable
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Live probability and volume remain available. Depth, trades, and
-              price history will retry automatically.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-7 border-l-2 border-amber-400 bg-amber-50 py-3 pl-4">
-            <p className="font-sans text-xs font-semibold uppercase text-amber-900">Coverage unavailable</p>
-            <p className="mt-2 text-sm leading-6 text-amber-900">
-              Pair-specific depth, trades, and wallet metrics are not available for the selected region.
-            </p>
-          </div>
-        )}
-
-        {selectedRegionHasPair && marketMatchesActiveRegion ? (
-          <p className="mt-5 text-sm text-slate-600">
-            Pair: <span className="font-medium text-slate-900">{activePairLabel}</span>
-          </p>
-        ) : null}
       </div>
     </div>
   );

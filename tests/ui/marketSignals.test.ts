@@ -50,10 +50,12 @@ test("signal scores map to stable severity thresholds", () => {
 
 test("signal colors distinguish inactive and abnormal activity", () => {
   assert.equal(getMarketSignalColor(null), "#dededb");
-  assert.equal(getMarketSignalColor(0), "rgb(212, 212, 208)");
-  assert.equal(getMarketSignalColor(50), "rgb(224, 207, 112)");
-  assert.equal(getMarketSignalColor(100), "rgb(250, 204, 21)");
+  assert.equal(getMarketSignalColor(0), "rgb(255, 244, 194)");
+  assert.equal(getMarketSignalColor(50), "rgb(250, 188, 64)");
+  assert.equal(getMarketSignalColor(70), "rgb(239, 120, 35)");
+  assert.equal(getMarketSignalColor(100), "rgb(190, 45, 32)");
   assert.notEqual(getMarketSignalColor(null), getMarketSignalColor(50));
+  assert.notEqual(getMarketSignalColor(null), getMarketSignalColor(0));
   assert.notEqual(getMarketSignalColor(0), getMarketSignalColor(25));
   assert.notEqual(getMarketSignalColor(50), getMarketSignalColor(85));
   assert.equal(getMarketSignalColor(-10), getMarketSignalColor(0));
