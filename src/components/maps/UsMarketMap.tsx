@@ -8,6 +8,7 @@ import germanyStates from "@/components/maps/data/germany-states.json";
 import ukRegions from "@/components/maps/data/uk-regions.json";
 import ukraineOblasts from "@/components/maps/data/ukraine-oblasts.json";
 import worldCountries from "@/components/maps/data/world-countries-110m.json";
+import { normalizeD3PolygonWinding } from "@/components/maps/geoJson";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { summarizeMarketMovement } from "@/analytics/marketMovement";
 import { AbnormalActivityFeed } from "@/components/maps/AbnormalActivityFeed";
@@ -44,6 +45,7 @@ import {
   getCountryMarketMaps,
   getRegionMarketPairLabel,
   getRegionMarketsByCountry,
+  getRegionPolymarketSlugs,
   getSpotlightState,
   inferSpotlightCodeFromMarket,
   marketMatchesRegion
@@ -80,6 +82,8 @@ const UKRAINE_LOCALITY_LABEL_OFFSETS: Record<
   STI: { x: 11, y: 18 },
   BIL: { x: -11, y: -13 }
 };
+
+const ukraineOblastGeography = normalizeD3PolygonWinding(ukraineOblasts);
 
 function formatCompactCurrency(value?: number) {
   if (value === undefined || !Number.isFinite(value)) {
@@ -133,6 +137,7 @@ type UsMarketMapProps = {
   liveReplay?: LiveReplay | null;
   marketSeries?: TimePoint[];
   liveTrades?: MarketTradePrint[];
+  polymarketMarkets?: MarketSnapshot[];
   kalshiMarkets?: VenueMarketSummary[];
   selectedCode?: string | null;
   selectedCountryCode?: string;
@@ -155,6 +160,7 @@ type UsMarketMapProps = {
   onMapViewChange?: (view: MapViewMode) => void;
   onSelectCode?: (code: string | null) => void;
   onSelectCountryCode?: (code: string) => void;
+  onSelectMarketSlug?: (slug: string) => void;
 };
 
 export function UsMarketMap({
@@ -165,6 +171,7 @@ export function UsMarketMap({
   liveReplay,
   marketSeries = [],
   liveTrades = [],
+  polymarketMarkets = [],
   kalshiMarkets = [],
   selectedCode,
   selectedCountryCode = "US",
@@ -184,7 +191,8 @@ export function UsMarketMap({
   onActivityMaxAgeHoursChange,
   onMapViewChange,
   onSelectCode,
-  onSelectCountryCode
+  onSelectCountryCode,
+  onSelectMarketSlug
 }: UsMarketMapProps) {
   const defaultCode = useMemo(() => inferSpotlightCodeFromMarket(market), [market]);
   const availableCountries = useMemo(() => getCountryMarketMaps(), []);
@@ -219,7 +227,9 @@ export function UsMarketMap({
           }))
           .sort((left, right) => right.signal.score - left.signal.score)[0];
         const regionVolumes = regions
-          .map((region) => getRegionMarketVolume(region, kalshiMarkets))
+          .map((region) =>
+            getRegionMarketVolume(region, kalshiMarkets, polymarketMarkets)
+          )
           .filter((volume): volume is number => volume !== null);
 
         return {
@@ -231,7 +241,7 @@ export function UsMarketMap({
             : null
         };
       }),
-    [availableCountries, kalshiMarkets, signalByRegion]
+    [availableCountries, kalshiMarkets, polymarketMarkets, signalByRegion]
   );
   const labeledRegions = useMemo(
     () =>
@@ -239,7 +249,11 @@ export function UsMarketMap({
         .map((region) => ({
           region,
           signal: getRegionSignal(region),
-          volume: getRegionMarketVolume(region, kalshiMarkets)
+          volume: getRegionMarketVolume(
+            region,
+            kalshiMarkets,
+            polymarketMarkets
+          )
         }))
         .filter(
           ({ region, signal, volume }) =>
@@ -255,6 +269,7 @@ export function UsMarketMap({
     [
       activityVolumeThreshold,
       kalshiMarkets,
+      polymarketMarkets,
       signalByRegion,
       regionMarkets
     ]
@@ -331,6 +346,26 @@ export function UsMarketMap({
       ),
     [activeRegion?.kalshiEventTicker, kalshiMarkets]
   );
+  const selectedPolymarketMarkets = useMemo(() => {
+    const slugs = getRegionPolymarketSlugs(activeRegion);
+    const markets = polymarketMarkets.filter(
+      (candidate) =>
+        slugs.includes(candidate.slug) ||
+        Boolean(candidate.eventSlug && slugs.includes(candidate.eventSlug))
+    );
+    if (
+      market.venue !== "Kalshi" &&
+      marketMatchesRegion(activeRegion, market) &&
+      !markets.some((candidate) => candidate.eventSlug === market.eventSlug)
+    ) {
+      markets.push(market);
+    }
+    return markets.sort(
+      (left, right) =>
+        slugs.indexOf(left.eventSlug ?? left.slug) -
+        slugs.indexOf(right.eventSlug ?? right.slug)
+    );
+  }, [activeRegion, market, polymarketMarkets]);
 
   useEffect(() => {
     if (!onSelectCode) {
@@ -612,7 +647,11 @@ export function UsMarketMap({
     activeRegion?.liveMarketSlug || activeRegion?.kalshiEventTicker
   );
   const activeSignal = activeRegion ? getRegionSignal(activeRegion) : null;
-  const marketMatchesActiveRegion = Boolean(activeRegion) && marketMatchesRegion(activeRegion, market);
+  const marketMatchesActiveRegion =
+    Boolean(activeRegion) &&
+    (marketMatchesRegion(activeRegion, market) ||
+      (market.venue === "Kalshi" &&
+        market.eventId === activeRegion?.kalshiEventTicker));
   const activePairLabel =
     activeRegion && marketMatchesActiveRegion
       ? compactTitle
@@ -622,9 +661,6 @@ export function UsMarketMap({
   const activeRegionWatched = activeRegion
     ? signalWatchlist.watchlist.includes(`${activeCountry.code}:${activeRegion.code}`)
     : false;
-  const polymarketVenueUrl = marketMatchesActiveRegion
-    ? `https://polymarket.com/event/${market.eventSlug ?? market.slug}`
-    : null;
   const marketCloseLabel = formatContractDate(market.endDate, market.status);
   const highPriorityCount = regionMarkets.filter(
     (region) => getRegionSignal(region).score >= 70
@@ -634,7 +670,11 @@ export function UsMarketMap({
     ? getRegionSignal(hoveredRegion)
     : null;
   const hoveredVolume = hoveredRegion
-    ? getRegionMarketVolume(hoveredRegion, kalshiMarkets)
+    ? getRegionMarketVolume(
+        hoveredRegion,
+        kalshiMarkets,
+        polymarketMarkets
+      )
     : null;
 
   const selectCountry = (country: CountryMarketMap) => {
@@ -823,7 +863,7 @@ export function UsMarketMap({
                           : country.code === "DE"
                             ? germanyStates
                             : country.code === "UA"
-                              ? ukraineOblasts
+                              ? ukraineOblastGeography
                             : worldCountries;
 
                   return (
@@ -859,7 +899,11 @@ export function UsMarketMap({
                           );
                           const signal = region ? getRegionSignal(region) : null;
                           const volume = region
-                            ? getRegionMarketVolume(region, kalshiMarkets)
+                            ? getRegionMarketVolume(
+                                region,
+                                kalshiMarkets,
+                                polymarketMarkets
+                              )
                             : null;
                           const isSelected =
                             region?.countryCode === activeCountry.code &&
@@ -1095,7 +1139,7 @@ export function UsMarketMap({
             ) : null}
             <MapLiveTradeTape
               marketSlugs={allRegionMarkets.flatMap((region) =>
-                region.liveMarketSlug ? [region.liveMarketSlug] : []
+                getRegionPolymarketSlugs(region)
               )}
               trades={liveTrades}
             />
@@ -1180,6 +1224,7 @@ export function UsMarketMap({
               minimumScore={activityThreshold}
               minimumVolume={activityVolumeThreshold}
               kalshiMarkets={kalshiMarkets}
+              polymarketMarkets={polymarketMarkets}
               signalKind={activitySignalKind}
               maxAgeHours={activityMaxAgeHours}
               countryCode={activeCountry.code}
@@ -1273,7 +1318,7 @@ export function UsMarketMap({
               <div className="text-right">
                 <dt className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Liquidity</dt>
                 <dd className="mt-1 text-xs font-semibold tabular-nums text-slate-900">
-                  {market.status === "closed" && !market.liquidity
+                  {!market.liquidity
                     ? "—"
                     : formatCompactCurrency(market.liquidity)}
                 </dd>
@@ -1299,7 +1344,7 @@ export function UsMarketMap({
           ) : null}
         </div>
 
-        {polymarketVenueUrl || selectedKalshiMarkets.length ? (
+        {selectedPolymarketMarkets.length || selectedKalshiMarkets.length ? (
           <section
             aria-label="Available trading pairs"
             className="mt-5 border-t border-slate-200 font-sans"
@@ -1309,33 +1354,59 @@ export function UsMarketMap({
                 Trading pairs
               </p>
               <p className="text-[10px] text-slate-400">
-                {Number(Boolean(polymarketVenueUrl)) + selectedKalshiMarkets.length} pairs
+                {selectedPolymarketMarkets.length + selectedKalshiMarkets.length} pairs
               </p>
             </div>
-            {polymarketVenueUrl ? (
-              <a
-                href={polymarketVenueUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-200 py-3 transition hover:bg-slate-50"
-              >
-                <span className="text-[10px] font-semibold uppercase text-slate-500">
-                  Polymarket
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold text-slate-900">
-                    {compactTitle}
-                  </span>
-                  <span className="mt-1 block text-[10px] text-slate-500">
-                    {market.status === "open" ? "Open" : "View only"} · 24h{" "}
-                    {formatCompactCurrency(market.volume24h)}
-                  </span>
-                </span>
-                <span className="text-xs font-semibold tabular-nums text-slate-900">
-                  {(market.probability * 100).toFixed(0)}% ↗
-                </span>
-              </a>
-            ) : null}
+            {selectedPolymarketMarkets.map((polymarketMarket) => {
+              const eventSlug =
+                polymarketMarket.eventSlug ?? polymarketMarket.slug;
+              const selected =
+                market.venue !== "Kalshi" &&
+                (market.eventSlug ?? market.slug) === eventSlug;
+              return (
+                <div
+                  key={eventSlug}
+                  className={`grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 border-t py-3 ${
+                    selected
+                      ? "border-slate-300 bg-slate-50"
+                      : "border-slate-200"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectMarketSlug?.(eventSlug)}
+                    className="col-span-2 grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-center gap-3 text-left"
+                    aria-pressed={selected}
+                  >
+                    <span className="text-[10px] font-semibold uppercase text-slate-500">
+                      Polymarket
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-semibold text-slate-900">
+                        {polymarketMarket.title}
+                      </span>
+                      <span className="mt-1 block text-[10px] text-slate-500">
+                        {polymarketMarket.status === "open"
+                          ? selected
+                            ? "Selected"
+                            : "Open"
+                          : "View only"}{" "}
+                        · 24h {formatCompactCurrency(polymarketMarket.volume24h)}
+                      </span>
+                    </span>
+                  </button>
+                  <a
+                    href={`https://polymarket.com/event/${eventSlug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open ${polymarketMarket.title} on Polymarket`}
+                    className="text-xs font-semibold tabular-nums text-slate-900"
+                  >
+                    {(polymarketMarket.probability * 100).toFixed(0)}% ↗
+                  </a>
+                </div>
+              );
+            })}
             {selectedKalshiMarkets.map((kalshiMarket) => (
               <a
                 key={kalshiMarket.eventTicker}
@@ -1555,11 +1626,11 @@ export function UsMarketMap({
         ) : activeRegion?.kalshiEventTicker && !activeRegion.liveMarketSlug ? (
           <div className="mt-7 border-l-2 border-slate-300 py-3 pl-4">
             <p className="font-sans text-xs font-semibold uppercase text-slate-700">
-              Kalshi analytics pending
+              Kalshi analytics unavailable
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Live probability and volume are available. Kalshi depth, trades,
-              and wallet-derived signals are not connected yet.
+              Live probability and volume remain available. Depth, trades, and
+              price history will retry automatically.
             </p>
           </div>
         ) : (

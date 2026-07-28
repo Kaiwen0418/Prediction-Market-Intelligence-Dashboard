@@ -14,6 +14,7 @@ export type RegionMarket = {
   featureId: string;
   label: string;
   liveMarketSlug?: string;
+  liveMarketSlugs?: string[];
   kalshiEventTicker?: string;
   kalshiMarketLabel?: string;
   note: string;
@@ -113,6 +114,47 @@ function nationalConflictRegion({
       headline: "Conflict signal scoring pending",
       detail:
         "Live market pricing is available. Conflict-specific flow and anomaly scoring are not connected yet.",
+      observedAt: "2026-07-28T00:00:00Z",
+      source: "fixture"
+    }
+  };
+}
+
+function europeanPoliticalRegion({
+  center,
+  code,
+  countryLabel,
+  liveMarketSlug,
+  liveMarketSlugs,
+  zoom
+}: {
+  center: [number, number];
+  code: string;
+  countryLabel: string;
+  liveMarketSlug: string;
+  liveMarketSlugs: string[];
+  zoom: number;
+}): RegionMarket {
+  return {
+    code,
+    countryCode: code,
+    countryLabel,
+    coverage: "country",
+    center,
+    featureId: "*",
+    label: countryLabel,
+    liveMarketSlug,
+    liveMarketSlugs,
+    note: "Open national election and government markets from Polymarket.",
+    zoom,
+    status: "live",
+    marketStatus: "open",
+    signal: {
+      kind: "normal",
+      score: 0,
+      headline: "Venue analytics available",
+      detail:
+        "Live prices and market evidence are available. Country-level anomaly scoring is not connected yet.",
       observedAt: "2026-07-28T00:00:00Z",
       source: "fixture"
     }
@@ -242,13 +284,79 @@ export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
     boundarySourceUrl: "https://github.com/topojson/world-atlas"
   },
   {
+    code: "RO",
+    worldFeatureIds: ["642"],
+    label: "Romania",
+    projection: "geoMercator",
+    defaultRegionCode: "RO",
+    defaultCenter: [24.9, 45.9],
+    defaultZoom: 7,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "HU",
+    worldFeatureIds: ["348"],
+    label: "Hungary",
+    projection: "geoMercator",
+    defaultRegionCode: "HU",
+    defaultCenter: [19.4, 47.2],
+    defaultZoom: 8,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "SE",
+    worldFeatureIds: ["752"],
+    label: "Sweden",
+    projection: "geoMercator",
+    defaultRegionCode: "SE",
+    defaultCenter: [16.5, 62.2],
+    defaultZoom: 5,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "GR",
+    worldFeatureIds: ["300"],
+    label: "Greece",
+    projection: "geoMercator",
+    defaultRegionCode: "GR",
+    defaultCenter: [22.2, 39.0],
+    defaultZoom: 7,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "RS",
+    worldFeatureIds: ["688"],
+    label: "Serbia",
+    projection: "geoMercator",
+    defaultRegionCode: "RS",
+    defaultCenter: [20.8, 44.0],
+    defaultZoom: 8,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "BG",
+    worldFeatureIds: ["100"],
+    label: "Bulgaria",
+    projection: "geoMercator",
+    defaultRegionCode: "BG",
+    defaultCenter: [25.3, 42.7],
+    defaultZoom: 8,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
     code: "UA",
     worldFeatureIds: ["804"],
     label: "Ukraine",
     projection: "geoMercator",
     defaultRegionCode: "UA",
     defaultCenter: [31.2, 48.4],
-    defaultZoom: 9,
+    defaultZoom: 6.5,
     featureIdProperty: "ISO_CODE",
     boundarySourceLabel: "ArcGIS Ukraine Oblasts",
     boundarySourceUrl:
@@ -666,7 +774,7 @@ export const REGION_MARKETS: RegionMarket[] = [
     code: "UA",
     countryLabel: "Ukraine",
     center: [31.2, 48.4],
-    zoom: 9,
+    zoom: 6.5,
     liveMarketSlug: "ukraine-signs-peace-deal-with-russia-before-2027",
     note:
       "Open Polymarket contract on Ukraine signing a peace framework with Russia before 2027."
@@ -797,6 +905,11 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "*",
     label: "France",
     liveMarketSlug: "next-french-presidential-election",
+    liveMarketSlugs: [
+      "next-french-presidential-election",
+      "france-united-left-primary-winner",
+      "socialist-party-of-france-presidential-nominee-20260710182042067"
+    ],
     note: "French presidential market with active liquidity and regional signal coverage.",
     zoom: 7.5,
     status: "live",
@@ -818,6 +931,11 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "DE-BE",
     label: "Berlin",
     liveMarketSlug: "berlin-state-election-winner",
+    liveMarketSlugs: [
+      "berlin-state-election-winner",
+      "friedrich-merz-out-as-chancellor-of-germany-before-2027",
+      "next-leader-of-germanys-union-cducsu-20260718204733993"
+    ],
     note: "Berlin state election market with state-level signal coverage.",
     zoom: 10.5,
     status: "live",
@@ -840,6 +958,12 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "*",
     label: "Spain",
     liveMarketSlug: "next-prime-minister-of-spain-20260625005215443",
+    liveMarketSlugs: [
+      "next-prime-minister-of-spain-20260625005215443",
+      "spain-snap-election-called-by",
+      "spain-snap-election-called-in-2026",
+      "no-confidence-vote-against-spain-pm-sanchez-by-june-30"
+    ],
     note: "Next-prime-minister market with country-level signal coverage.",
     zoom: 5,
     status: "watch",
@@ -862,6 +986,10 @@ export const REGION_MARKETS: RegionMarket[] = [
     featureId: "*",
     label: "Italy",
     liveMarketSlug: "next-prime-minister-of-italy",
+    liveMarketSlugs: [
+      "next-prime-minister-of-italy",
+      "meloni-out-as-prime-minister-of-italy-by-june-30"
+    ],
     note: "Next-prime-minister market with country-level signal coverage.",
     zoom: 5,
     status: "watch",
@@ -898,6 +1026,68 @@ export const REGION_MARKETS: RegionMarket[] = [
       source: "fixture"
     }
   },
+  europeanPoliticalRegion({
+    code: "RO",
+    countryLabel: "Romania",
+    center: [24.9, 45.9],
+    liveMarketSlug: "next-prime-minister-of-romania-732",
+    liveMarketSlugs: [
+      "next-prime-minister-of-romania-732",
+      "which-coalition-will-form-the-next-romanian-government",
+      "party-of-next-prime-minister-of-romania-788",
+      "romanian-pm-bolojan-out-by"
+    ],
+    zoom: 7
+  }),
+  europeanPoliticalRegion({
+    code: "HU",
+    countryLabel: "Hungary",
+    center: [19.4, 47.2],
+    liveMarketSlug: "next-president-of-hungary-20260727225539504",
+    liveMarketSlugs: ["next-president-of-hungary-20260727225539504"],
+    zoom: 8
+  }),
+  europeanPoliticalRegion({
+    code: "SE",
+    countryLabel: "Sweden",
+    center: [16.5, 62.2],
+    liveMarketSlug: "next-prime-minister-of-sweden",
+    liveMarketSlugs: [
+      "next-prime-minister-of-sweden",
+      "sweden-parliamentary-election-winner",
+      "sweden-parliamentary-election-2nd-place",
+      "sweden-parliamentary-election-3rd-place"
+    ],
+    zoom: 5
+  }),
+  europeanPoliticalRegion({
+    code: "GR",
+    countryLabel: "Greece",
+    center: [22.2, 39.0],
+    liveMarketSlug: "next-prime-minister-of-greece-20260714160853421",
+    liveMarketSlugs: ["next-prime-minister-of-greece-20260714160853421"],
+    zoom: 7
+  }),
+  europeanPoliticalRegion({
+    code: "RS",
+    countryLabel: "Serbia",
+    center: [20.8, 44.0],
+    liveMarketSlug: "next-serbia-presidential-election-winner-20260629192336823",
+    liveMarketSlugs: [
+      "next-serbia-presidential-election-winner-20260629192336823",
+      "next-prime-minister-of-serbia-20260629223938642",
+      "serbia-parliament-dissolved-by-20260629164744649"
+    ],
+    zoom: 8
+  }),
+  europeanPoliticalRegion({
+    code: "BG",
+    countryLabel: "Bulgaria",
+    center: [25.3, 42.7],
+    liveMarketSlug: "bulgaria-presidential-election",
+    liveMarketSlugs: ["bulgaria-presidential-election"],
+    zoom: 8
+  }),
   {
     code: "LDN",
     countryCode: "GB",
@@ -999,6 +1189,25 @@ export function getRegionMarketPairLabel(region: RegionMarket) {
     .join(" ");
 }
 
+export function getRegionPolymarketSlugs(
+  region: RegionMarket | null | undefined
+) {
+  if (!region) return [];
+  return [
+    ...new Set(
+      [region.liveMarketSlug, ...(region.liveMarketSlugs ?? [])].filter(
+        (slug): slug is string => Boolean(slug)
+      )
+    )
+  ];
+}
+
+export function getConfiguredPolymarketSlugs() {
+  return [
+    ...new Set(REGION_MARKETS.flatMap((region) => getRegionPolymarketSlugs(region)))
+  ];
+}
+
 export function getRegionKalshiEventTickers(
   region: RegionMarket | null | undefined
 ) {
@@ -1017,9 +1226,10 @@ export function marketMatchesRegion(
     return false;
   }
 
-  if (!region.liveMarketSlug) {
+  const slugs = getRegionPolymarketSlugs(region);
+  if (!slugs.length) {
     return false;
   }
 
-  return market.slug === region.liveMarketSlug || market.eventSlug === region.liveMarketSlug;
+  return slugs.includes(market.slug) || Boolean(market.eventSlug && slugs.includes(market.eventSlug));
 }

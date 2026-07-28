@@ -1,11 +1,97 @@
+import asyncio
 import unittest
 
 from app.services import polymarket as polymarket_service
 
 
 class PolymarketSummaryTestCase(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        polymarket_service.json_response_cache.clear()
+
+    def test_json_cache_honors_fresh_and_stale_windows(self) -> None:
+        cache = polymarket_service.JsonResponseCache()
+        cache.put("market", {"price": 0.62}, now=100.0)
+
+        self.assertEqual(cache.get("market", 300, now=399.0), {"price": 0.62})
+        self.assertIsNone(cache.get("market", 300, now=401.0))
+        self.assertEqual(cache.get("market", 3900, now=4000.0), {"price": 0.62})
+        self.assertIsNone(cache.get("market", 3900, now=4001.0))
+
+    async def test_fetch_json_serves_stale_market_during_upstream_failure(self) -> None:
+        url = "https://gamma.example/events/slug/test-market"
+        cached_payload = {"slug": "test-market", "price": 0.62}
+        polymarket_service.json_response_cache.put(url, cached_payload)
+
+        class FailingResponse:
+            status_code = 503
+            text = "temporarily unavailable"
+
+        class FailingClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_):
+                return None
+
+            async def get(self, *_args, **_kwargs):
+                return FailingResponse()
+
+        original_client = polymarket_service.httpx.AsyncClient
+        polymarket_service.httpx.AsyncClient = lambda **_kwargs: FailingClient()
+        try:
+            result = await polymarket_service.fetch_json(
+                url,
+                cache_ttl_seconds=0,
+                stale_if_error_seconds=3600,
+            )
+        finally:
+            polymarket_service.httpx.AsyncClient = original_client
+
+        self.assertEqual(result, cached_payload)
+
+    async def test_fetch_json_coalesces_concurrent_cache_misses(self) -> None:
+        url = "https://gamma.example/events/slug/shared-market"
+        request_count = 0
+
+        class SuccessfulResponse:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                return {"slug": "shared-market"}
+
+        class CountingClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_):
+                return None
+
+            async def get(self, *_args, **_kwargs):
+                nonlocal request_count
+                request_count += 1
+                await asyncio.sleep(0.01)
+                return SuccessfulResponse()
+
+        original_client = polymarket_service.httpx.AsyncClient
+        polymarket_service.httpx.AsyncClient = lambda **_kwargs: CountingClient()
+        try:
+            results = await asyncio.gather(
+                *[
+                    polymarket_service.fetch_json(url, cache_ttl_seconds=30)
+                    for _ in range(20)
+                ]
+            )
+        finally:
+            polymarket_service.httpx.AsyncClient = original_client
+
+        self.assertEqual(request_count, 1)
+        self.assertTrue(
+            all(result == {"slug": "shared-market"} for result in results)
+        )
+
     async def test_fetch_trades_supports_global_recent_feed(self) -> None:
-        async def fake_fetch_json(url: str):
+        async def fake_fetch_json(url: str, **_kwargs):
             self.assertIn("/trades?limit=40&takerOnly=true", url)
             self.assertNotIn("&market=", url)
             return [{"transactionHash": "0xtrade"}]

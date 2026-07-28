@@ -20,7 +20,7 @@ import {
   qualifiesByVolume
 } from "@/components/maps/marketVolume";
 import type { RegionMarket } from "@/components/maps/spotlightStates";
-import type { VenueMarketSummary } from "@/types/market";
+import type { MarketSnapshot, VenueMarketSummary } from "@/types/market";
 import type { RegionSignal } from "@/types/signals";
 import { relativeTime } from "@/utils/time";
 import { filterWatchedRegions } from "@/components/maps/signalWatchlist";
@@ -36,6 +36,7 @@ type AbnormalActivityFeedProps = {
   minimumScore: number;
   minimumVolume: ActivityVolumeThreshold;
   kalshiMarkets: VenueMarketSummary[];
+  polymarketMarkets: MarketSnapshot[];
   signalKind: ActivitySignalFilter;
   maxAgeHours: ActivityTimeWindow;
   countryCode: string;
@@ -97,6 +98,7 @@ export function AbnormalActivityFeed({
   minimumScore,
   minimumVolume,
   kalshiMarkets,
+  polymarketMarkets,
   signalKind,
   maxAgeHours,
   countryCode,
@@ -129,7 +131,11 @@ export function AbnormalActivityFeed({
         }
       ).map((item) => ({
         ...item,
-        volume: getRegionMarketVolume(item.region, kalshiMarkets)
+        volume: getRegionMarketVolume(
+          item.region,
+          kalshiMarkets,
+          polymarketMarkets
+        )
       }));
 
       return ranked
@@ -161,6 +167,7 @@ export function AbnormalActivityFeed({
     [
       countryCode,
       kalshiMarkets,
+      polymarketMarkets,
       maxAgeHours,
       minimumScore,
       minimumVolume,
@@ -253,7 +260,7 @@ export function AbnormalActivityFeed({
           <div
             className="flex divide-x divide-slate-200 overflow-hidden rounded-md border border-slate-200"
             role="group"
-            aria-label="Minimum Kalshi volume"
+            aria-label="Minimum market volume"
           >
             {VOLUME_THRESHOLDS.map((threshold) => {
               const isActive = threshold.value === minimumVolume;

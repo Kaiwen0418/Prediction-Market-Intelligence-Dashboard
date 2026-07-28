@@ -26,7 +26,9 @@ export function useMarketData(options: UseMarketDataOptions = {}) {
       return strictFeaturedMarket ? getFeaturedMarketStrict() : getFeaturedMarket();
     },
     initialData: initialFeaturedMarket ?? undefined,
-    placeholderData: (previous) => previous
+    staleTime: 5 * 60_000,
+    gcTime: 60 * 60_000,
+    retry: 2
   });
 
   const historicalSeriesQuery = useQuery({

@@ -36,6 +36,17 @@ Environment variables:
 - `FEATURED_MARKET_SLUG=california-governor-election-2026`
 - `DATA_API_BASE_URL=https://data-api.polymarket.com`
 - `POLYMARKET_WS_URL=wss://ws-subscriptions-clob.polymarket.com/ws/market`
+- `POLYMARKET_MARKET_CACHE_TTL_SECONDS=300`
+- `POLYMARKET_ORDERBOOK_CACHE_TTL_SECONDS=2`
+- `POLYMARKET_TRADES_CACHE_TTL_SECONDS=3`
+- `POLYMARKET_HISTORY_CACHE_TTL_SECONDS=300`
+- `POLYMARKET_REALTIME_STALE_IF_ERROR_SECONDS=15`
+- `POLYMARKET_MARKET_STALE_IF_ERROR_SECONDS=3600`
+- `KALSHI_BASE_URL=https://external-api.kalshi.com/trade-api/v2`
+- `KALSHI_EVENT_CACHE_TTL_SECONDS=15`
+- `KALSHI_ANALYTICS_CACHE_TTL_SECONDS=10`
+- `KALSHI_HISTORY_CACHE_TTL_SECONDS=300`
+- `KALSHI_STALE_IF_ERROR_SECONDS=300`
 - `LIVE_STREAM_ENABLED=true`
 - `LIVE_STREAM_INITIAL_DUMP=true`
 - `LIVE_STREAM_MAX_MARKETS=6`
@@ -47,11 +58,14 @@ Environment variables:
 ## Current endpoints
 
 - `GET /health`
+- `GET /api/polymarket/events`
 - `GET /api/polymarket/featured-market`
 - `GET /api/polymarket/orderbook`
 - `GET /api/polymarket/price-history`
 - `GET /api/polymarket/trades`
 - `GET /api/polymarket/market-context`
+- `GET /api/kalshi/events`
+- `GET /api/kalshi/analytics`
 - `GET /api/live/status`
 - `GET /api/live/market-snapshot`
 - `GET /api/live/replay`
@@ -62,6 +76,11 @@ The live-stream registry is bounded and self-cleaning:
 - the featured slug is kept warm
 - additional slug streams are evicted when the registry exceeds `LIVE_STREAM_MAX_MARKETS`
 - idle non-featured streams are removed after `LIVE_STREAM_IDLE_TTL_SECONDS`
+
+REST venue reads use a shared in-process cache with per-key single-flight
+coalescing. Concurrent browser requests for the same expired key produce one
+upstream request. Use one Railway replica with this cache; move it to Redis
+before adding replicas.
 
 Live status metadata now includes:
 

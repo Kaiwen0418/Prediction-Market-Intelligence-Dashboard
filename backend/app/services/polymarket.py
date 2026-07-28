@@ -1,9 +1,12 @@
 import asyncio
 import json
 import re
+import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
+from weakref import WeakValueDictionary
 
 import httpx
 from fastapi import HTTPException
@@ -35,16 +38,125 @@ from app.analytics.whale_activity import (
 WALLET_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
 
-async def fetch_json(url: str) -> Any:
+@dataclass(frozen=True)
+class CachedJsonResponse:
+    payload: Any
+    stored_at: float
+
+
+class JsonResponseCache:
+    def __init__(self) -> None:
+        self._entries: dict[str, CachedJsonResponse] = {}
+        self._locks: WeakValueDictionary[str, asyncio.Lock] = (
+            WeakValueDictionary()
+        )
+
+    def get(self, url: str, max_age_seconds: float, now: float | None = None) -> Any | None:
+        entry = self._entries.get(url)
+        if entry is None:
+            return None
+        current_time = time.monotonic() if now is None else now
+        if current_time - entry.stored_at > max_age_seconds:
+            return None
+        return entry.payload
+
+    def put(self, url: str, payload: Any, now: float | None = None) -> None:
+        if len(self._entries) >= 2_048 and url not in self._entries:
+            oldest_url = min(
+                self._entries,
+                key=lambda key: self._entries[key].stored_at,
+            )
+            self._entries.pop(oldest_url, None)
+        self._entries[url] = CachedJsonResponse(
+            payload=payload,
+            stored_at=time.monotonic() if now is None else now,
+        )
+
+    def clear(self) -> None:
+        self._entries.clear()
+        self._locks.clear()
+
+    def lock_for(self, url: str) -> asyncio.Lock:
+        lock = self._locks.get(url)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[url] = lock
+        return lock
+
+
+json_response_cache = JsonResponseCache()
+
+
+async def fetch_json(
+    url: str,
+    cache_ttl_seconds: int = 0,
+    stale_if_error_seconds: int = 0,
+) -> Any:
+    if cache_ttl_seconds > 0:
+        cached = json_response_cache.get(url, cache_ttl_seconds)
+        if cached is not None:
+            return cached
+
+        async with json_response_cache.lock_for(url):
+            cached = json_response_cache.get(url, cache_ttl_seconds)
+            if cached is not None:
+                return cached
+            return await _fetch_json_upstream(
+                url,
+                cache_ttl_seconds,
+                stale_if_error_seconds,
+            )
+
+    return await _fetch_json_upstream(
+        url,
+        cache_ttl_seconds,
+        stale_if_error_seconds,
+    )
+
+
+async def _fetch_json_upstream(
+    url: str,
+    cache_ttl_seconds: int,
+    stale_if_error_seconds: int,
+) -> Any:
     settings = get_settings()
     timeout = httpx.Timeout(settings.request_timeout_seconds)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        response = await client.get(url, headers={"Accept": "application/json"})
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, headers={"Accept": "application/json"})
 
-    if response.status_code >= 400:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
 
-    return response.json()
+        payload = response.json()
+        if cache_ttl_seconds > 0:
+            json_response_cache.put(url, payload)
+        return payload
+    except HTTPException as error:
+        can_use_stale = error.status_code == 429 or error.status_code >= 500
+        stale = (
+            json_response_cache.get(
+                url,
+                cache_ttl_seconds + stale_if_error_seconds,
+            )
+            if can_use_stale and stale_if_error_seconds > 0
+            else None
+        )
+        if stale is not None:
+            return stale
+        raise
+    except httpx.HTTPError as error:
+        stale = (
+            json_response_cache.get(
+                url,
+                cache_ttl_seconds + stale_if_error_seconds,
+            )
+            if stale_if_error_seconds > 0
+            else None
+        )
+        if stale is not None:
+            return stale
+        raise HTTPException(status_code=502, detail="Upstream market request failed") from error
 
 
 async def fetch_featured_market(slug: str | None = None) -> Any:
@@ -55,10 +167,44 @@ async def fetch_featured_market(slug: str | None = None) -> Any:
 
     by_slug_url = f"{settings.gamma_base_url}/events/slug/{quote(selected_slug, safe='')}"
     try:
-        return await fetch_json(by_slug_url)
+        return await fetch_json(
+            by_slug_url,
+            cache_ttl_seconds=settings.polymarket_market_cache_ttl_seconds,
+            stale_if_error_seconds=settings.polymarket_market_stale_if_error_seconds,
+        )
     except HTTPException:
         fallback_url = f"{settings.gamma_base_url}/events?slug={quote(selected_slug, safe='')}"
-        return await fetch_json(fallback_url)
+        return await fetch_json(
+            fallback_url,
+            cache_ttl_seconds=settings.polymarket_market_cache_ttl_seconds,
+            stale_if_error_seconds=settings.polymarket_market_stale_if_error_seconds,
+        )
+
+
+async def fetch_market_events(slugs: list[str]) -> list[Any]:
+    settings = get_settings()
+    normalized_slugs = list(
+        dict.fromkeys(slug.strip() for slug in slugs if slug.strip())
+    )[:100]
+    if not normalized_slugs:
+        raise HTTPException(status_code=400, detail="slugs are required")
+    if any(len(slug) > 220 for slug in normalized_slugs):
+        raise HTTPException(status_code=400, detail="invalid market slug")
+
+    query = urlencode(
+        [
+            *[("slug", slug) for slug in normalized_slugs],
+            ("closed", "false"),
+            ("limit", str(len(normalized_slugs))),
+        ]
+    )
+    payload = await fetch_json(
+        f"{settings.gamma_base_url}/events/keyset?{query}",
+        cache_ttl_seconds=settings.polymarket_market_cache_ttl_seconds,
+        stale_if_error_seconds=settings.polymarket_market_stale_if_error_seconds,
+    )
+    events = payload.get("events", []) if isinstance(payload, dict) else []
+    return events if isinstance(events, list) else []
 
 
 async def fetch_orderbook(token_id: str) -> Any:
@@ -66,7 +212,11 @@ async def fetch_orderbook(token_id: str) -> Any:
     if not token_id.strip():
         raise HTTPException(status_code=400, detail="tokenId is required")
     url = f"{settings.clob_base_url}/book?token_id={quote(token_id, safe='')}"
-    return await fetch_json(url)
+    return await fetch_json(
+        url,
+        cache_ttl_seconds=settings.polymarket_orderbook_cache_ttl_seconds,
+        stale_if_error_seconds=settings.polymarket_realtime_stale_if_error_seconds,
+    )
 
 
 async def fetch_price_history(market: str) -> Any:
@@ -74,7 +224,11 @@ async def fetch_price_history(market: str) -> Any:
     if not market.strip():
         raise HTTPException(status_code=400, detail="market is required")
     url = f"{settings.clob_base_url}/prices-history?interval=all&market={quote(market, safe='')}&fidelity=720"
-    return await fetch_json(url)
+    return await fetch_json(
+        url,
+        cache_ttl_seconds=settings.polymarket_history_cache_ttl_seconds,
+        stale_if_error_seconds=settings.polymarket_market_stale_if_error_seconds,
+    )
 
 
 async def fetch_trades(condition_id: str | None = None, limit: int = 100) -> Any:
@@ -86,7 +240,11 @@ async def fetch_trades(condition_id: str | None = None, limit: int = 100) -> Any
         else ""
     )
     url = f"{settings.data_api_base_url}/trades?limit={safe_limit}&takerOnly=true{market_query}"
-    return await fetch_json(url)
+    return await fetch_json(
+        url,
+        cache_ttl_seconds=settings.polymarket_trades_cache_ttl_seconds,
+        stale_if_error_seconds=settings.polymarket_realtime_stale_if_error_seconds,
+    )
 
 
 def _as_number(value: Any, fallback: float = 0.0) -> float:

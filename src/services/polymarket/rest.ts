@@ -62,6 +62,58 @@ async function requestJson<T>(url: string): Promise<T> {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export async function fetchPolymarketEventsBySlugs(
+  slugs: string[]
+): Promise<MarketSnapshot[]> {
+  const uniqueSlugs = [...new Set(slugs)].sort().slice(0, 50);
+  if (!uniqueSlugs.length) return [];
+
+  const path = `/api/polymarket/events?slugs=${encodeURIComponent(
+    uniqueSlugs.join(",")
+  )}`;
+  const urls = [withApiBase(path), path].filter(
+    (url, index, all) => all.indexOf(url) === index
+  );
+
+  for (const url of urls) {
+    try {
+      const payload = await requestJson<unknown>(url);
+      const normalizedMarkets =
+        isRecord(payload) && Array.isArray(payload.markets)
+          ? payload.markets.filter(
+              (market): market is MarketSnapshot =>
+                isRecord(market) &&
+                typeof market.marketId === "string" &&
+                typeof market.slug === "string" &&
+                typeof market.title === "string" &&
+                typeof market.probability === "number" &&
+                typeof market.updatedAt === "string"
+            )
+          : [];
+      if (normalizedMarkets.length) return normalizedMarkets;
+
+      const events =
+        isRecord(payload) && Array.isArray(payload.events)
+          ? payload.events
+          : Array.isArray(payload)
+            ? payload
+            : [];
+      const markets = events
+        .map((event) => normalizeGammaEvent(event))
+        .filter((market): market is MarketSnapshot => market !== null);
+      if (markets.length) return markets;
+    } catch {
+      continue;
+    }
+  }
+
+  return [];
+}
+
 function pickFeaturedMarket(markets: unknown[]): MarketSnapshot | null {
   for (const market of markets) {
     const normalized = normalizeGammaMarket(market);
@@ -79,14 +131,25 @@ export async function fetchEventMarketBySlug(
     return null;
   }
 
-  const url = withApiBase(`/api/polymarket/featured-market?slug=${encodeURIComponent(slug)}`);
-  const payload = await requestJson<unknown>(url);
-  const payloadIssue = validateGammaEventPayload(payload);
-  if (payloadIssue) {
-    return null;
+  const path = `/api/polymarket/featured-market?slug=${encodeURIComponent(slug)}`;
+  const urls = [withApiBase(path), path].filter(
+    (url, index, all) => all.indexOf(url) === index
+  );
+
+  for (const url of urls) {
+    try {
+      const payload = await requestJson<unknown>(url);
+      const payloadIssue = validateGammaEventPayload(payload);
+      if (payloadIssue) continue;
+
+      const market = normalizeGammaEvent(payload, preferredOutcomeLabels);
+      if (market) return market;
+    } catch {
+      continue;
+    }
   }
 
-  return normalizeGammaEvent(payload, preferredOutcomeLabels);
+  return null;
 }
 
 export async function fetchFeaturedMarketLive(): Promise<MarketSnapshot | null> {

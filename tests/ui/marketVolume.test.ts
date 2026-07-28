@@ -35,6 +35,7 @@ const markets: VenueMarketSummary[] = [
   {
     venue: "Kalshi",
     eventTicker: "KXTEST-OH",
+    marketTicker: "KXTEST-OH-YES",
     seriesTicker: "KXTEST",
     title: "Ohio election",
     outcomeLabel: "Republican",
@@ -69,8 +70,8 @@ test("polygon opacity increases continuously with market volume", () => {
   assert.ok(getMarketVolumeOpacity(null) > low);
 });
 
-test("volume does not replace signal eligibility for comparable markets", () => {
-  assert.equal(qualifiesByVolume(comparableRegion, 12_500, 1_000), false);
+test("volume eligibility applies consistently across venues", () => {
+  assert.equal(qualifiesByVolume(comparableRegion, 12_500, 1_000), true);
 });
 
 test("score All does not bypass volume eligibility for an unscored Kalshi-only market", () => {

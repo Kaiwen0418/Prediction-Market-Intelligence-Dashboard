@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     data_api_base_url: str = "https://data-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"
+    kalshi_base_url: str = "https://external-api.kalshi.com/trade-api/v2"
     featured_market_slug: str = "california-governor-election-2026"
     polymarket_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
     live_stream_enabled: bool = True
@@ -25,11 +26,22 @@ class Settings(BaseSettings):
         ]
     )
     request_timeout_seconds: float = 8.0
+    polymarket_market_cache_ttl_seconds: int = 300
+    polymarket_market_stale_if_error_seconds: int = 3600
+    polymarket_orderbook_cache_ttl_seconds: int = 2
+    polymarket_trades_cache_ttl_seconds: int = 3
+    polymarket_history_cache_ttl_seconds: int = 300
+    polymarket_realtime_stale_if_error_seconds: int = 15
+    kalshi_event_cache_ttl_seconds: int = 15
+    kalshi_analytics_cache_ttl_seconds: int = 10
+    kalshi_history_cache_ttl_seconds: int = 300
+    kalshi_stale_if_error_seconds: int = 300
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
 

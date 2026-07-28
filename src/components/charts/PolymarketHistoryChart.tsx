@@ -10,6 +10,7 @@ import { ReactECharts } from "./ChartContainer";
 type PolymarketHistoryChartProps = {
   events?: TimelineEvent[];
   series: TimePoint[];
+  venueName?: string;
 };
 
 type AnnotationPlacement = {
@@ -84,7 +85,11 @@ function buildAnnotations(series: TimePoint[], events: TimelineEvent[]): Annotat
   });
 }
 
-export function PolymarketHistoryChart({ events = [], series }: PolymarketHistoryChartProps) {
+export function PolymarketHistoryChart({
+  events = [],
+  series,
+  venueName = "Polymarket"
+}: PolymarketHistoryChartProps) {
   const { theme } = useTheme();
   const chartInstanceRef = useRef<any>(null);
   const [annotationPositions, setAnnotationPositions] = useState<Record<string, OverlayPosition>>({});
@@ -144,7 +149,7 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
       },
       series: [
         {
-          name: "Polymarket Price",
+          name: `${venueName} Price`,
           type: "line",
           smooth: 0.22,
           symbol: "circle",
@@ -158,12 +163,15 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
     };
 
     return {
-      annotations: buildAnnotations(sortedSeries, events),
+      annotations:
+        events.length || venueName === "Polymarket"
+          ? buildAnnotations(sortedSeries, events)
+          : [],
       leaderColor,
       option,
       textColor
     };
-  }, [events, sortedSeries, theme]);
+  }, [events, sortedSeries, theme, venueName]);
 
   useEffect(() => {
     const updateOverlayPositions = () => {
@@ -205,7 +213,10 @@ export function PolymarketHistoryChart({ events = [], series }: PolymarketHistor
   return (
     <div className="relative w-full">
       {/* Desktop: callout band sits above the chart so cards never collide with the price line */}
-      <div className="relative hidden w-full md:block" style={{ height: 132 }}>
+      <div
+        className="relative hidden w-full md:block"
+        style={{ height: annotationCount ? 132 : 0 }}
+      >
         {chartModel.annotations.map((annotation, index) => {
           const isFirst = index === 0;
           const isLast = index === annotationCount - 1;

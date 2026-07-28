@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kalshiConfig } from "@/services/kalshi/config";
 
-export const revalidate = 5;
+export const revalidate = 15;
 
 export async function GET(request: NextRequest) {
   const tickers = [
@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
       headers: {
         "Content-Type":
           response.headers.get("content-type") ?? "application/json",
-        "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15"
+        "Cache-Control":
+          "public, s-maxage=15, stale-while-revalidate=60, stale-if-error=300"
       }
     });
   } catch {

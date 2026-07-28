@@ -9,8 +9,10 @@ import {
 import type { RegionSignal } from "@/types/signals";
 import {
   getCountryMarketMaps,
+  getConfiguredPolymarketSlugs,
   getRegionMarketsByCountry,
   getRegionMarketPairLabel,
+  getRegionPolymarketSlugs,
   marketMatchesRegion,
   type RegionMarket
 } from "@/components/maps/spotlightStates";
@@ -106,6 +108,43 @@ test("configured conflict markets use selectable national polygons without synth
     assert.ok(nationalRegion.liveMarketSlug);
     assert.ok(regions.every((region) => region.signal.score === 0));
   }
+});
+
+test("European registry exposes multiple live election pairs by country", () => {
+  const expectedCountries = [
+    "FR",
+    "DE",
+    "ES",
+    "IT",
+    "RO",
+    "HU",
+    "SE",
+    "GR",
+    "RS",
+    "BG"
+  ];
+  const configuredCountries = new Set(
+    getCountryMarketMaps().map((country) => country.code)
+  );
+
+  expectedCountries.forEach((countryCode) => {
+    assert.ok(configuredCountries.has(countryCode));
+    assert.ok(
+      getRegionPolymarketSlugs(
+        getRegionMarketsByCountry(countryCode)[0]
+      ).length
+    );
+  });
+  assert.ok(
+    getRegionPolymarketSlugs(getRegionMarketsByCountry("FR")[0]).length >= 3
+  );
+  assert.ok(
+    getRegionPolymarketSlugs(getRegionMarketsByCountry("RO")[0]).length >= 4
+  );
+  assert.equal(
+    new Set(getConfiguredPolymarketSlugs()).size,
+    getConfiguredPolymarketSlugs().length
+  );
 });
 
 test("Ukraine exposes oblast-linked locality contracts", () => {
@@ -301,6 +340,12 @@ test("country adapters expose distinct configured region identifiers", () => {
       "ES",
       "IT",
       "IS",
+      "RO",
+      "HU",
+      "SE",
+      "GR",
+      "RS",
+      "BG",
       "UA",
       "RU",
       "IL",

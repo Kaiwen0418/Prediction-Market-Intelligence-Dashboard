@@ -32,6 +32,7 @@ export type MarketSnapshot = {
 export type VenueMarketSummary = {
   venue: "Kalshi";
   eventTicker: string;
+  marketTicker: string;
   seriesTicker: string;
   title: string;
   outcomeLabel?: string;
@@ -43,6 +44,15 @@ export type VenueMarketSummary = {
   resolutionSource?: string;
   url: string;
   updatedAt: string;
+};
+
+export type KalshiMarketAnalytics = {
+  venue: "Kalshi";
+  market: MarketSnapshot;
+  orderbook: OrderbookState;
+  orderbookSummary: OrderbookSummary;
+  marketSeries: TimePoint[];
+  replay: LiveReplay;
 };
 
 export type OrderbookLevel = {
