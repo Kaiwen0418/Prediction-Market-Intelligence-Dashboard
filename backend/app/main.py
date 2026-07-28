@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_analytics import router as analytics_router
 from app.api.routes_live import router as live_router
+from app.api.routes_kalshi import router as kalshi_router
 from app.api.routes_polymarket import router as polymarket_router
 from app.api.routes_research import router as research_router
 from app.api.routes_signals import router as signals_router
@@ -41,6 +42,7 @@ app.add_middleware(
 )
 
 app.include_router(polymarket_router)
+app.include_router(kalshi_router)
 app.include_router(analytics_router)
 app.include_router(research_router)
 app.include_router(live_router)

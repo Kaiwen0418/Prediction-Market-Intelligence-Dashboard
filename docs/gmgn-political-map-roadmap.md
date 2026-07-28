@@ -422,6 +422,40 @@ Status: complete
 - [x] Use separate selectable town markers where multiple contracts share one oblast.
 - [x] Keep locality anomaly scores at zero until conflict-specific analytics are connected.
 
+### Phase 28: Kalshi Market Analytics
+
+Status: complete
+
+- [x] Load public Kalshi order books, recent trades, and hourly price candles.
+- [x] Normalize Kalshi depth, spread, imbalance, flow, volatility, and movement into the shared analytics model.
+- [x] Detect unusually large public prints using median-size and executable-depth thresholds.
+- [x] Render Kalshi depth, market snapshot, flow evidence, history, and replay in the existing market rail.
+- [x] Cache short-lived analytics responses and tolerate partial upstream failures.
+- [x] Keep wallet concentration and trader reputation unavailable because public Kalshi trades do not expose wallet identities.
+
+### Phase 29: European Market Discovery and Shared Venue Cache
+
+Status: complete
+
+- [x] Expand European election coverage to Romania, Hungary, Sweden, Greece, Serbia, and Bulgaria.
+- [x] Show multiple verified-open Polymarket election and government pairs per supported country.
+- [x] Batch configured event discovery through one cursor-compatible Gamma request.
+- [x] Cache event discovery and history for five minutes with stale serving during upstream failures.
+- [x] Cache high-fanout order-book and trade reads for short windows at the server and CDN layers.
+- [x] Share Kalshi event and analytics responses instead of forwarding every browser poll upstream.
+- [x] Keep WebSocket and short-lived depth data responsive while preventing per-client REST amplification.
+
+### Phase 30: Railway Venue Aggregation
+
+Status: complete
+
+- [x] Add Railway-native batched Polymarket event discovery.
+- [x] Add Railway-native Kalshi event, order-book, trade, and candle aggregation.
+- [x] Route frontend venue reads through Railway before the Vercel fallback.
+- [x] Coalesce concurrent cache misses into one upstream request per venue key.
+- [x] Preserve short cache windows for live data and longer windows for history.
+- [x] Verify that twenty concurrent readers produce one upstream request.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -468,3 +502,6 @@ Status: complete
 - [x] Surface Kalshi-only markets on the map and ranking through an optional volume filter.
 - [x] Add verified-open Middle East and Russia-Ukraine conflict markets to the world map.
 - [x] Add Ukraine oblast context and selectable locality-level war markets.
+- [x] Bring public Kalshi market analytics to parity with the Polymarket evidence views.
+- [x] Expand and batch European Polymarket coverage behind shared venue caches.
+- [x] Make Railway the primary shared data plane for both venues.

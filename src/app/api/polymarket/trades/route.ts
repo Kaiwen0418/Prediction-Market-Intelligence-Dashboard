@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { polymarketConfig } from "@/services/polymarket/config";
 import { proxyJson, validateProxyBaseUrls } from "../_lib/proxy";
 
-export const revalidate = 1;
+export const revalidate = 3;
 
 export async function GET(request: NextRequest) {
   const baseUrlError = validateProxyBaseUrls();
@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
     conditionId ? `&market=${encodeURIComponent(conditionId)}` : ""
   }`;
   try {
-    return await proxyJson(url);
+    return await proxyJson(url, {
+      revalidateSeconds: 3,
+      staleIfErrorSeconds: 15
+    });
   } catch {
     return NextResponse.json({ error: "Trades proxy request failed" }, { status: 502 });
   }

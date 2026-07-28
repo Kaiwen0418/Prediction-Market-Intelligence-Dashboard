@@ -8,7 +8,8 @@ export function useMarketContext(slug?: string, enabled = true) {
     queryKey: ["market-context", slug ?? "default"],
     queryFn: () => fetchMarketContextLive(slug),
     enabled,
-    placeholderData: (previous) => previous,
-    refetchInterval: 30_000
+    refetchInterval: 30_000,
+    staleTime: 60_000,
+    gcTime: 15 * 60_000
   });
 }

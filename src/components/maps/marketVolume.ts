@@ -1,5 +1,8 @@
-import type { RegionMarket } from "@/components/maps/spotlightStates";
-import type { VenueMarketSummary } from "@/types/market";
+import {
+  getRegionPolymarketSlugs,
+  type RegionMarket
+} from "@/components/maps/spotlightStates";
+import type { MarketSnapshot, VenueMarketSummary } from "@/types/market";
 
 export const KALSHI_VOLUME_COLOR = "#3f7f6b";
 const MINIMUM_MARKET_VOLUME_OPACITY = 0.24;
@@ -9,15 +12,27 @@ const VOLUME_OPACITY_CEILING = 500_000;
 
 export function getRegionMarketVolume(
   region: RegionMarket,
-  kalshiMarkets: VenueMarketSummary[]
+  kalshiMarkets: VenueMarketSummary[],
+  polymarketMarkets: MarketSnapshot[] = []
 ) {
-  if (!region.kalshiEventTicker) return null;
+  const polymarketSlugs = getRegionPolymarketSlugs(region);
+  const polymarketVolume = polymarketMarkets
+    .filter(
+      (market) =>
+        polymarketSlugs.includes(market.slug) ||
+        Boolean(
+          market.eventSlug && polymarketSlugs.includes(market.eventSlug)
+        )
+    )
+    .reduce((sum, market) => sum + market.volume24h, 0);
+  const kalshiVolume = region.kalshiEventTicker
+    ? kalshiMarkets.find(
+        (market) => market.eventTicker === region.kalshiEventTicker
+      )?.volume24h ?? 0
+    : 0;
+  const totalVolume = polymarketVolume + kalshiVolume;
 
-  return (
-    kalshiMarkets.find(
-      (market) => market.eventTicker === region.kalshiEventTicker
-    )?.volume24h ?? null
-  );
+  return totalVolume > 0 ? totalVolume : null;
 }
 
 export function qualifiesByVolume(
@@ -26,7 +41,6 @@ export function qualifiesByVolume(
   minimumVolume: number
 ) {
   return (
-    !region.liveMarketSlug &&
     volume24h !== null &&
     (minimumVolume === 0 || volume24h >= minimumVolume)
   );

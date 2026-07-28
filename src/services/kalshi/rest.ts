@@ -1,7 +1,13 @@
 import { withApiBase } from "@/services/api/base";
-import type { VenueMarketSummary } from "@/types/market";
+import type {
+  KalshiMarketAnalytics,
+  VenueMarketSummary
+} from "@/types/market";
 import { kalshiConfig } from "./config";
-import { normalizeKalshiEvents } from "./normalizers";
+import {
+  normalizeKalshiAnalytics,
+  normalizeKalshiEvents
+} from "./normalizers";
 
 export async function fetchKalshiEvents(
   eventTickers: string[]
@@ -21,7 +27,7 @@ export async function fetchKalshiEvents(
       const path = `/api/kalshi/events?tickers=${encodeURIComponent(
         batch.join(",")
       )}`;
-      const urls = [path, withApiBase(path)].filter(
+      const urls = [withApiBase(path), path].filter(
         (url, index, all) => all.indexOf(url) === index
       );
 
@@ -53,4 +59,49 @@ export async function fetchKalshiEvents(
   );
 
   return results.flat();
+}
+
+export async function fetchKalshiAnalytics(
+  market: VenueMarketSummary
+): Promise<KalshiMarketAnalytics | null> {
+  if (
+    !/^[A-Z0-9-]{2,100}$/.test(market.marketTicker) ||
+    !/^[A-Z0-9-]{2,100}$/.test(market.seriesTicker)
+  ) {
+    return null;
+  }
+
+  const path = `/api/kalshi/analytics?ticker=${encodeURIComponent(
+    market.marketTicker
+  )}&seriesTicker=${encodeURIComponent(market.seriesTicker)}`;
+  const urls = [withApiBase(path), path].filter(
+    (url, index, all) => all.indexOf(url) === index
+  );
+
+  for (const url of urls) {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      kalshiConfig.requestTimeoutMs
+    );
+
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal
+      });
+      if (!response.ok) continue;
+      const analytics = normalizeKalshiAnalytics(
+        await response.json(),
+        market
+      );
+      if (analytics) return analytics;
+    } catch {
+      continue;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return null;
 }
