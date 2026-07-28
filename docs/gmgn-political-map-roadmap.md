@@ -456,6 +456,30 @@ Status: complete
 - [x] Preserve short cache windows for live data and longer windows for history.
 - [x] Verify that twenty concurrent readers produce one upstream request.
 
+### Phase 31: Tiered Venue Monitoring
+
+Status: complete
+
+- [x] Rank each venue catalog into hot, warm, and discovery-only tiers.
+- [x] Stagger summary refreshes with bounded per-tick concurrency.
+- [x] Apply shared per-venue token buckets to every upstream REST cache miss.
+- [x] Add venue cooldowns after HTTP 429 responses.
+- [x] Reserve Polymarket WebSocket capacity for both hot and user-selected markets.
+- [x] Expose tier assignments, refresh state, errors, and rate-budget telemetry.
+
+### Phase 32: Shared Cache and Product Persistence
+
+Status: planned
+
+- [ ] Add Redis for shared venue responses, catalog snapshots, score baselines, and scheduler state.
+- [ ] Use a Redis lease so exactly one Railway replica owns catalog scans and monitoring jobs.
+- [ ] Publish refreshed snapshots through Redis so API replicas remain stateless and consistent.
+- [ ] Preserve stale venue data across Railway restarts and transient upstream failures.
+- [ ] Add PostgreSQL for users, watchlists, alert rules, notification history, and saved market views.
+- [ ] Persist historical regional scores and market snapshots for charting and anomaly backtesting.
+- [ ] Define retention, migration, backup, and restore policies before storing production user data.
+- [ ] Keep Redis optional for single-replica local development and provide deterministic in-memory fallbacks.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

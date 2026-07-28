@@ -47,6 +47,21 @@ Environment variables:
 - `KALSHI_ANALYTICS_CACHE_TTL_SECONDS=10`
 - `KALSHI_HISTORY_CACHE_TTL_SECONDS=300`
 - `KALSHI_STALE_IF_ERROR_SECONDS=300`
+- `MARKET_CATALOG_SYNC_INTERVAL_SECONDS=300`
+- `MARKET_CATALOG_STALE_IF_ERROR_SECONDS=3600`
+- `MARKET_CATALOG_PAGE_SIZE=100`
+- `MARKET_CATALOG_MAX_PAGES=20`
+- `MONITORING_ENABLED=true`
+- `MONITORING_HOT_MARKETS_PER_VENUE=20`
+- `MONITORING_WARM_MARKETS_PER_VENUE=120`
+- `MONITORING_POLYMARKET_HOT_STREAMS=3`
+- `MONITORING_HOT_REFRESH_SECONDS=15`
+- `MONITORING_WARM_REFRESH_SECONDS=60`
+- `MONITORING_MAX_REFRESHES_PER_TICK=4`
+- `POLYMARKET_REQUEST_RATE_PER_SECOND=8`
+- `POLYMARKET_REQUEST_BURST=16`
+- `KALSHI_REQUEST_RATE_PER_SECOND=8`
+- `KALSHI_REQUEST_BURST=16`
 - `LIVE_STREAM_ENABLED=true`
 - `LIVE_STREAM_INITIAL_DUMP=true`
 - `LIVE_STREAM_MAX_MARKETS=6`
@@ -66,6 +81,8 @@ Environment variables:
 - `GET /api/polymarket/market-context`
 - `GET /api/kalshi/events`
 - `GET /api/kalshi/analytics`
+- `GET /api/catalog/markets`
+- `GET /api/monitoring/status`
 - `GET /api/live/status`
 - `GET /api/live/market-snapshot`
 - `GET /api/live/replay`
@@ -81,6 +98,20 @@ REST venue reads use a shared in-process cache with per-key single-flight
 coalescing. Concurrent browser requests for the same expired key produce one
 upstream request. Use one Railway replica with this cache; move it to Redis
 before adding replicas.
+
+The market catalog scans paginated active Polymarket events and cursor-paginated
+open Kalshi events. It retains political, election, government, and geopolitical
+contracts, refreshes every five minutes, and serves one shared snapshot to all
+frontend clients. Static frontend slugs and tickers are fallback identifiers and
+geographic overrides, not the primary discovery path.
+
+The monitoring scheduler ranks each venue independently by 24-hour volume and
+liquidity. The top 20 markets are hot, the next 120 are warm, and the remaining
+catalog entries are discovery-only. Hot markets refresh every 15 seconds, warm
+markets every 60 seconds, and catalog-only markets do not generate detail
+requests. Refreshes are staggered, capped per tick, and pass through shared
+per-venue token buckets. Three hot Polymarket markets are proactively streamed,
+leaving at least two default stream slots available for user-selected contracts.
 
 Live status metadata now includes:
 

@@ -48,6 +48,7 @@ import {
   getRegionPolymarketSlugs,
   getSpotlightState,
   inferSpotlightCodeFromMarket,
+  kalshiMarketMatchesRegion,
   marketMatchesRegion
 } from "@/components/maps/spotlightStates";
 import type {
@@ -317,6 +318,9 @@ export function UsMarketMap({
   const [hoveredBoundaryLabel, setHoveredBoundaryLabel] = useState<string | null>(
     null
   );
+  const [focusedLocalityCode, setFocusedLocalityCode] = useState<string | null>(
+    null
+  );
   const [tourActive, setTourActive] = useState(false);
   const [tourIndex, setTourIndex] = useState(0);
   const [tourTransitioning, setTourTransitioning] = useState(false);
@@ -340,18 +344,15 @@ export function UsMarketMap({
         : null;
   const selectedKalshiMarkets = useMemo(
     () =>
-      kalshiMarkets.filter(
-        (kalshiMarket) =>
-          kalshiMarket.eventTicker === activeRegion?.kalshiEventTicker
+      kalshiMarkets.filter((kalshiMarket) =>
+        kalshiMarketMatchesRegion(activeRegion, kalshiMarket)
       ),
-    [activeRegion?.kalshiEventTicker, kalshiMarkets]
+    [activeRegion, kalshiMarkets]
   );
   const selectedPolymarketMarkets = useMemo(() => {
     const slugs = getRegionPolymarketSlugs(activeRegion);
-    const markets = polymarketMarkets.filter(
-      (candidate) =>
-        slugs.includes(candidate.slug) ||
-        Boolean(candidate.eventSlug && slugs.includes(candidate.eventSlug))
+    const markets = polymarketMarkets.filter((candidate) =>
+      marketMatchesRegion(activeRegion, candidate)
     );
     if (
       market.venue !== "Kalshi" &&
@@ -360,11 +361,17 @@ export function UsMarketMap({
     ) {
       markets.push(market);
     }
-    return markets.sort(
-      (left, right) =>
-        slugs.indexOf(left.eventSlug ?? left.slug) -
-        slugs.indexOf(right.eventSlug ?? right.slug)
-    );
+    return markets.sort((left, right) => {
+      const leftIndex = slugs.indexOf(left.eventSlug ?? left.slug);
+      const rightIndex = slugs.indexOf(right.eventSlug ?? right.slug);
+      if (leftIndex >= 0 || rightIndex >= 0) {
+        return (
+          (leftIndex >= 0 ? leftIndex : Number.MAX_SAFE_INTEGER) -
+          (rightIndex >= 0 ? rightIndex : Number.MAX_SAFE_INTEGER)
+        );
+      }
+      return right.volume24h - left.volume24h;
+    });
   }, [activeRegion, market, polymarketMarkets]);
 
   useEffect(() => {
@@ -772,10 +779,10 @@ export function UsMarketMap({
                             ? undefined
                             : country;
                       const fill = isSelectedCountry
-                        ? "#cbd5e1"
+                        ? "#c7c7c3"
                         : topSignal
                           ? getMarketSignalColor(topSignal.score)
-                          : "#e5e7eb";
+                          : getMarketSignalColor(null);
                       const fillOpacity = country
                         ? getMarketVolumeOpacity(
                             countrySummary?.volume24h ?? null
@@ -818,7 +825,7 @@ export function UsMarketMap({
                               cursor: countryInteractive ? "pointer" : "grab"
                             },
                             hover: {
-                              fill: countryInteractive ? fill : "#d4d4d8",
+                              fill: countryInteractive ? fill : "#cfcfcb",
                               fillOpacity,
                               outline: "none",
                               stroke: "var(--map-boundary)",
@@ -910,7 +917,7 @@ export function UsMarketMap({
                             region?.code === activeSelectedCode;
                           const fill = signal
                             ? getMarketSignalColor(signal.score)
-                            : "#e5e7eb";
+                            : getMarketSignalColor(null);
                           const fillOpacity = region
                             ? getMarketVolumeOpacity(volume)
                             : 1;
@@ -970,7 +977,7 @@ export function UsMarketMap({
                                   cursor: region ? "pointer" : "grab"
                                 },
                                 hover: {
-                                  fill: region ? fill : "#d4d4d8",
+                                  fill: region ? fill : "#cfcfcb",
                                   fillOpacity,
                                   outline: "none",
                                   stroke: "var(--map-boundary)",
@@ -1028,8 +1035,20 @@ export function UsMarketMap({
                                   selectRegion(region);
                                 }
                               }}
+                              onFocus={() => setFocusedLocalityCode(region.code)}
+                              onBlur={() => setFocusedLocalityCode(null)}
                               className="cursor-pointer"
+                              style={{ outline: "none" }}
                             >
+                              {focusedLocalityCode === region.code ? (
+                                <circle
+                                  r={7 / mapPosition.zoom}
+                                  fill="none"
+                                  stroke="var(--map-boundary)"
+                                  strokeWidth={1.5 / mapPosition.zoom}
+                                  pointerEvents="none"
+                                />
+                              ) : null}
                               <circle
                                 r={(selected ? 5 : 3.5) / mapPosition.zoom}
                                 fill={getMarketSignalColor(signal.score)}

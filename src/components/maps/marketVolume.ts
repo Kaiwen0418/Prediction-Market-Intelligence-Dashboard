@@ -1,5 +1,6 @@
 import {
-  getRegionPolymarketSlugs,
+  kalshiMarketMatchesRegion,
+  marketMatchesRegion,
   type RegionMarket
 } from "@/components/maps/spotlightStates";
 import type { MarketSnapshot, VenueMarketSummary } from "@/types/market";
@@ -15,21 +16,12 @@ export function getRegionMarketVolume(
   kalshiMarkets: VenueMarketSummary[],
   polymarketMarkets: MarketSnapshot[] = []
 ) {
-  const polymarketSlugs = getRegionPolymarketSlugs(region);
   const polymarketVolume = polymarketMarkets
-    .filter(
-      (market) =>
-        polymarketSlugs.includes(market.slug) ||
-        Boolean(
-          market.eventSlug && polymarketSlugs.includes(market.eventSlug)
-        )
-    )
+    .filter((market) => marketMatchesRegion(region, market))
     .reduce((sum, market) => sum + market.volume24h, 0);
-  const kalshiVolume = region.kalshiEventTicker
-    ? kalshiMarkets.find(
-        (market) => market.eventTicker === region.kalshiEventTicker
-      )?.volume24h ?? 0
-    : 0;
+  const kalshiVolume = kalshiMarkets
+    .filter((market) => kalshiMarketMatchesRegion(region, market))
+    .reduce((sum, market) => sum + market.volume24h, 0);
   const totalVolume = polymarketVolume + kalshiVolume;
 
   return totalVolume > 0 ? totalVolume : null;

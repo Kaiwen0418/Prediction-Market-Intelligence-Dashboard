@@ -12,6 +12,7 @@ import httpx
 from fastapi import HTTPException
 
 from app.core.config import get_settings
+from app.services.upstream_rate_limit import upstream_rate_limiter
 from app.schemas.polymarket import (
     FeaturedMarketResponse,
     LargeTradeResponse,
@@ -122,10 +123,18 @@ async def _fetch_json_upstream(
     settings = get_settings()
     timeout = httpx.Timeout(settings.request_timeout_seconds)
     try:
+        await upstream_rate_limiter.acquire_url(url)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             response = await client.get(url, headers={"Accept": "application/json"})
 
         if response.status_code >= 400:
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After", "1")
+                try:
+                    cooldown_seconds = min(max(float(retry_after), 1.0), 60.0)
+                except ValueError:
+                    cooldown_seconds = 1.0
+                upstream_rate_limiter.penalize_url(url, cooldown_seconds)
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
         payload = response.json()

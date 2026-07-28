@@ -1214,9 +1214,55 @@ export function getRegionKalshiEventTickers(
   return region?.kalshiEventTicker ? [region.kalshiEventTicker] : [];
 }
 
+const COUNTRY_DISCOVERY_ALIASES: Record<string, string[]> = {
+  US: ["united states", "u.s.", "american"],
+  GB: ["united kingdom", "britain", "british"],
+  FR: ["france", "french"],
+  DE: ["germany", "german"],
+  ES: ["spain", "spanish"],
+  IT: ["italy", "italian"],
+  IS: ["iceland", "icelandic"],
+  RO: ["romania", "romanian"],
+  HU: ["hungary", "hungarian"],
+  SE: ["sweden", "swedish"],
+  GR: ["greece", "greek"],
+  RS: ["serbia", "serbian"],
+  BG: ["bulgaria", "bulgarian"],
+  UA: ["ukraine", "ukrainian"],
+  RU: ["russia", "russian"],
+  IL: ["israel", "israeli"],
+  IR: ["iran", "iranian"],
+  LB: ["lebanon", "lebanese"],
+  PS: ["palestine", "palestinian", "gaza", "west bank"]
+};
+
+function matchesDiscoveredRegion(
+  region: RegionMarket,
+  values: Array<string | undefined>
+) {
+  const text = values.filter(Boolean).join(" ").toLowerCase();
+  const aliases =
+    region.coverage === "country"
+      ? COUNTRY_DISCOVERY_ALIASES[region.countryCode] ?? [
+          region.countryLabel.toLowerCase()
+        ]
+      : [region.label.toLowerCase()];
+  return aliases.some((alias) => {
+    const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(
+      `(^|[^a-z0-9])${escapedAlias}(?=$|[^a-z0-9])`,
+      "i"
+    ).test(text);
+  });
+}
+
 export function marketMatchesRegion(
   region: RegionMarket | null | undefined,
-  market: Pick<MarketSnapshot, "slug" | "eventSlug"> | null | undefined
+  market:
+    | (Pick<MarketSnapshot, "slug" | "eventSlug"> &
+        Partial<Pick<MarketSnapshot, "title">>)
+    | null
+    | undefined
 ) {
   if (!region) {
     return true;
@@ -1227,9 +1273,37 @@ export function marketMatchesRegion(
   }
 
   const slugs = getRegionPolymarketSlugs(region);
-  if (!slugs.length) {
-    return false;
+  if (
+    slugs.includes(market.slug) ||
+    Boolean(market.eventSlug && slugs.includes(market.eventSlug))
+  ) {
+    return true;
   }
 
-  return slugs.includes(market.slug) || Boolean(market.eventSlug && slugs.includes(market.eventSlug));
+  return matchesDiscoveredRegion(region, [
+    market.title,
+    market.slug,
+    market.eventSlug
+  ]);
+}
+
+export function kalshiMarketMatchesRegion(
+  region: RegionMarket | null | undefined,
+  market:
+    | { eventTicker: string; title: string; outcomeLabel?: string }
+    | null
+    | undefined
+) {
+  if (!region || !market) return false;
+  if (
+    region.kalshiEventTicker &&
+    market.eventTicker === region.kalshiEventTicker
+  ) {
+    return true;
+  }
+  return matchesDiscoveredRegion(region, [
+    market.title,
+    market.outcomeLabel,
+    market.eventTicker
+  ]);
 }

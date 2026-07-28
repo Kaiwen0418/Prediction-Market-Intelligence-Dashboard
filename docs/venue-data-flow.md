@@ -18,6 +18,7 @@ operate as a transparent per-browser bridge.
 
 | Data | Upstream | Shared cache | Client refresh |
 | --- | --- | --- | --- |
+| Political market catalog | Polymarket Gamma + Kalshi events | 5 minutes, 1 hour stale | 5 minutes |
 | European event registry | Polymarket Gamma | 5 minutes, 1 hour stale | 5 minutes |
 | Event details | Polymarket Gamma | 5 minutes, 1 hour stale | On selection |
 | Price history | Polymarket CLOB | 5 minutes, 1 hour stale | On selection |
@@ -27,12 +28,35 @@ operate as a transparent per-browser bridge.
 | Kalshi selected analytics | Kalshi REST | 10 seconds, 5 minutes stale | 30 seconds |
 | Kalshi candles | Kalshi REST | 5 minutes | Included in selected analytics |
 
+## Monitoring Tiers
+
+| Tier | Default size per venue | Refresh policy |
+| --- | ---: | --- |
+| Hot | 20 | 15-second shared summary refresh; top three Polymarket entries also use WebSockets |
+| Warm | 120 | 60-second shared summary refresh |
+| Catalog | Remaining markets | Five-minute catalog scan only |
+
+Markets are ranked independently per venue using logarithmically scaled
+24-hour volume and liquidity. Work is staggered across scheduler ticks with a
+four-refresh concurrency cap. All REST cache misses, including browser-driven
+selected-market reads, pass through shared Polymarket and Kalshi token buckets
+set to eight requests per second with a burst of sixteen. An upstream 429 adds a
+venue cooldown, and stale cache entries remain eligible during the outage.
+
+`GET /api/monitoring/status` exposes tier counts, the first 50 active
+assignments, next refresh times, failures, and token-bucket utilization.
+
 ## Deployment Ownership
 
 - Railway is the primary data plane for Polymarket and Kalshi event discovery,
   selected-market REST analytics, and shared Polymarket WebSocket subscriptions.
+- `GET /api/catalog/markets` paginates both venues once per synchronization
+  window, filters political contracts, and distributes the normalized source
+  snapshot to browsers. Browser count does not increase venue discovery reads.
 - Per-key single-flight locking means concurrent cache misses produce one
   upstream request inside a Railway process.
+- Tiered monitoring prevents the complete venue catalog from becoming a
+  real-time polling set.
 - Vercel API routes remain a deployment fallback, not the primary venue path.
 - Browser queries use React Query only as a local presentation cache. It is not
   the protection layer for venue limits.

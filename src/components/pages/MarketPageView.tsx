@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { PolymarketHistoryChart } from "@/components/charts/PolymarketHistoryChart";
 import { MicrostructureReplayChart } from "@/components/charts/MicrostructureReplayChart";
 import { ErrorState } from "@/components/layout/ErrorState";
@@ -24,6 +24,7 @@ import {
   getRegionMarketPairLabel,
   getRegionPolymarketSlugs,
   getSpotlightState,
+  kalshiMarketMatchesRegion,
   marketMatchesRegion
 } from "@/components/maps/spotlightStates";
 import { UsMarketMap } from "@/components/maps/UsMarketMap";
@@ -41,12 +42,14 @@ import { usePolymarketEvents } from "@/hooks/usePolymarketEvents";
 import { useRegionSignals } from "@/hooks/useRegionSignals";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
+import { useVenueCatalog } from "@/hooks/useVenueCatalog";
 import { formatTimestamp } from "@/utils/time";
 import {
   formatMarketProbability,
   getMarketDisplayTitle,
   getMarketOutcomeLabel
 } from "@/utils/marketDisplay";
+import type { MarketSnapshot, OrderbookState } from "@/types/market";
 
 type MarketPageViewProps = {
   embedded?: boolean;
@@ -57,6 +60,24 @@ const KALSHI_EVENT_TICKERS = REGION_MARKETS.flatMap((region) =>
   region.kalshiEventTicker ? [region.kalshiEventTicker] : []
 );
 const POLYMARKET_EVENT_SLUGS = getConfiguredPolymarketSlugs();
+
+function marketMatchesSlug(market: MarketSnapshot, slug: string) {
+  return market.slug === slug || market.eventSlug === slug;
+}
+
+function createPendingOrderbook(market: MarketSnapshot): OrderbookState {
+  return {
+    marketId: market.marketId,
+    tokenId: market.tokenId,
+    bids: [],
+    asks: [],
+    trades: [],
+    spread: 0,
+    midPrice: market.probability,
+    source: "live",
+    updatedAt: market.updatedAt
+  };
+}
 
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
   const [selectedCountryCode, setSelectedCountryCode] = useState("US");
@@ -133,15 +154,38 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   ]);
 
   const selectedState = getSpotlightState(selectedStateCode);
+  const venueCatalogQuery = useVenueCatalog();
+  const useCuratedVenueFallback = venueCatalogQuery.isError;
+  const polymarketEventsQuery = usePolymarketEvents(
+    POLYMARKET_EVENT_SLUGS,
+    useCuratedVenueFallback
+  );
+  const kalshiMarketsQuery = useKalshiMarkets(
+    KALSHI_EVENT_TICKERS,
+    useCuratedVenueFallback
+  );
+  const polymarketMarkets =
+    venueCatalogQuery.data?.polymarketMarkets ??
+    polymarketEventsQuery.data ??
+    [];
+  const kalshiMarkets =
+    venueCatalogQuery.data?.kalshiMarkets ?? kalshiMarketsQuery.data ?? [];
   const selectedRegionSlugs = getRegionPolymarketSlugs(selectedState);
+  const selectedDiscoveredMarket = selectedMarketSlug
+    ? polymarketMarkets.find(
+        (candidate) =>
+          marketMatchesSlug(candidate, selectedMarketSlug) &&
+          marketMatchesRegion(selectedState, candidate)
+      )
+    : null;
   const selectedSlug =
-    selectedMarketSlug && selectedRegionSlugs.includes(selectedMarketSlug)
+    selectedMarketSlug &&
+    (selectedRegionSlugs.includes(selectedMarketSlug) ||
+      selectedDiscoveredMarket)
       ? selectedMarketSlug
       : selectedState?.liveMarketSlug;
-  const polymarketEventsQuery = usePolymarketEvents(POLYMARKET_EVENT_SLUGS);
-  const kalshiMarketsQuery = useKalshiMarkets(KALSHI_EVENT_TICKERS);
-  const selectedKalshiMarkets = (kalshiMarketsQuery.data ?? []).filter(
-    (market) => market.eventTicker === selectedState?.kalshiEventTicker
+  const selectedKalshiMarkets = kalshiMarkets.filter((market) =>
+    kalshiMarketMatchesRegion(selectedState, market)
   );
   const selectedKalshiMarket = selectedKalshiMarkets[0] ?? null;
   const useKalshiPair = Boolean(
@@ -151,6 +195,15 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     useKalshiPair ? selectedKalshiMarket : null
   );
   const kalshiAnalytics = kalshiAnalyticsQuery.data ?? null;
+  const selectedPolymarketSummary = useMemo(
+    () =>
+      selectedSlug
+        ? polymarketMarkets.find((candidate) =>
+            marketMatchesSlug(candidate, selectedSlug)
+          ) ?? null
+        : null,
+    [polymarketMarkets, selectedSlug]
+  );
   const marketContextQuery = useMarketContext(
     selectedSlug,
     Boolean(selectedSlug)
@@ -164,7 +217,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   } = useMarketData({
     slug: selectedSlug,
     strictFeaturedMarket: strictLive && Boolean(selectedSlug),
-    initialFeaturedMarket: contextMarket
+    initialFeaturedMarket: contextMarket ?? selectedPolymarketSummary
   });
   const { orderbook: polymarketOrderbook, snapshotQuery } = useOrderbook(polymarketMarket?.tokenId, {
     conditionId: polymarketMarket?.conditionId,
@@ -200,12 +253,24 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     liveReplayQuery.data && liveReplayQuery.data.status.marketSlug === (selectedSlug ?? polymarketMarket?.slug)
       ? liveReplayQuery.data
       : null;
+  const polymarketOrderbookMatchesMarket = Boolean(
+    polymarketMarket &&
+      polymarketOrderbook &&
+      (polymarketMarket.tokenId
+        ? polymarketOrderbook.tokenId === polymarketMarket.tokenId
+        : polymarketOrderbook.marketId === polymarketMarket.marketId)
+  );
+  const currentPolymarketOrderbook = polymarketOrderbookMatchesMarket
+    ? polymarketOrderbook
+    : polymarketMarket
+      ? createPendingOrderbook(polymarketMarket)
+      : null;
   const market = useKalshiPair
     ? kalshiAnalytics?.market ?? polymarketMarket
     : polymarketMarket;
   const orderbook = useKalshiPair
-    ? kalshiAnalytics?.orderbook ?? polymarketOrderbook
-    : polymarketOrderbook;
+    ? kalshiAnalytics?.orderbook ?? currentPolymarketOrderbook
+    : currentPolymarketOrderbook;
   const resolvedOrderbookSummary = useKalshiPair
     ? kalshiAnalytics?.orderbookSummary ?? null
     : polymarketOrderbookSummary;
@@ -255,6 +320,13 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const displayUpdatedAt = marketMatchesSelectedRegion
     ? orderbook?.updatedAt
     : selectedKalshiMarkets[0]?.updatedAt;
+  const marketDetailsUpdating =
+    !useKalshiPair &&
+    Boolean(selectedSlug) &&
+    (marketContextQuery.isFetching ||
+      featuredMarketQuery.isFetching ||
+      snapshotQuery.isFetching) &&
+    (!marketMatchesSelectedRegion || !polymarketOrderbookMatchesMarket);
   const primarySource = sources["market-context"] ?? sources["featured-market"];
   const signalSource = sources["region-signals"];
   const operationalNotice =
@@ -273,12 +345,19 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           }
         : useKalshiPair
           ? null
+        : marketDetailsUpdating
+          ? {
+              tone: "info" as const,
+              title: "Updating market details",
+              detail:
+                "Current pricing and map coverage are available while order-book depth refreshes."
+            }
         : !marketMatchesSelectedRegion
       ? {
           tone: "info" as const,
-          title: "Kalshi market coverage",
+          title: "Limited market coverage",
           detail:
-            "Live Kalshi probability and volume are available below. Venue-specific depth and anomaly scoring are not connected yet."
+            "Current regional signals remain available while venue-specific market depth is unavailable."
         }
       : market?.status === "closed"
         ? {
@@ -321,16 +400,14 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
               : null;
   const isLoading = useKalshiPair
     ? false
-    : (marketContextQuery.isLoading && !contextMarket) ||
-      featuredMarketQuery.isLoading ||
-      snapshotQuery.isLoading;
+    : !market ||
+      !orderbook;
   const hasLoadError =
     !useKalshiPair &&
+    !market &&
     (Boolean(marketContextQuery.error) ||
       Boolean(featuredMarketQuery.error) ||
-      Boolean(snapshotQuery.error) ||
-      !market ||
-      !orderbook);
+      Boolean(snapshotQuery.error));
 
   if (isLoading) {
     return <LoadingState label="Loading market data..." />;
@@ -396,8 +473,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             liveReplay={liveReplay}
             marketSeries={marketSeries}
             liveTrades={recentMarketTradesQuery.data}
-            polymarketMarkets={polymarketEventsQuery.data}
-            kalshiMarkets={kalshiMarketsQuery.data}
+            polymarketMarkets={polymarketMarkets}
+            kalshiMarkets={kalshiMarkets}
             regionSignals={regionSignalsQuery.data?.signals}
             activityThreshold={activityThreshold}
             activityVolumeThreshold={activityVolumeThreshold}

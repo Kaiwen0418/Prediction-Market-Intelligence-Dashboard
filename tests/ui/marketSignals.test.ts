@@ -49,6 +49,10 @@ test("signal scores map to stable severity thresholds", () => {
 });
 
 test("signal colors distinguish inactive and abnormal activity", () => {
+  assert.equal(getMarketSignalColor(null), "#dededb");
+  assert.equal(getMarketSignalColor(0), "rgb(212, 212, 208)");
+  assert.equal(getMarketSignalColor(50), "rgb(224, 207, 112)");
+  assert.equal(getMarketSignalColor(100), "rgb(250, 204, 21)");
   assert.notEqual(getMarketSignalColor(null), getMarketSignalColor(50));
   assert.notEqual(getMarketSignalColor(0), getMarketSignalColor(25));
   assert.notEqual(getMarketSignalColor(50), getMarketSignalColor(85));
@@ -324,6 +328,20 @@ test("region coverage only matches the configured market identity", () => {
   assert.equal(
     marketMatchesRegion(REGION_MARKET_FIXTURE, {
       slug: "california-governor-election-2026"
+    }),
+    false
+  );
+  assert.equal(
+    marketMatchesRegion(getRegionMarketsByCountry("FR")[0], {
+      slug: "new-french-election-market",
+      title: "Who will win the next French presidential election?"
+    }),
+    true
+  );
+  assert.equal(
+    marketMatchesRegion(getRegionMarketsByCountry("FR")[0], {
+      slug: "wisconsin-primary",
+      title: "Francesca Hong vote percent"
     }),
     false
   );

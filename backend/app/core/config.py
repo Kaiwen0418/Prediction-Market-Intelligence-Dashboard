@@ -36,6 +36,22 @@ class Settings(BaseSettings):
     kalshi_analytics_cache_ttl_seconds: int = 10
     kalshi_history_cache_ttl_seconds: int = 300
     kalshi_stale_if_error_seconds: int = 300
+    market_catalog_sync_interval_seconds: int = 300
+    market_catalog_stale_if_error_seconds: int = 3600
+    market_catalog_page_size: int = 100
+    market_catalog_max_pages: int = 20
+    monitoring_enabled: bool = True
+    monitoring_hot_markets_per_venue: int = 20
+    monitoring_warm_markets_per_venue: int = 120
+    monitoring_polymarket_hot_streams: int = 3
+    monitoring_hot_refresh_seconds: int = 15
+    monitoring_warm_refresh_seconds: int = 60
+    monitoring_scheduler_tick_seconds: float = 1.0
+    monitoring_max_refreshes_per_tick: int = 4
+    polymarket_request_rate_per_second: float = 8.0
+    polymarket_request_burst: int = 16
+    kalshi_request_rate_per_second: float = 8.0
+    kalshi_request_burst: int = 16
 
     model_config = SettingsConfigDict(
         env_file=".env",

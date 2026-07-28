@@ -25,11 +25,11 @@ export const SIGNAL_LEGEND: Array<{
   { severity: "critical", label: "Critical" }
 ];
 
-const INACTIVE_SIGNAL_COLOR = "#e5e7eb";
+const INACTIVE_SIGNAL_COLOR = "#dededb";
 const SIGNAL_COLOR_STOPS = [
-  { score: 0, color: [111, 164, 207] },
-  { score: 50, color: [201, 200, 194] },
-  { score: 100, color: [190, 67, 83] }
+  { score: 0, color: [212, 212, 208] },
+  { score: 50, color: [224, 207, 112] },
+  { score: 100, color: [250, 204, 21] }
 ] as const;
 
 function interpolateChannel(start: number, end: number, progress: number) {
