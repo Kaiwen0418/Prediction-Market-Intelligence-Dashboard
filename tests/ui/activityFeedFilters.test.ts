@@ -8,7 +8,7 @@ import {
 
 test("activity filters parse a valid shareable query", () => {
   const filters = parseActivityFeedFilters(
-    "?region=tx&score=85&signal=whale-flow&window=6"
+    "?region=tx&score=85&volume=10000&signal=whale-flow&window=6"
   );
 
   assert.deepEqual(filters, {
@@ -17,6 +17,7 @@ test("activity filters parse a valid shareable query", () => {
     countryCode: "US",
     regionCode: "TX",
     minimumScore: 85,
+    minimumVolume: 10_000,
     signalKind: "whale-flow",
     maxAgeHours: 6
   });
@@ -42,6 +43,7 @@ test("activity filter serialization preserves unrelated query values", () => {
       countryScope: "country",
       regionCode: "PA",
       minimumScore: 70,
+      minimumVolume: 100_000,
       signalKind: "poll-divergence",
       maxAgeHours: 24
     },
@@ -50,8 +52,16 @@ test("activity filter serialization preserves unrelated query values", () => {
 
   assert.equal(
     params.toString(),
-    "campaign=general&view=country&scope=country&region=PA&score=70&signal=poll-divergence&window=24"
+    "campaign=general&view=country&scope=country&region=PA&score=70&volume=100000&signal=poll-divergence&window=24"
   );
+});
+
+test("activity filters apply the default volume floor and preserve an explicit off state", () => {
+  assert.equal(parseActivityFeedFilters("").minimumVolume, 1_000);
+
+  const parsed = parseActivityFeedFilters("?volume=0");
+  assert.equal(parsed.minimumVolume, 0);
+  assert.equal(serializeActivityFeedFilters(parsed).toString(), "volume=0");
 });
 
 test("activity filters preserve the global map view with country context", () => {

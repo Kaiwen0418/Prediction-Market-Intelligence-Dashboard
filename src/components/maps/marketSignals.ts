@@ -25,13 +25,16 @@ export const SIGNAL_LEGEND: Array<{
   { severity: "critical", label: "Critical" }
 ];
 
-const SIGNAL_COLORS: Record<MarketSignalSeverity, string> = {
-  inactive: "#e5e7eb",
-  normal: "#8ea9c7",
-  elevated: "#d5a65a",
-  high: "#d77b57",
-  critical: "#b84f5f"
-};
+const INACTIVE_SIGNAL_COLOR = "#e5e7eb";
+const SIGNAL_COLOR_STOPS = [
+  { score: 0, color: [111, 164, 207] },
+  { score: 50, color: [201, 200, 194] },
+  { score: 100, color: [190, 67, 83] }
+] as const;
+
+function interpolateChannel(start: number, end: number, progress: number) {
+  return Math.round(start + (end - start) * progress);
+}
 
 export function getMarketSignalSeverity(score?: number | null): MarketSignalSeverity {
   if (score === undefined || score === null) {
@@ -56,7 +59,21 @@ export function getMarketSignalSeverity(score?: number | null): MarketSignalSeve
 }
 
 export function getMarketSignalColor(score?: number | null) {
-  return SIGNAL_COLORS[getMarketSignalSeverity(score)];
+  if (score === undefined || score === null) {
+    return INACTIVE_SIGNAL_COLOR;
+  }
+
+  const boundedScore = Math.max(0, Math.min(100, score));
+  const [start, end] =
+    boundedScore <= SIGNAL_COLOR_STOPS[1].score
+      ? [SIGNAL_COLOR_STOPS[0], SIGNAL_COLOR_STOPS[1]]
+      : [SIGNAL_COLOR_STOPS[1], SIGNAL_COLOR_STOPS[2]];
+  const progress = (boundedScore - start.score) / (end.score - start.score);
+  const color = start.color.map((channel, index) =>
+    interpolateChannel(channel, end.color[index], progress)
+  );
+
+  return `rgb(${color.join(", ")})`;
 }
 
 export function getMarketSignalLabel(signal?: RegionMarketSignal | null) {

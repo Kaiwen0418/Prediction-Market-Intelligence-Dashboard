@@ -220,12 +220,219 @@ const europeMarkets: MarketSnapshot[] = [
   }
 ];
 
+const conflictMarkets: MarketSnapshot[] = [
+  {
+    marketId: "israel-iran-ceasefire-august-31",
+    eventId: "event-israel-iran-ceasefire-continuation",
+    tokenId:
+      "10451124928493844849355057703558222404087423201197729105477623039880661055484",
+    slug:
+      "israel-x-iran-ceasefire-continues-through-august-31-20260716224448970-754-896-823",
+    eventSlug:
+      "israel-x-iran-ceasefire-continues-throughptptpt-20260716224448963",
+    title: "Israel x Iran ceasefire continues through August 31?",
+    category: "Geopolitics",
+    probability: 0.595,
+    volume24h: 36_155.350587,
+    openInterest: 0,
+    liquidity: 58_778.7286,
+    endDate: "2026-08-31T23:59:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "us-iran-effective-ceasefire-august-31",
+    eventId: "event-us-iran-effective-ceasefire",
+    tokenId:
+      "71362371729199006098022300209907327715487157091100600861193647274302527146623",
+    slug: "us-x-iran-effective-ceasfire-by-august-31-20260715194822047",
+    eventSlug:
+      "us-x-iran-effective-ceasfire-byptptpt-2-week-pause-20260715194822042",
+    title: "US x Iran Effective Ceasefire by August 31?",
+    category: "Geopolitics",
+    probability: 0.71,
+    volume24h: 82_470.174842,
+    openInterest: 0,
+    liquidity: 91_419.2438,
+    endDate: "2026-08-31T23:59:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "israel-withdraws-lebanon-august-31",
+    eventId: "event-israel-withdraws-lebanon",
+    tokenId:
+      "56655663448527407103026328668514568306130294232674267267630475034789094115839",
+    slug: "israel-withdraws-from-lebanon-by-august-31-2026",
+    eventSlug: "israel-withdraws-from-lebanon-by",
+    title: "Israel withdraws from Lebanon by August 31, 2026?",
+    category: "Geopolitics",
+    probability: 0.0285,
+    volume24h: 290.498982,
+    openInterest: 0,
+    liquidity: 82_343.91191,
+    endDate: "2026-08-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "israel-hamas-phase-two-december-31",
+    eventId: "event-israel-hamas-ceasefire-phase-two",
+    tokenId:
+      "108571806153453077888243294663984245780177684183406082076002016448584873901936",
+    slug: "israel-x-hamas-ceasefire-phase-ii-by-december-31-632",
+    eventSlug: "israel-x-hamas-ceasefire-phase-ii-by-october-31",
+    title: "Israel x Hamas Ceasefire Phase II by December 31?",
+    category: "Geopolitics",
+    probability: 0.13,
+    volume24h: 0,
+    openInterest: 0,
+    liquidity: 715.1654,
+    endDate: "2026-12-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "ukraine-russia-peace-deal-before-2027",
+    eventId: "event-ukraine-russia-peace-deal",
+    tokenId:
+      "93579588306754356558129639371052358607099327699211232141859164590129536814208",
+    slug: "ukraine-signs-peace-deal-with-russia-before-2027",
+    eventSlug: "ukraine-signs-peace-deal-with-russia-before-2027",
+    title: "Ukraine signs peace deal with Russia before 2027?",
+    category: "Geopolitics",
+    probability: 0.215,
+    volume24h: 2_314.362633,
+    openInterest: 0,
+    liquidity: 58_837.3942,
+    endDate: "2026-12-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "russia-captures-huliaipole-september-30",
+    eventId: "event-russia-captures-huliaipole",
+    tokenId:
+      "38676466391865975483152956267305543655106876417977023366443583702170574325957",
+    slug: "will-russia-capture-all-of-huliaipole-by-september-30",
+    eventSlug: "will-russia-capture-all-of-huliaipole-by-february-28",
+    title: "Will Russia capture all of Huliaipole by September 30?",
+    category: "Geopolitics",
+    probability: 0.825,
+    volume24h: 88_081.281239,
+    openInterest: 0,
+    liquidity: 8_943.8696,
+    endDate: "2026-09-30T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "russia-captures-kostiantynivka-december-31",
+    eventId: "event-russia-captures-kostiantynivka",
+    tokenId:
+      "83552904656813968939383082097054433404653657244784709614448703928529504455469",
+    slug:
+      "will-russia-capture-kostyantynivka-by-december-31-2026-936-942-271-276-578-687-312-238",
+    eventSlug: "will-russia-capture-kostyantynivka-by",
+    title: "Will Russia capture Kostiantynivka by December 31, 2026?",
+    category: "Geopolitics",
+    probability: 0.8885,
+    volume24h: 41_522.151576,
+    openInterest: 0,
+    liquidity: 209_003.18151,
+    endDate: "2026-12-31T12:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "russia-enters-myrne-july-31",
+    eventId: "event-russia-enters-myrne",
+    tokenId:
+      "80932228448546663680546578974587024653406149240453576759628233645619747524994",
+    slug: "will-russia-enter-myrne-by-july-31-2026",
+    eventSlug: "will-russia-enter-myrne-by",
+    title: "Will Russia enter Myrne by July 31, 2026?",
+    category: "Geopolitics",
+    probability: 0.15,
+    volume24h: 26_346.872225,
+    openInterest: 0,
+    liquidity: 2_862.0881,
+    endDate: "2026-07-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "russia-enters-stinky-july-31",
+    eventId: "event-russia-enters-stinky",
+    tokenId:
+      "62718642176071011083950065729340733022875045243384087810115182152445202012841",
+    slug: "will-russia-enter-stinky-by-july-31",
+    eventSlug: "will-russia-enter-stinky-by-march-31",
+    title: "Will Russia enter Stinky by July 31?",
+    category: "Geopolitics",
+    probability: 0.028,
+    volume24h: 18_064.745753,
+    openInterest: 0,
+    liquidity: 1_865.97075,
+    endDate: "2026-07-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "russia-captures-bilytske-december-31",
+    eventId: "event-russia-captures-bilytske",
+    tokenId:
+      "107737174686668886959028964120543906512878850769646922060290652880470922516100",
+    slug:
+      "will-russia-capture-bilytske-by-december-31-2026-252-757-575",
+    eventSlug: "will-russia-capture-bilytske-by",
+    title: "Will Russia capture Bilytske by December 31, 2026?",
+    category: "Geopolitics",
+    probability: 0.675,
+    volume24h: 1_681.120052,
+    openInterest: 0,
+    liquidity: 24_729.0239,
+    endDate: "2026-12-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  },
+  {
+    marketId: "russia-ukraine-ceasefire-december-31",
+    eventId: "event-russia-ukraine-ceasefire",
+    tokenId:
+      "99878393523957043401217108863095556720659532630565063651671026144852955005052",
+    slug: "russia-x-ukraine-ceasefire-agreement-by-december-31-2026",
+    eventSlug: "russia-x-ukraine-ceasefire-agreement-by",
+    title: "Russia x Ukraine ceasefire agreement by December 31, 2026?",
+    category: "Geopolitics",
+    probability: 0.355,
+    volume24h: 1_091.733064,
+    openInterest: 0,
+    liquidity: 111_125.0736,
+    endDate: "2026-12-31T00:00:00.000Z",
+    status: "open",
+    outcomeLabel: "Yes",
+    updatedAt: now.toISOString()
+  }
+];
+
 const mockMarkets = [
   defaultFeaturedMarket,
   texasRepublicanSenatePrimaryMarket,
   californiaGovernorElectionMarket,
   ...ukMarkets,
-  ...europeMarkets
+  ...europeMarkets,
+  ...conflictMarkets
 ];
 
 function titleFromSlug(slug: string) {

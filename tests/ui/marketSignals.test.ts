@@ -48,7 +48,10 @@ test("signal scores map to stable severity thresholds", () => {
 
 test("signal colors distinguish inactive and abnormal activity", () => {
   assert.notEqual(getMarketSignalColor(null), getMarketSignalColor(50));
+  assert.notEqual(getMarketSignalColor(0), getMarketSignalColor(25));
   assert.notEqual(getMarketSignalColor(50), getMarketSignalColor(85));
+  assert.equal(getMarketSignalColor(-10), getMarketSignalColor(0));
+  assert.equal(getMarketSignalColor(150), getMarketSignalColor(100));
 });
 
 test("signal labels are readable", () => {
@@ -89,6 +92,36 @@ test("configured US regions include Polymarket-comparable and Kalshi-only pairs"
     "Ohio Governor winner?"
   );
   assert.ok(kalshiOnly.every((region) => region.marketStatus === "open"));
+});
+
+test("configured conflict markets use selectable national polygons without synthetic scores", () => {
+  for (const countryCode of ["UA", "RU", "IL", "IR", "LB", "PS"]) {
+    const regions = getRegionMarketsByCountry(countryCode);
+    const nationalRegion = regions.find(
+      (region) => region.coverage === "country"
+    );
+
+    assert.ok(nationalRegion);
+    assert.equal(nationalRegion.marketStatus, "open");
+    assert.ok(nationalRegion.liveMarketSlug);
+    assert.ok(regions.every((region) => region.signal.score === 0));
+  }
+});
+
+test("Ukraine exposes oblast-linked locality contracts", () => {
+  const regions = getRegionMarketsByCountry("UA");
+  const localities = regions.filter((region) => region.coverage === "region");
+
+  assert.deepEqual(
+    localities.map((region) => region.code),
+    ["HUL", "KOS", "MYR", "STI", "BIL"]
+  );
+  assert.deepEqual(
+    new Set(localities.map((region) => region.featureId)),
+    new Set(["UA14", "UA23"])
+  );
+  assert.ok(localities.every((region) => region.marketStatus === "open"));
+  assert.ok(localities.every((region) => region.liveMarketSlug));
 });
 
 test("activity ranking applies backend overrides and minimum score", () => {
@@ -260,7 +293,21 @@ test("region coverage only matches the configured market identity", () => {
 test("country adapters expose distinct configured region identifiers", () => {
   assert.deepEqual(
     getCountryMarketMaps().map((country) => country.code),
-    ["US", "GB", "FR", "DE", "ES", "IT", "IS"]
+    [
+      "US",
+      "GB",
+      "FR",
+      "DE",
+      "ES",
+      "IT",
+      "IS",
+      "UA",
+      "RU",
+      "IL",
+      "IR",
+      "LB",
+      "PS"
+    ]
   );
 
   const ukRegions = getRegionMarketsByCountry("GB");

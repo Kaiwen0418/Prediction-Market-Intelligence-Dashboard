@@ -2,6 +2,7 @@ import type { MarketSignalKind } from "@/types/signals";
 
 export type ActivitySignalFilter = "all" | MarketSignalKind;
 export type ActivityTimeWindow = 0 | 1 | 6 | 24;
+export type ActivityVolumeThreshold = 0 | 1_000 | 10_000 | 100_000;
 export type MapViewMode = "world" | "country";
 export type ActivityCountryScope = "global" | "country";
 
@@ -11,6 +12,7 @@ export type ActivityFeedFilterState = {
   countryCode: string;
   regionCode: string | null;
   minimumScore: number;
+  minimumVolume: ActivityVolumeThreshold;
   signalKind: ActivitySignalFilter;
   maxAgeHours: ActivityTimeWindow;
 };
@@ -21,6 +23,7 @@ export const DEFAULT_ACTIVITY_FILTERS: ActivityFeedFilterState = {
   countryCode: "US",
   regionCode: null,
   minimumScore: 50,
+  minimumVolume: 1_000,
   signalKind: "all",
   maxAgeHours: 0
 };
@@ -35,6 +38,12 @@ const SIGNAL_FILTERS = new Set<ActivitySignalFilter>([
   "normal"
 ]);
 const SCORE_THRESHOLDS = new Set([0, 50, 70, 85]);
+const VOLUME_THRESHOLDS = new Set<ActivityVolumeThreshold>([
+  0,
+  1_000,
+  10_000,
+  100_000
+]);
 const TIME_WINDOWS = new Set<ActivityTimeWindow>([0, 1, 6, 24]);
 
 export function parseActivityFeedFilters(
@@ -48,6 +57,10 @@ export function parseActivityFeedFilters(
   const scoreParam = params.get("score");
   const rawScore = scoreParam === null ? Number.NaN : Number(scoreParam);
   const rawSignal = params.get("signal") as ActivitySignalFilter | null;
+  const volumeParam = params.get("volume");
+  const rawVolume = (
+    volumeParam === null ? Number.NaN : Number(volumeParam)
+  ) as ActivityVolumeThreshold;
   const windowParam = params.get("window");
   const rawWindow = (windowParam === null ? Number.NaN : Number(windowParam)) as ActivityTimeWindow;
 
@@ -57,6 +70,9 @@ export function parseActivityFeedFilters(
     countryCode: /^[A-Z]{2}$/.test(countryCode) ? countryCode : DEFAULT_ACTIVITY_FILTERS.countryCode,
     regionCode: rawRegionCode && /^[A-Z0-9]{2,3}$/.test(rawRegionCode) ? rawRegionCode : null,
     minimumScore: SCORE_THRESHOLDS.has(rawScore) ? rawScore : DEFAULT_ACTIVITY_FILTERS.minimumScore,
+    minimumVolume: VOLUME_THRESHOLDS.has(rawVolume)
+      ? rawVolume
+      : DEFAULT_ACTIVITY_FILTERS.minimumVolume,
     signalKind: rawSignal && SIGNAL_FILTERS.has(rawSignal) ? rawSignal : DEFAULT_ACTIVITY_FILTERS.signalKind,
     maxAgeHours: TIME_WINDOWS.has(rawWindow) ? rawWindow : DEFAULT_ACTIVITY_FILTERS.maxAgeHours
   };
@@ -81,6 +97,11 @@ export function serializeActivityFeedFilters(
   setOrDelete("country", filters.countryCode, DEFAULT_ACTIVITY_FILTERS.countryCode);
   setOrDelete("region", filters.regionCode, DEFAULT_ACTIVITY_FILTERS.regionCode);
   setOrDelete("score", String(filters.minimumScore), String(DEFAULT_ACTIVITY_FILTERS.minimumScore));
+  setOrDelete(
+    "volume",
+    String(filters.minimumVolume),
+    String(DEFAULT_ACTIVITY_FILTERS.minimumVolume)
+  );
   setOrDelete("signal", filters.signalKind, DEFAULT_ACTIVITY_FILTERS.signalKind);
   setOrDelete("window", String(filters.maxAgeHours), String(DEFAULT_ACTIVITY_FILTERS.maxAgeHours));
 

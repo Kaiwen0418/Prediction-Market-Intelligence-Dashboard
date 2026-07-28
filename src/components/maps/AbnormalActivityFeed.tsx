@@ -9,9 +9,18 @@ import {
 import type {
   ActivityCountryScope,
   ActivitySignalFilter,
-  ActivityTimeWindow
+  ActivityTimeWindow,
+  ActivityVolumeThreshold
 } from "@/components/maps/activityFeedFilters";
+import {
+  formatMarketVolume,
+  getRegionMarketVolume,
+  KALSHI_VOLUME_COLOR,
+  qualifiesBySignal,
+  qualifiesByVolume
+} from "@/components/maps/marketVolume";
 import type { RegionMarket } from "@/components/maps/spotlightStates";
+import type { VenueMarketSummary } from "@/types/market";
 import type { RegionSignal } from "@/types/signals";
 import { relativeTime } from "@/utils/time";
 import { filterWatchedRegions } from "@/components/maps/signalWatchlist";
@@ -25,6 +34,8 @@ type AbnormalActivityFeedProps = {
   signals: RegionSignal[];
   selectedCode?: string | null;
   minimumScore: number;
+  minimumVolume: ActivityVolumeThreshold;
+  kalshiMarkets: VenueMarketSummary[];
   signalKind: ActivitySignalFilter;
   maxAgeHours: ActivityTimeWindow;
   countryCode: string;
@@ -36,6 +47,7 @@ type AbnormalActivityFeedProps = {
   alertPermission: NotificationPermission | "unsupported";
   onCountryScopeChange: (scope: ActivityCountryScope) => void;
   onMinimumScoreChange: (score: number) => void;
+  onMinimumVolumeChange: (volume: ActivityVolumeThreshold) => void;
   onSignalKindChange: (kind: ActivitySignalFilter) => void;
   onMaxAgeHoursChange: (hours: ActivityTimeWindow) => void;
   onWatchedOnlyChange: (watchedOnly: boolean) => void;
@@ -68,11 +80,23 @@ const TIME_WINDOWS: Array<{ label: string; value: ActivityTimeWindow }> = [
   { label: "Past 24 hours", value: 24 }
 ];
 
+const VOLUME_THRESHOLDS: Array<{
+  label: string;
+  value: ActivityVolumeThreshold;
+}> = [
+  { label: "Off", value: 0 },
+  { label: "$1K+", value: 1_000 },
+  { label: "$10K+", value: 10_000 },
+  { label: "$100K+", value: 100_000 }
+];
+
 export function AbnormalActivityFeed({
   regions,
   signals,
   selectedCode,
   minimumScore,
+  minimumVolume,
+  kalshiMarkets,
   signalKind,
   maxAgeHours,
   countryCode,
@@ -84,6 +108,7 @@ export function AbnormalActivityFeed({
   alertPermission,
   onCountryScopeChange,
   onMinimumScoreChange,
+  onMinimumVolumeChange,
   onSignalKindChange,
   onMaxAgeHoursChange,
   onWatchedOnlyChange,
@@ -93,20 +118,52 @@ export function AbnormalActivityFeed({
 }: AbnormalActivityFeedProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const rankedSignals = useMemo(
-    () =>
-      rankRegionSignals(
+    () => {
+      const ranked = rankRegionSignals(
         filterWatchedRegions(regions, watchlist, watchedOnly),
         signals,
         {
-          minimumScore,
+          minimumScore: 0,
           signalKind,
           maxAgeHours
         }
-      ),
+      ).map((item) => ({
+        ...item,
+        volume: getRegionMarketVolume(item.region, kalshiMarkets)
+      }));
+
+      return ranked
+        .filter(
+          ({ region, signal, volume }) =>
+            qualifiesBySignal(region, signal.score, minimumScore) ||
+            qualifiesByVolume(region, volume, minimumVolume)
+        )
+        .sort((left, right) => {
+          const leftHasSignal = qualifiesBySignal(
+            left.region,
+            left.signal.score,
+            minimumScore
+          );
+          const rightHasSignal = qualifiesBySignal(
+            right.region,
+            right.signal.score,
+            minimumScore
+          );
+          if (leftHasSignal !== rightHasSignal) {
+            return leftHasSignal ? -1 : 1;
+          }
+          if (leftHasSignal) {
+            return right.signal.score - left.signal.score;
+          }
+          return (right.volume ?? 0) - (left.volume ?? 0);
+        });
+    },
     [
       countryCode,
+      kalshiMarkets,
       maxAgeHours,
       minimumScore,
+      minimumVolume,
       regions,
       signalKind,
       signals,
@@ -132,6 +189,7 @@ export function AbnormalActivityFeed({
     countryScope,
     maxAgeHours,
     minimumScore,
+    minimumVolume,
     regions,
     signalKind,
     watchedOnly,
@@ -183,6 +241,35 @@ export function AbnormalActivityFeed({
                   }`}
                 >
                   {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            Volume
+          </p>
+          <div
+            className="flex divide-x divide-slate-200 overflow-hidden rounded-md border border-slate-200"
+            role="group"
+            aria-label="Minimum Kalshi volume"
+          >
+            {VOLUME_THRESHOLDS.map((threshold) => {
+              const isActive = threshold.value === minimumVolume;
+              return (
+                <button
+                  key={threshold.value}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => onMinimumVolumeChange(threshold.value)}
+                  className={`min-w-12 px-3 py-1.5 text-xs font-medium transition ${
+                    isActive
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  {threshold.label}
                 </button>
               );
             })}
@@ -272,10 +359,11 @@ export function AbnormalActivityFeed({
       </div>
 
       <div className="mt-4">
-        <div className="hidden grid-cols-[42px_80px_minmax(0,1fr)_100px_64px_44px] gap-3 border-b border-[var(--demo-card-divider)] px-2 py-2 text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:grid">
+        <div className="hidden grid-cols-[42px_72px_minmax(0,1fr)_82px_86px_52px_44px] gap-3 border-b border-[var(--demo-card-divider)] px-2 py-2 text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:grid">
           <span>Rank</span>
           <span>Region</span>
           <span>Signal</span>
+          <span>24h volume</span>
           <span>Updated</span>
           <span className="text-right">Score</span>
           <span className="text-center">Watch</span>
@@ -283,7 +371,7 @@ export function AbnormalActivityFeed({
 
         {pagedSignals.length ? (
           <div className="divide-y divide-[var(--demo-card-divider)]">
-            {pagedSignals.map(({ region, signal }, index) => {
+            {pagedSignals.map(({ region, signal, volume }, index) => {
               const isSelected =
                 region.countryCode === countryCode && region.code === selectedCode;
               const watched = watchlist.includes(`${region.countryCode}:${region.code}`);
@@ -298,7 +386,7 @@ export function AbnormalActivityFeed({
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => onSelect(region)}
-                    className="grid min-w-0 flex-1 grid-cols-[52px_minmax(0,1fr)_44px] items-center gap-3 px-2 py-3 text-left sm:grid-cols-[42px_80px_minmax(0,1fr)_100px_64px]"
+                    className="grid min-w-0 flex-1 grid-cols-[52px_minmax(0,1fr)_44px] items-center gap-3 px-2 py-3 text-left sm:grid-cols-[42px_72px_minmax(0,1fr)_82px_86px_52px]"
                   >
                     <span className="hidden text-xs tabular-nums text-slate-400 sm:block">
                       {String(pageStart + index + 1).padStart(2, "0")}
@@ -306,13 +394,29 @@ export function AbnormalActivityFeed({
                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                       <span
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: getMarketSignalColor(signal.score) }}
+                        style={{
+                          backgroundColor: qualifiesBySignal(
+                            region,
+                            signal.score,
+                            minimumScore
+                          )
+                            ? getMarketSignalColor(signal.score)
+                            : KALSHI_VOLUME_COLOR
+                        }}
                       />
                       {region.code}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-slate-900">{signal.headline}</span>
-                      <span className="mt-0.5 block text-xs text-slate-500">{getMarketSignalLabel(signal)}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {getMarketSignalLabel(signal)}
+                        {volume !== null
+                          ? ` · ${formatMarketVolume(volume)} 24h`
+                          : ""}
+                      </span>
+                    </span>
+                    <span className="hidden text-xs font-medium tabular-nums text-slate-700 sm:block">
+                      {formatMarketVolume(volume)}
                     </span>
                     <span className="hidden text-xs text-slate-500 sm:block">
                       {relativeTime(signal.observedAt)}

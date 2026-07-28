@@ -79,6 +79,86 @@ function kalshiOnlyRegion({
   };
 }
 
+function nationalConflictRegion({
+  center,
+  code,
+  countryLabel,
+  liveMarketSlug,
+  note,
+  zoom
+}: {
+  center: [number, number];
+  code: string;
+  countryLabel: string;
+  liveMarketSlug: string;
+  note: string;
+  zoom: number;
+}): RegionMarket {
+  return {
+    code,
+    countryCode: code,
+    countryLabel,
+    coverage: "country",
+    center,
+    featureId: "*",
+    label: countryLabel,
+    liveMarketSlug,
+    note,
+    zoom,
+    status: "live",
+    marketStatus: "open",
+    signal: {
+      kind: "normal",
+      score: 0,
+      headline: "Conflict signal scoring pending",
+      detail:
+        "Live market pricing is available. Conflict-specific flow and anomaly scoring are not connected yet.",
+      observedAt: "2026-07-28T00:00:00Z",
+      source: "fixture"
+    }
+  };
+}
+
+function ukraineConflictLocality({
+  center,
+  code,
+  featureId,
+  label,
+  liveMarketSlug,
+  note
+}: {
+  center: [number, number];
+  code: string;
+  featureId: string;
+  label: string;
+  liveMarketSlug: string;
+  note: string;
+}): RegionMarket {
+  return {
+    code,
+    countryCode: "UA",
+    countryLabel: "Ukraine",
+    coverage: "region",
+    center,
+    featureId,
+    label,
+    liveMarketSlug,
+    note,
+    zoom: 9,
+    status: "live",
+    marketStatus: "open",
+    signal: {
+      kind: "normal",
+      score: 0,
+      headline: "Local conflict signal scoring pending",
+      detail:
+        "Live market pricing is available. Locality-specific flow and anomaly scoring are not connected yet.",
+      observedAt: "2026-07-28T00:00:00Z",
+      source: "fixture"
+    }
+  };
+}
+
 export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
   {
     code: "US",
@@ -158,6 +238,74 @@ export const COUNTRY_MARKET_MAPS: CountryMarketMap[] = [
     defaultRegionCode: "IS",
     defaultCenter: [-18.6, 64.9],
     defaultZoom: 7,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "UA",
+    worldFeatureIds: ["804"],
+    label: "Ukraine",
+    projection: "geoMercator",
+    defaultRegionCode: "UA",
+    defaultCenter: [31.2, 48.4],
+    defaultZoom: 9,
+    featureIdProperty: "ISO_CODE",
+    boundarySourceLabel: "ArcGIS Ukraine Oblasts",
+    boundarySourceUrl:
+      "https://services1.arcgis.com/4ezfu5dIwH83BUNL/ArcGIS/rest/services/Ukraine_Oblasts/FeatureServer/0"
+  },
+  {
+    code: "RU",
+    worldFeatureIds: ["643"],
+    label: "Russia",
+    projection: "geoMercator",
+    defaultRegionCode: "RU",
+    defaultCenter: [88, 60],
+    defaultZoom: 2.2,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "IL",
+    worldFeatureIds: ["376"],
+    label: "Israel",
+    projection: "geoMercator",
+    defaultRegionCode: "IL",
+    defaultCenter: [34.9, 31.5],
+    defaultZoom: 10,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "IR",
+    worldFeatureIds: ["364"],
+    label: "Iran",
+    projection: "geoMercator",
+    defaultRegionCode: "IR",
+    defaultCenter: [53.7, 32.4],
+    defaultZoom: 5,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "LB",
+    worldFeatureIds: ["422"],
+    label: "Lebanon",
+    projection: "geoMercator",
+    defaultRegionCode: "LB",
+    defaultCenter: [35.8, 33.9],
+    defaultZoom: 12,
+    boundarySourceLabel: "Natural Earth",
+    boundarySourceUrl: "https://github.com/topojson/world-atlas"
+  },
+  {
+    code: "PS",
+    worldFeatureIds: ["275"],
+    label: "Palestine",
+    projection: "geoMercator",
+    defaultRegionCode: "PS",
+    defaultCenter: [35.2, 31.9],
+    defaultZoom: 12,
     boundarySourceLabel: "Natural Earth",
     boundarySourceUrl: "https://github.com/topojson/world-atlas"
   }
@@ -513,6 +661,112 @@ export const REGION_MARKETS: RegionMarket[] = [
     zoom: 4.8,
     kalshiEventTicker: "GOVPARTYNY-26",
     kalshiMarketLabel: "New York Governor winner?"
+  }),
+  nationalConflictRegion({
+    code: "UA",
+    countryLabel: "Ukraine",
+    center: [31.2, 48.4],
+    zoom: 9,
+    liveMarketSlug: "ukraine-signs-peace-deal-with-russia-before-2027",
+    note:
+      "Open Polymarket contract on Ukraine signing a peace framework with Russia before 2027."
+  }),
+  ukraineConflictLocality({
+    code: "HUL",
+    featureId: "UA23",
+    label: "Huliaipole",
+    center: [36.1654, 47.6484],
+    liveMarketSlug:
+      "will-russia-capture-all-of-huliaipole-by-september-30",
+    note:
+      "Open Polymarket contract on Russia capturing all of Huliaipole by September 30, 2026."
+  }),
+  ukraineConflictLocality({
+    code: "KOS",
+    featureId: "UA14",
+    label: "Kostyantynivka",
+    center: [37.7069, 48.5277],
+    liveMarketSlug:
+      "will-russia-capture-kostyantynivka-by-december-31-2026-936-942-271-276-578-687-312-238",
+    note:
+      "Open Polymarket contract on Russia capturing Kostyantynivka by December 31, 2026."
+  }),
+  ukraineConflictLocality({
+    code: "MYR",
+    featureId: "UA14",
+    label: "Myrne",
+    center: [37.00788, 48.367306],
+    liveMarketSlug: "will-russia-enter-myrne-by-july-31-2026",
+    note:
+      "Open Polymarket contract on Russian forces entering Myrne by July 31, 2026."
+  }),
+  ukraineConflictLocality({
+    code: "STI",
+    featureId: "UA14",
+    label: "Stinky",
+    center: [37.739606, 48.57883],
+    liveMarketSlug: "will-russia-enter-stinky-by-july-31",
+    note:
+      "Open Polymarket contract on Russian forces entering Stinky by July 31, 2026."
+  }),
+  ukraineConflictLocality({
+    code: "BIL",
+    featureId: "UA14",
+    label: "Bilytske",
+    center: [37.1811, 48.4064],
+    liveMarketSlug:
+      "will-russia-capture-bilytske-by-december-31-2026-252-757-575",
+    note:
+      "Open Polymarket contract on Russia capturing Bilytske by December 31, 2026."
+  }),
+  nationalConflictRegion({
+    code: "RU",
+    countryLabel: "Russia",
+    center: [88, 60],
+    zoom: 2.2,
+    liveMarketSlug:
+      "russia-x-ukraine-ceasefire-agreement-by-december-31-2026",
+    note:
+      "Open Polymarket contract on a Russia-Ukraine ceasefire agreement by December 31, 2026."
+  }),
+  nationalConflictRegion({
+    code: "IL",
+    countryLabel: "Israel",
+    center: [34.9, 31.5],
+    zoom: 10,
+    liveMarketSlug:
+      "israel-x-iran-ceasefire-continues-through-august-31-20260716224448970-754-896-823",
+    note:
+      "Open Polymarket contract on the Israel-Iran ceasefire continuing through August 31, 2026."
+  }),
+  nationalConflictRegion({
+    code: "IR",
+    countryLabel: "Iran",
+    center: [53.7, 32.4],
+    zoom: 5,
+    liveMarketSlug:
+      "us-x-iran-effective-ceasfire-by-august-31-20260715194822047",
+    note:
+      "Open Polymarket contract on an effective US-Iran ceasefire by August 31, 2026."
+  }),
+  nationalConflictRegion({
+    code: "LB",
+    countryLabel: "Lebanon",
+    center: [35.8, 33.9],
+    zoom: 12,
+    liveMarketSlug: "israel-withdraws-from-lebanon-by-august-31-2026",
+    note:
+      "Open Polymarket contract on an Israeli withdrawal from Lebanon by August 31, 2026."
+  }),
+  nationalConflictRegion({
+    code: "PS",
+    countryLabel: "Palestine",
+    center: [35.2, 31.9],
+    zoom: 12,
+    liveMarketSlug:
+      "israel-x-hamas-ceasefire-phase-ii-by-december-31-632",
+    note:
+      "Open Polymarket contract on Israel-Hamas ceasefire Phase II by December 31, 2026."
   }),
   {
     code: "SCT",

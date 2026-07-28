@@ -387,6 +387,41 @@ Status: complete
 - [x] Show truthful zero-score signal context instead of fabricating whale or anomaly activity.
 - [x] Preserve scanner pagination, map selection, watchlists, and mobile trading-pair layout.
 
+### Phase 25: Venue Volume Discovery
+
+Status: complete
+
+- [x] Load all configured Kalshi events in API-safe batches instead of only the selected region.
+- [x] Add a URL-persisted Kalshi volume filter with a default $1,000 floor and an explicit Off state.
+- [x] Include Kalshi-only markets in ranking when they meet the selected volume floor.
+- [x] Color and label volume-qualified regions distinctly from abnormal signal regions.
+- [x] Keep signal-qualified results first, then sort volume-only results by 24-hour volume.
+- [x] Preserve ranking pagination as the eligible market set expands.
+- [x] Keep map polygons independent from scanner score thresholds.
+- [x] Encode polygon scores continuously from blue to red and liquidity through opacity.
+
+### Phase 26: Conflict and Ceasefire Markets
+
+Status: complete
+
+- [x] Verify open Polymarket contracts against the live Gamma API before registration.
+- [x] Add selectable national markets for Ukraine, Russia, Israel, Iran, Lebanon, and Palestine.
+- [x] Cover peace agreements, ceasefires, withdrawal, and ceasefire-phase contracts.
+- [x] Keep unconnected conflict analytics at score zero instead of fabricating anomaly signals.
+- [x] Preserve exact event links, open lifecycle metadata, and deterministic fallback identities.
+- [x] Show the selected venue outcome and current probability beside the market title.
+
+### Phase 27: Ukraine Locality Markets
+
+Status: complete
+
+- [x] Add a simplified Ukraine oblast boundary layer with explicit source provenance.
+- [x] Keep the national peace market as fallback coverage for oblasts without a locality contract.
+- [x] Add verified-open Huliaipole, Kostyantynivka, Myrne, Stinky, and Bilytske contracts.
+- [x] Map locality contracts to exact coordinates and their Donetsk or Zaporizhzhia oblast.
+- [x] Use separate selectable town markers where multiple contracts share one oblast.
+- [x] Keep locality anomaly scores at zero until conflict-specific analytics are connected.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
@@ -430,3 +465,6 @@ Status: complete
 - [x] Preserve country navigation while a focused country's subregions are visible.
 - [x] Add live Kalshi political pairs for the configured US regions.
 - [x] Add liquid Kalshi-only state political markets without requiring Polymarket equivalents.
+- [x] Surface Kalshi-only markets on the map and ranking through an optional volume filter.
+- [x] Add verified-open Middle East and Russia-Ukraine conflict markets to the world map.
+- [x] Add Ukraine oblast context and selectable locality-level war markets.

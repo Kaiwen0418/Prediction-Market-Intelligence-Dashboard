@@ -6,6 +6,7 @@ import usAtlas from "us-atlas/states-10m.json";
 import franceRegions from "@/components/maps/data/france-regions.json";
 import germanyStates from "@/components/maps/data/germany-states.json";
 import ukRegions from "@/components/maps/data/uk-regions.json";
+import ukraineOblasts from "@/components/maps/data/ukraine-oblasts.json";
 import worldCountries from "@/components/maps/data/world-countries-110m.json";
 import { DepthChart } from "@/components/charts/DepthChart";
 import { summarizeMarketMovement } from "@/analytics/marketMovement";
@@ -14,6 +15,7 @@ import type {
   ActivityCountryScope,
   ActivitySignalFilter,
   ActivityTimeWindow,
+  ActivityVolumeThreshold,
   MapViewMode
 } from "@/components/maps/activityFeedFilters";
 import {
@@ -30,6 +32,12 @@ import {
   type MapCameraPosition
 } from "@/components/maps/mapCamera";
 import { MapLiveTradeTape } from "@/components/maps/MapLiveTradeTape";
+import {
+  formatMarketVolume,
+  getMarketVolumeOpacity,
+  getRegionMarketVolume,
+  qualifiesByVolume
+} from "@/components/maps/marketVolume";
 import {
   COUNTRY_MARKET_MAPS,
   REGION_MARKETS,
@@ -61,6 +69,17 @@ import { useSignalWatchlist } from "@/hooks/useSignalWatchlist";
 function formatWalletAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
+
+const UKRAINE_LOCALITY_LABEL_OFFSETS: Record<
+  string,
+  { x: number; y: number }
+> = {
+  HUL: { x: -10, y: 16 },
+  KOS: { x: 11, y: -19 },
+  MYR: { x: -11, y: 20 },
+  STI: { x: 11, y: 18 },
+  BIL: { x: -11, y: -13 }
+};
 
 function formatCompactCurrency(value?: number) {
   if (value === undefined || !Number.isFinite(value)) {
@@ -119,12 +138,16 @@ type UsMarketMapProps = {
   selectedCountryCode?: string;
   regionSignals?: RegionSignal[];
   activityThreshold?: number;
+  activityVolumeThreshold?: ActivityVolumeThreshold;
   autoTourEnabled?: boolean;
   countryScope?: ActivityCountryScope;
   activitySignalKind?: ActivitySignalFilter;
   activityMaxAgeHours?: ActivityTimeWindow;
   mapView?: MapViewMode;
   onActivityThresholdChange?: (score: number) => void;
+  onActivityVolumeThresholdChange?: (
+    volume: ActivityVolumeThreshold
+  ) => void;
   onAutoTourEnabledChange?: (enabled: boolean) => void;
   onCountryScopeChange?: (scope: ActivityCountryScope) => void;
   onActivitySignalKindChange?: (kind: ActivitySignalFilter) => void;
@@ -147,12 +170,14 @@ export function UsMarketMap({
   selectedCountryCode = "US",
   regionSignals = [],
   activityThreshold = 50,
+  activityVolumeThreshold = 1_000,
   autoTourEnabled = false,
   countryScope = "global",
   activitySignalKind = "all",
   activityMaxAgeHours = 0,
   mapView = "country",
   onActivityThresholdChange,
+  onActivityVolumeThresholdChange,
   onAutoTourEnabledChange,
   onCountryScopeChange,
   onActivitySignalKindChange,
@@ -193,26 +218,46 @@ export function UsMarketMap({
             signal: getRegionSignal(region)
           }))
           .sort((left, right) => right.signal.score - left.signal.score)[0];
+        const regionVolumes = regions
+          .map((region) => getRegionMarketVolume(region, kalshiMarkets))
+          .filter((volume): volume is number => volume !== null);
 
         return {
           country,
           regions,
-          topRegion
+          topRegion,
+          volume24h: regionVolumes.length
+            ? regionVolumes.reduce((sum, volume) => sum + volume, 0)
+            : null
         };
       }),
-    [availableCountries, signalByRegion]
+    [availableCountries, kalshiMarkets, signalByRegion]
   );
   const labeledRegions = useMemo(
     () =>
       regionMarkets
         .map((region) => ({
           region,
-          signal: getRegionSignal(region)
+          signal: getRegionSignal(region),
+          volume: getRegionMarketVolume(region, kalshiMarkets)
         }))
-        .filter(({ signal }) => signal.score >= 70)
-        .sort((left, right) => right.signal.score - left.signal.score)
-        .slice(0, 3),
-    [regionMarkets, signalByRegion]
+        .filter(
+          ({ region, signal, volume }) =>
+            signal.score >= 70 ||
+            qualifiesByVolume(region, volume, activityVolumeThreshold)
+        )
+        .sort((left, right) => {
+          const scoreDifference = right.signal.score - left.signal.score;
+          if (scoreDifference) return scoreDifference;
+          return (right.volume ?? 0) - (left.volume ?? 0);
+        })
+        .slice(0, 6),
+    [
+      activityVolumeThreshold,
+      kalshiMarkets,
+      signalByRegion,
+      regionMarkets
+    ]
   );
   const labeledCountries = useMemo(
     () =>
@@ -278,6 +323,14 @@ export function UsMarketMap({
       : defaultRegion?.countryCode === activeCountry.code
         ? defaultRegion
         : null;
+  const selectedKalshiMarkets = useMemo(
+    () =>
+      kalshiMarkets.filter(
+        (kalshiMarket) =>
+          kalshiMarket.eventTicker === activeRegion?.kalshiEventTicker
+      ),
+    [activeRegion?.kalshiEventTicker, kalshiMarkets]
+  );
 
   useEffect(() => {
     if (!onSelectCode) {
@@ -580,6 +633,9 @@ export function UsMarketMap({
   const hoveredSignal = hoveredRegion
     ? getRegionSignal(hoveredRegion)
     : null;
+  const hoveredVolume = hoveredRegion
+    ? getRegionMarketVolume(hoveredRegion, kalshiMarkets)
+    : null;
 
   const selectCountry = (country: CountryMarketMap) => {
     setTourEnabled(false);
@@ -611,7 +667,7 @@ export function UsMarketMap({
           <p className="font-sans text-xs font-medium text-slate-600">
             {mapView === "world"
               ? `${allRegionMarkets.length} markets tracked across ${availableCountries.length} countries`
-              : `${regionMarkets.length} markets tracked · ${highPriorityCount} high priority${
+              : `${regionMarkets.length} markets mapped · ${highPriorityCount} high priority${
                   activeRegion ? ` · Focus ${activeRegion.label}` : ""
                 }`}
           </p>
@@ -661,11 +717,12 @@ export function UsMarketMap({
                         (candidate) =>
                           candidate.worldFeatureIds.includes(String(geo.id))
                       );
-                      const topSignal = country
+                      const countrySummary = country
                         ? countrySummaries.find(
                             (summary) => summary.country.code === country.code
-                          )?.topRegion?.signal
+                          )
                         : null;
+                      const topSignal = countrySummary?.topRegion?.signal ?? null;
                       const isSelectedCountry =
                         mapView === "country" && country?.code === activeCountry.code;
                       const countryInteractive =
@@ -679,6 +736,11 @@ export function UsMarketMap({
                         : topSignal
                           ? getMarketSignalColor(topSignal.score)
                           : "#e5e7eb";
+                      const fillOpacity = country
+                        ? getMarketVolumeOpacity(
+                            countrySummary?.volume24h ?? null
+                          )
+                        : 1;
 
                       return (
                         <Geography
@@ -709,6 +771,7 @@ export function UsMarketMap({
                           style={{
                             default: {
                               fill,
+                              fillOpacity,
                               outline: "none",
                               stroke: "var(--map-boundary)",
                               strokeWidth: isSelectedCountry ? 1.4 : 0.45,
@@ -716,6 +779,7 @@ export function UsMarketMap({
                             },
                             hover: {
                               fill: countryInteractive ? fill : "#d4d4d8",
+                              fillOpacity,
                               outline: "none",
                               stroke: "var(--map-boundary)",
                               strokeWidth: countryInteractive ? 1.2 : 0.45,
@@ -723,6 +787,7 @@ export function UsMarketMap({
                             },
                             pressed: {
                               fill,
+                              fillOpacity,
                               outline: "none",
                               stroke: "var(--map-boundary)",
                               strokeWidth: 1.2
@@ -737,9 +802,14 @@ export function UsMarketMap({
                 {mapView === "country" ? (() => {
                   const country = activeCountry;
                   const regions = regionMarkets;
-                  const regionById = new Map(
-                    regions.map((region) => [region.featureId, region])
-                  );
+                  const regionById = new Map<string, RegionMarket>();
+                  regions
+                    .filter((region) => region.coverage !== "country")
+                    .forEach((region) => {
+                      if (!regionById.has(region.featureId)) {
+                        regionById.set(region.featureId, region);
+                      }
+                    });
                   const nationalRegion = regions.find(
                     (region) => region.coverage === "country"
                   );
@@ -752,6 +822,8 @@ export function UsMarketMap({
                           ? franceRegions
                           : country.code === "DE"
                             ? germanyStates
+                            : country.code === "UA"
+                              ? ukraineOblasts
                             : worldCountries;
 
                   return (
@@ -770,27 +842,34 @@ export function UsMarketMap({
                               ? String(geo.id).padStart(2, "0")
                               : country.featureIdProperty
                                 ? String(
-                                    geo.properties?.[
+                                  geo.properties?.[
                                       country.featureIdProperty
                                     ] ?? ""
                                   )
                                 : String(geo.id);
                           const region =
-                            nationalRegion ?? regionById.get(featureId) ?? null;
+                            regionById.get(featureId) ?? nationalRegion ?? null;
                           const boundaryLabel = String(
                             geo.properties?.nom ??
                               geo.properties?.name ??
                               geo.properties?.NAME ??
+                              geo.properties?.Display_Name_w_Oblast ??
                               region?.label ??
                               country.label
                           );
                           const signal = region ? getRegionSignal(region) : null;
+                          const volume = region
+                            ? getRegionMarketVolume(region, kalshiMarkets)
+                            : null;
                           const isSelected =
                             region?.countryCode === activeCountry.code &&
                             region?.code === activeSelectedCode;
                           const fill = signal
                             ? getMarketSignalColor(signal.score)
                             : "#e5e7eb";
+                          const fillOpacity = region
+                            ? getMarketVolumeOpacity(volume)
+                            : 1;
 
                           return (
                             <Geography
@@ -830,7 +909,7 @@ export function UsMarketMap({
                               }
                               aria-label={
                                 region && signal
-                                  ? `${boundaryLabel}, ${country.label}: ${region.coverage === "country" ? "national market " : ""}activity score ${signal.score}, ${getMarketSignalSeverity(signal.score)}`
+                                  ? `${boundaryLabel}, ${country.label}: ${region.coverage === "country" ? "national market " : ""}activity score ${signal.score}, ${getMarketSignalSeverity(signal.score)}${volume !== null ? `, 24 hour volume ${formatMarketVolume(volume)}` : ""}`
                                   : undefined
                               }
                               role={region ? "button" : "presentation"}
@@ -838,6 +917,7 @@ export function UsMarketMap({
                               style={{
                                 default: {
                                   fill,
+                                  fillOpacity,
                                   outline: "none",
                                   stroke: "var(--map-boundary)",
                                   strokeWidth:
@@ -847,6 +927,7 @@ export function UsMarketMap({
                                 },
                                 hover: {
                                   fill: region ? fill : "#d4d4d8",
+                                  fillOpacity,
                                   outline: "none",
                                   stroke: "var(--map-boundary)",
                                   strokeWidth:
@@ -856,6 +937,7 @@ export function UsMarketMap({
                                 },
                                 pressed: {
                                   fill,
+                                  fillOpacity,
                                   outline: "none",
                                   stroke: "var(--map-boundary)",
                                   strokeWidth:
@@ -870,6 +952,65 @@ export function UsMarketMap({
                     </Geographies>
                   );
                 })() : null}
+
+                {mapView === "country" && activeCountry.code === "UA"
+                  ? regionMarkets
+                      .filter((region) => region.coverage === "region")
+                      .map((region) => {
+                        const signal = getRegionSignal(region);
+                        const offset =
+                          UKRAINE_LOCALITY_LABEL_OFFSETS[region.code] ?? {
+                            x: 8,
+                            y: -8
+                          };
+                        const selected = region.code === activeSelectedCode;
+
+                        return (
+                          <Marker
+                            key={`ukraine-locality:${region.code}`}
+                            coordinates={region.center}
+                          >
+                            <g
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`${region.label}, Ukraine: ${getRegionMarketPairLabel(region)}`}
+                              onClick={() => selectRegion(region)}
+                              onKeyDown={(event) => {
+                                if (
+                                  event.key === "Enter" ||
+                                  event.key === " "
+                                ) {
+                                  event.preventDefault();
+                                  selectRegion(region);
+                                }
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <circle
+                                r={(selected ? 5 : 3.5) / mapPosition.zoom}
+                                fill={getMarketSignalColor(signal.score)}
+                                stroke="var(--map-boundary)"
+                                strokeWidth={1.5 / mapPosition.zoom}
+                              />
+                              <text
+                                x={offset.x / mapPosition.zoom}
+                                y={offset.y / mapPosition.zoom}
+                                textAnchor={offset.x < 0 ? "end" : "start"}
+                                fill="#111827"
+                                fontFamily="Inter, Segoe UI, sans-serif"
+                                fontSize={10 / mapPosition.zoom}
+                                fontWeight={700}
+                                paintOrder="stroke"
+                                stroke="var(--demo-card-bg)"
+                                strokeWidth={3 / mapPosition.zoom}
+                              >
+                                {region.label}
+                              </text>
+                            </g>
+                          </Marker>
+                        );
+                      })
+                  : null}
 
                 {mapView === "world"
                   ? labeledCountries.map(({ country, topRegion }) => (
@@ -902,7 +1043,7 @@ export function UsMarketMap({
                         </g>
                       </Marker>
                     ))
-                  : labeledRegions.map(({ region, signal }) => (
+                  : labeledRegions.map(({ region, signal, volume }) => (
                   <Marker
                     key={`${region.countryCode}:${region.code}`}
                     coordinates={region.center}
@@ -925,7 +1066,10 @@ export function UsMarketMap({
                         stroke="var(--demo-card-bg)"
                         strokeWidth={3 / mapPosition.zoom}
                       >
-                        {region.code} {signal.score}
+                        {region.code}{" "}
+                        {signal.score >= 70
+                          ? signal.score
+                          : formatMarketVolume(volume)}
                       </text>
                     </g>
                   </Marker>
@@ -938,7 +1082,11 @@ export function UsMarketMap({
                   <span className="text-xs font-semibold text-slate-900">
                     {hoveredBoundaryLabel ?? hoveredRegion.label}
                   </span>
-                  <span className="text-xs font-semibold tabular-nums text-slate-900">{hoveredSignal.score}</span>
+                  <span className="text-xs font-semibold tabular-nums text-slate-900">
+                    {hoveredSignal.score > 0
+                      ? hoveredSignal.score
+                      : formatMarketVolume(hoveredVolume)}
+                  </span>
                 </div>
                 <p className="mt-1 truncate text-[11px] text-slate-600">
                   {getRegionMarketPairLabel(hoveredRegion)}
@@ -990,6 +1138,21 @@ export function UsMarketMap({
                 {item.label}
               </span>
             ))}
+            <span className="font-medium text-slate-900">24h volume</span>
+            <span className="flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full bg-slate-700"
+                style={{ opacity: getMarketVolumeOpacity(100) }}
+              />
+              Low
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full bg-slate-700"
+                style={{ opacity: getMarketVolumeOpacity(500_000) }}
+              />
+              High
+            </span>
             <a
               href={
                 mapView === "world"
@@ -1015,6 +1178,8 @@ export function UsMarketMap({
               signals={regionSignals}
               selectedCode={activeSelectedCode ?? defaultCode}
               minimumScore={activityThreshold}
+              minimumVolume={activityVolumeThreshold}
+              kalshiMarkets={kalshiMarkets}
               signalKind={activitySignalKind}
               maxAgeHours={activityMaxAgeHours}
               countryCode={activeCountry.code}
@@ -1029,6 +1194,9 @@ export function UsMarketMap({
                 onCountryScopeChange?.(scope);
               }}
               onMinimumScoreChange={onActivityThresholdChange ?? (() => undefined)}
+              onMinimumVolumeChange={
+                onActivityVolumeThresholdChange ?? (() => undefined)
+              }
               onSignalKindChange={onActivitySignalKindChange ?? (() => undefined)}
               onMaxAgeHoursChange={onActivityMaxAgeHoursChange ?? (() => undefined)}
               onWatchedOnlyChange={signalWatchlist.setWatchedOnly}
@@ -1131,7 +1299,7 @@ export function UsMarketMap({
           ) : null}
         </div>
 
-        {polymarketVenueUrl || kalshiMarkets.length ? (
+        {polymarketVenueUrl || selectedKalshiMarkets.length ? (
           <section
             aria-label="Available trading pairs"
             className="mt-5 border-t border-slate-200 font-sans"
@@ -1141,7 +1309,7 @@ export function UsMarketMap({
                 Trading pairs
               </p>
               <p className="text-[10px] text-slate-400">
-                {Number(Boolean(polymarketVenueUrl)) + kalshiMarkets.length} pairs
+                {Number(Boolean(polymarketVenueUrl)) + selectedKalshiMarkets.length} pairs
               </p>
             </div>
             {polymarketVenueUrl ? (
@@ -1168,7 +1336,7 @@ export function UsMarketMap({
                 </span>
               </a>
             ) : null}
-            {kalshiMarkets.map((kalshiMarket) => (
+            {selectedKalshiMarkets.map((kalshiMarket) => (
               <a
                 key={kalshiMarket.eventTicker}
                 href={kalshiMarket.url}

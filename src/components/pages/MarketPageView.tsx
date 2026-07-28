@@ -14,11 +14,12 @@ import type {
   ActivityCountryScope,
   ActivitySignalFilter,
   ActivityTimeWindow,
+  ActivityVolumeThreshold,
   MapViewMode
 } from "@/components/maps/activityFeedFilters";
 import {
   COUNTRY_MARKET_MAPS,
-  getRegionKalshiEventTickers,
+  REGION_MARKETS,
   getRegionMarketPairLabel,
   getSpotlightState,
   marketMatchesRegion
@@ -37,11 +38,20 @@ import { useRegionSignals } from "@/hooks/useRegionSignals";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { useSourceDiagnostics } from "@/hooks/useSourceDiagnostics";
 import { formatTimestamp } from "@/utils/time";
+import {
+  formatMarketProbability,
+  getMarketDisplayTitle,
+  getMarketOutcomeLabel
+} from "@/utils/marketDisplay";
 
 type MarketPageViewProps = {
   embedded?: boolean;
   strictLive?: boolean;
 };
+
+const KALSHI_EVENT_TICKERS = REGION_MARKETS.flatMap((region) =>
+  region.kalshiEventTicker ? [region.kalshiEventTicker] : []
+);
 
 export function MarketPageView({ embedded = false, strictLive = true }: MarketPageViewProps) {
   const [selectedCountryCode, setSelectedCountryCode] = useState("US");
@@ -50,6 +60,8 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const [countryScope, setCountryScope] = useState<ActivityCountryScope>("global");
   const [evidenceView, setEvidenceView] = useState<"flow" | "history">("flow");
   const [activityThreshold, setActivityThreshold] = useState(50);
+  const [activityVolumeThreshold, setActivityVolumeThreshold] =
+    useState<ActivityVolumeThreshold>(1_000);
   const [activitySignalKind, setActivitySignalKind] = useState<ActivitySignalFilter>("all");
   const [activityMaxAgeHours, setActivityMaxAgeHours] = useState<ActivityTimeWindow>(0);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
@@ -70,6 +82,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       region?.countryCode === country.code ? region.code : country.defaultRegionCode
     );
     setActivityThreshold(parsed.minimumScore);
+    setActivityVolumeThreshold(parsed.minimumVolume);
     setActivitySignalKind(parsed.signalKind);
     setActivityMaxAgeHours(parsed.maxAgeHours);
     setAutoTourEnabled(
@@ -90,6 +103,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
         countryCode: selectedCountryCode,
         regionCode: selectedStateCode,
         minimumScore: activityThreshold,
+        minimumVolume: activityVolumeThreshold,
         signalKind: activitySignalKind,
         maxAgeHours: activityMaxAgeHours
       },
@@ -102,6 +116,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
     activityMaxAgeHours,
     activitySignalKind,
     activityThreshold,
+    activityVolumeThreshold,
     countryScope,
     filtersHydrated,
     mapView,
@@ -111,8 +126,9 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
 
   const selectedState = getSpotlightState(selectedStateCode);
   const selectedSlug = selectedState?.liveMarketSlug;
-  const kalshiMarketsQuery = useKalshiMarkets(
-    getRegionKalshiEventTickers(selectedState)
+  const kalshiMarketsQuery = useKalshiMarkets(KALSHI_EVENT_TICKERS);
+  const selectedKalshiMarkets = (kalshiMarketsQuery.data ?? []).filter(
+    (market) => market.eventTicker === selectedState?.kalshiEventTicker
   );
   const marketContextQuery = useMarketContext(
     selectedSlug,
@@ -169,10 +185,20 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
       ? "Global political market activity"
       : selectedState && !marketMatchesSelectedRegion
       ? getRegionMarketPairLabel(selectedState)
-      : market?.outcomeLabel ?? market?.title;
+      : getMarketDisplayTitle(market);
+  const displayOutcomeMarket =
+    mapView !== "country"
+      ? null
+      : marketMatchesSelectedRegion
+        ? market
+        : selectedKalshiMarkets[0] ?? null;
+  const displayOutcomeLabel = getMarketOutcomeLabel(displayOutcomeMarket);
+  const displayOutcomeProbability = formatMarketProbability(
+    displayOutcomeMarket?.probability
+  );
   const displayUpdatedAt = marketMatchesSelectedRegion
     ? orderbook?.updatedAt
-    : kalshiMarketsQuery.data?.[0]?.updatedAt;
+    : selectedKalshiMarkets[0]?.updatedAt;
   const primarySource = sources["market-context"] ?? sources["featured-market"];
   const signalSource = sources["region-signals"];
   const operationalNotice =
@@ -249,6 +275,19 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
           <h2 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl">
             {displayMarketTitle}
           </h2>
+          {displayOutcomeLabel && displayOutcomeProbability ? (
+            <span
+              className="inline-flex max-w-full items-center gap-2 border border-slate-300 bg-white px-2.5 py-1 font-sans text-xs text-slate-700"
+              aria-label={`${displayOutcomeLabel} current probability ${displayOutcomeProbability}`}
+            >
+              <span className="max-w-48 truncate font-medium">
+                {displayOutcomeLabel}
+              </span>
+              <strong className="tabular-nums text-slate-950">
+                {displayOutcomeProbability}
+              </strong>
+            </span>
+          ) : null}
           {mapView === "country" &&
           marketMatchesSelectedRegion &&
           market.status === "closed" ? (
@@ -284,6 +323,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             kalshiMarkets={kalshiMarketsQuery.data}
             regionSignals={regionSignalsQuery.data?.signals}
             activityThreshold={activityThreshold}
+            activityVolumeThreshold={activityVolumeThreshold}
             autoTourEnabled={autoTourEnabled}
             countryScope={countryScope}
             activitySignalKind={activitySignalKind}
@@ -294,6 +334,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
             onSelectCountryCode={setSelectedCountryCode}
             onSelectCode={setSelectedStateCode}
             onActivityThresholdChange={setActivityThreshold}
+            onActivityVolumeThresholdChange={setActivityVolumeThreshold}
             onAutoTourEnabledChange={setAutoTourEnabled}
             onCountryScopeChange={setCountryScope}
             onActivitySignalKindChange={setActivitySignalKind}
