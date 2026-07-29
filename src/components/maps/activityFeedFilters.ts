@@ -18,7 +18,7 @@ export type ActivityFeedFilterState = {
 };
 
 export const DEFAULT_ACTIVITY_FILTERS: ActivityFeedFilterState = {
-  mapView: "world",
+  mapView: "country",
   countryScope: "global",
   countryCode: "US",
   regionCode: null,
@@ -50,7 +50,11 @@ export function parseActivityFeedFilters(
   input: string | URLSearchParams
 ): ActivityFeedFilterState {
   const params = typeof input === "string" ? new URLSearchParams(input) : input;
-  const mapView = params.get("view") === "country" ? "country" : DEFAULT_ACTIVITY_FILTERS.mapView;
+  const requestedMapView = params.get("view");
+  const mapView =
+    requestedMapView === "world" || requestedMapView === "country"
+      ? requestedMapView
+      : DEFAULT_ACTIVITY_FILTERS.mapView;
   const countryScope = params.get("scope") === "country" ? "country" : DEFAULT_ACTIVITY_FILTERS.countryScope;
   const countryCode = params.get("country")?.trim().toUpperCase() || DEFAULT_ACTIVITY_FILTERS.countryCode;
   const rawRegionCode = params.get("region")?.trim().toUpperCase() || null;

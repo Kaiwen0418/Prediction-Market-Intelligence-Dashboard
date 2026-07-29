@@ -85,7 +85,7 @@ export function MarketPageView({ embedded = false, strictLive = true }: MarketPa
   const [selectedMarketSlug, setSelectedMarketSlug] = useState<string | null>(
     null
   );
-  const [mapView, setMapView] = useState<MapViewMode>("world");
+  const [mapView, setMapView] = useState<MapViewMode>("country");
   const [countryScope, setCountryScope] = useState<ActivityCountryScope>("global");
   const [evidenceView, setEvidenceView] = useState<"flow" | "history">("flow");
   const [activityThreshold, setActivityThreshold] = useState(50);

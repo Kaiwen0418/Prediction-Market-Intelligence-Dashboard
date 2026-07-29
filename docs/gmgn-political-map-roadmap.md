@@ -627,6 +627,16 @@ Status: complete
 - [x] Include shorter pillars in the deterministic projection fallback.
 - [x] Verify repeatable shadows across France, US, reloads, and mobile.
 
+### Phase 47: 3D-First Application Entry
+
+Status: complete
+
+- [x] Make the country R3F globe the default application map view.
+- [x] Remove the initial 2D world-map flash before URL hydration.
+- [x] Preserve the 2D global overview behind the explicit `?view=world` URL.
+- [x] Update filter parsing and serialization for the new default.
+- [x] Verify `/` opens the 3D globe and `?view=world` still opens the 2D map.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

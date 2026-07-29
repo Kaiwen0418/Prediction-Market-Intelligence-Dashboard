@@ -12,7 +12,7 @@ test("activity filters parse a valid shareable query", () => {
   );
 
   assert.deepEqual(filters, {
-    mapView: "world",
+    mapView: "country",
     countryScope: "global",
     countryCode: "US",
     regionCode: "TX",
@@ -52,7 +52,7 @@ test("activity filter serialization preserves unrelated query values", () => {
 
   assert.equal(
     params.toString(),
-    "campaign=general&view=country&scope=country&region=PA&score=70&volume=100000&signal=poll-divergence&window=24"
+    "campaign=general&scope=country&region=PA&score=70&volume=100000&signal=poll-divergence&window=24"
   );
 });
 
@@ -66,7 +66,7 @@ test("activity filters apply the default volume floor and preserve an explicit o
 
 test("activity filters preserve the global map view with country context", () => {
   const parsed = parseActivityFeedFilters(
-    "?country=GB&region=SCT&score=70&signal=poll-divergence"
+    "?view=world&country=GB&region=SCT&score=70&signal=poll-divergence"
   );
 
   assert.equal(parsed.mapView, "world");
@@ -77,7 +77,7 @@ test("activity filters preserve the global map view with country context", () =>
   const params = serializeActivityFeedFilters(parsed);
   assert.equal(
     params.toString(),
-    "country=GB&region=SCT&score=70&signal=poll-divergence"
+    "view=world&country=GB&region=SCT&score=70&signal=poll-divergence"
   );
 });
 
@@ -92,6 +92,6 @@ test("activity filters preserve manual country scope", () => {
   const params = serializeActivityFeedFilters(parsed);
   assert.equal(
     params.toString(),
-    "view=country&scope=country&country=GB&region=SCT"
+    "scope=country&country=GB&region=SCT"
   );
 });
