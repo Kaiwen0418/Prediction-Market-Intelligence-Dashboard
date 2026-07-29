@@ -118,7 +118,7 @@ const REGION_WALL_HEIGHT = 0.0018;
 const SELECTED_REGION_WALL_HEIGHT = 0.0028;
 const SELECTED_COUNTRY_SKIRT_HALF_WIDTH = 0.125;
 const SELECTED_COUNTRY_SKIRT_TOP_CLEARANCE = 0.0002;
-const LAND_EXTRUSION_SIDE_COLOR = "#526669";
+const LAND_EXTRUSION_SIDE_COLOR = "#839391";
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
 function createOceanTextures() {
@@ -1323,7 +1323,7 @@ function GlobeFixedShadowLight({
         ref={light}
         castShadow
         position={[0, 340, 80]}
-        intensity={2.35}
+        intensity={2.7}
         color="#fffaf0"
         shadow-bias={-0.00006}
         shadow-normalBias={0.015}
@@ -1680,7 +1680,7 @@ function BoundaryWalls({
       flatShading: false,
       roughness: 0.72,
       metalness: 0,
-      envMapIntensity: 0.16,
+      envMapIntensity: 0.1,
       side: THREE.DoubleSide,
       polygonOffset: true,
       polygonOffsetFactor: -1,
@@ -2148,12 +2148,12 @@ export function R3fMarketGlobe({
           revision={`${activeCountry.code}:${selectedCode}:${pillars.length}`}
         />
         <OceanReflectionEnvironment />
-        <ambientLight intensity={0.035} />
-        <hemisphereLight args={["#f8fbff", "#425861", 0.09]} />
+        <ambientLight intensity={0.02} />
+        <hemisphereLight args={["#f8fbff", "#35494f", 0.06]} />
         <GlobeFixedShadowLight globeGroupRef={globeGroupRef} />
         <directionalLight
           position={[0, 210, 180]}
-          intensity={0.06}
+          intensity={0.04}
           color="#b8e1ed"
         />
         <group

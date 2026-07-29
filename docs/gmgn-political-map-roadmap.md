@@ -800,6 +800,17 @@ Status: complete
 - [x] Verify France at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-unified-border-precision/`.
 
+### Phase 63: Natural Wall-Side Shading
+
+Status: complete
+
+- [x] Lighten the selected country and region side base color.
+- [x] Increase the globe-fixed key-light intensity.
+- [x] Reduce ambient, hemisphere, secondary-light, and environment fill on walls.
+- [x] Preserve fixed globe-relative lighting and native shadow projection.
+- [x] Verify wall-face contrast at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-natural-wall-shading/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
