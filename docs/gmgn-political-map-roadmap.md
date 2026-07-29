@@ -834,6 +834,19 @@ Status: complete
 - [x] Verify border intersections at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-single-owner-border/`.
 
+### Phase 66: Deferred Intro Data Layers
+
+Status: complete
+
+- [x] Match the data-layer reveal delay to the globe's 1200ms intro rotation.
+- [x] Keep the independent regional polygon globe hidden during the main globe rotation.
+- [x] Keep country and regional border walls hidden during the intro rotation.
+- [x] Keep focused and contextual pillars plus projected shadows hidden during rotation.
+- [x] Defer live trade labels with the same reveal gate.
+- [x] Preserve immediate layer updates after the one-time initial reveal.
+- [x] Verify rotating and settled states at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-deferred-intro-layers/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
