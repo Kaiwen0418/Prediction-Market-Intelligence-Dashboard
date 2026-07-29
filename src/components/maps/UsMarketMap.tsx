@@ -767,6 +767,7 @@ export function UsMarketMap({
                 regions={globeRegionData}
                 selectedCode={activeSelectedCode}
                 trades={regionalTradePopups}
+                onSelectCountry={selectCountry}
                 onSelectRegion={selectRegion}
               />
             ) : (

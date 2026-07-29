@@ -80,6 +80,7 @@ type R3fMarketGlobeProps = {
   regions: GlobeRegionDatum[];
   selectedCode?: string | null;
   trades: GlobeTradeDatum[];
+  onSelectCountry: (country: CountryMarketMap) => void;
   onSelectRegion: (region: RegionMarket) => void;
 };
 
@@ -323,6 +324,12 @@ function pointInPolygon(point: Position, polygon: Position[][]) {
   return (
     pointInRing(point, polygon[0]) &&
     !polygon.slice(1).some((hole) => pointInRing(point, hole))
+  );
+}
+
+function pointInGeometry(point: Position, geometry: PolygonGeometry) {
+  return polygonParts(geometry).some((polygon) =>
+    pointInPolygon(point, polygon)
   );
 }
 
@@ -1212,8 +1219,10 @@ export function R3fMarketGlobe({
   regions,
   selectedCode,
   trades,
+  onSelectCountry,
   onSelectRegion
 }: R3fMarketGlobeProps) {
+  const globeGroupRef = useRef<THREE.Group>(null);
   const boundaryFeatures = useMemo(
     () => getCountryBoundaryFeatures(activeCountry),
     [activeCountry]
@@ -1488,6 +1497,39 @@ export function R3fMarketGlobe({
       Math.sin(THREE.MathUtils.degToRad(46))) *
       GLOBE_RADIUS *
       GLOBE_SCALE;
+  const selectPolygon = (polygon: GlobePolygon | undefined) => {
+    if (polygon?.region) {
+      onSelectRegion(polygon.region);
+      return true;
+    }
+    if (
+      polygon?.countryCode &&
+      polygon.countryCode !== activeCountry.code
+    ) {
+      const country = COUNTRY_MARKET_MAPS.find(
+        (candidate) => candidate.code === polygon.countryCode
+      );
+      if (country) {
+        onSelectCountry(country);
+        return true;
+      }
+    }
+    return false;
+  };
+  const selectAtWorldPoint = (worldPoint: THREE.Vector3) => {
+    if (!globeGroupRef.current) return false;
+    const localPoint = globeGroupRef.current
+      .worldToLocal(worldPoint.clone())
+      .normalize();
+    const position: Position = [
+      THREE.MathUtils.radToDeg(Math.atan2(localPoint.x, localPoint.z)),
+      THREE.MathUtils.radToDeg(Math.asin(localPoint.y))
+    ];
+    const polygon = [...polygons]
+      .reverse()
+      .find((candidate) => pointInGeometry(position, candidate.geometry));
+    return selectPolygon(polygon);
+  };
 
   return (
     <div
@@ -1518,6 +1560,7 @@ export function R3fMarketGlobe({
           color="#b8e1ed"
         />
         <group
+          ref={globeGroupRef}
           position={[4, focusOffset, 0]}
           scale={GLOBE_SCALE}
           rotation={[
@@ -1528,19 +1571,8 @@ export function R3fMarketGlobe({
             -0.035
           ]}
           onClick={(event) => {
-            const objectData = (
-              event.object as THREE.Object3D & {
-                __data?: GlobePolygon | { data?: GlobePolygon };
-              }
-            ).__data;
-            const polygon: GlobePolygon | undefined =
-              objectData && "data" in objectData
-                ? objectData.data
-                : (objectData as GlobePolygon | undefined);
-            if (polygon?.region) {
-              event.stopPropagation();
-              onSelectRegion(polygon.region);
-            }
+            if (event.delta > 5) return;
+            if (selectAtWorldPoint(event.point)) event.stopPropagation();
           }}
         >
           <Globe
@@ -1549,6 +1581,18 @@ export function R3fMarketGlobe({
             showAtmosphere
             atmosphereColor="#d8eef6"
             atmosphereAltitude={0.13}
+            onClick={(layer, data, event) => {
+              const pointerEvent = event as unknown as {
+                delta?: number;
+                point?: THREE.Vector3;
+              };
+              if ((pointerEvent.delta ?? 0) > 5) return;
+              if (layer === "polygon") {
+                selectPolygon(data as GlobePolygon | undefined);
+              } else if (pointerEvent.point) {
+                selectAtWorldPoint(pointerEvent.point);
+              }
+            }}
             polygonsData={polygons}
             polygonsTransitionDuration={0}
             polygonGeoJsonGeometry="geometry"

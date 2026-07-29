@@ -668,6 +668,16 @@ Status: complete
 - [x] Verify both horizontal endpoints and the northern tilt range.
 - [x] Confirm constrained dragging remains fluent on desktop and mobile.
 
+### Phase 51: Direct 3D Country Navigation
+
+Status: complete
+
+- [x] Make contextual mapped-country polygons selectable from the focused globe.
+- [x] Keep focused regional polygons mapped to region selection.
+- [x] Ignore drag-release events so orbit gestures do not trigger navigation.
+- [x] Verify country-to-country and region-to-region switching by direct click.
+- [x] Save desktop and mobile interaction screenshots.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
