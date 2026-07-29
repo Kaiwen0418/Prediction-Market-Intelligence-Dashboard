@@ -721,6 +721,19 @@ Status: complete
 - [x] Verify nonblank WebGL output, exact viewport framing, and zero horizontal overflow.
 - [x] Save desktop and mobile screenshots under `tmp/frontend-fullscreen-workspace/`.
 
+### Phase 56: Persistent Pillar Contact Shadows
+
+Status: complete
+
+- [x] Replace the timed shadow-registration window with an idempotent persistent mesh registry.
+- [x] Reapply caster and receiver flags when `r3f-globe` creates or replaces internal meshes.
+- [x] Register merged pillar meshes as native shadow casters.
+- [x] Replace analytical line segments with tapered surface-conforming ribbon geometry.
+- [x] Add denser elliptical contact patches at pillar roots with independent opacity.
+- [x] Control z-fighting with a small radial lift, polygon offset, and disabled depth writes.
+- [x] Verify shadows after repeated orbit drags and direct country focus switching.
+- [x] Save desktop and mobile screenshots under `tmp/frontend-persistent-shadow-ribbons/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

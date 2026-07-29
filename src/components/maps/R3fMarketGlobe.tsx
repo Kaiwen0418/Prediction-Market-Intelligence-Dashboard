@@ -5,9 +5,6 @@ import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import Globe from "r3f-globe";
 import * as THREE from "three";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
-import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { feature } from "topojson-client";
 import usAtlas from "us-atlas/states-10m.json";
 import franceRegions from "@/components/maps/data/france-regions.json";
@@ -100,7 +97,9 @@ const REGION_WALL_SIMPLIFICATION_TOLERANCE = 0.035;
 const MARKET_ORBIT_WEST_LONGITUDE = -125;
 const MARKET_ORBIT_EAST_LONGITUDE = 55;
 const MAP_LIGHT_TARGET = new THREE.Vector3(4, 48, 0);
-const ANALYTIC_PILLAR_SHADOWS_ENABLED = true;
+const PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED = true;
+const SHADOW_RECEIVER_RADIUS = GLOBE_RADIUS * 1.018;
+const PROJECTED_SHADOW_DEPTH_OFFSET = 0.045;
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
 function createOceanTextures() {
@@ -1001,21 +1000,22 @@ function AtmosphericFog({ distance }: { distance: number }) {
   return <fog attach="fog" args={["#d8e8ec", fogNear, fogFar]} />;
 }
 
-function GlobeShadowPass({ revision }: { revision: string }) {
+function PersistentGlobeShadowRegistry({ revision }: { revision: string }) {
   const { gl, scene } = useThree();
-  const framesRemaining = useRef(0);
+  const registeredMeshes = useRef(new WeakSet<THREE.Mesh>());
+  const forceShadowRefresh = useRef(true);
 
   useEffect(() => {
-    framesRemaining.current = 45;
-  }, [revision]);
+    forceShadowRefresh.current = true;
+    gl.shadowMap.needsUpdate = true;
+  }, [gl, revision]);
 
   useFrame(() => {
-    if (framesRemaining.current <= 0) return;
-    framesRemaining.current -= 1;
+    let registrationChanged = false;
 
     scene.traverse((object) => {
       const mesh = object as THREE.Mesh & { __globeObjType?: string };
-      if (!mesh.isMesh) return;
+      if (!mesh.isMesh || mesh.userData.skipShadowRegistration === true) return;
       const globeObjectType = mesh.__globeObjType;
       const materials = Array.isArray(mesh.material)
         ? mesh.material
@@ -1026,11 +1026,25 @@ function GlobeShadowPass({ revision }: { revision: string }) {
       );
       const isPillar =
         globeObjectType === "point" || globeObjectType === "points";
+      const shouldCastShadow = !isAtmosphere && !isOcean;
+      const shouldReceiveShadow = !isAtmosphere && !isPillar;
 
-      mesh.castShadow = !isPillar && !isAtmosphere && !isOcean;
-      mesh.receiveShadow = !isAtmosphere && !isPillar;
+      if (
+        !registeredMeshes.current.has(mesh) ||
+        mesh.castShadow !== shouldCastShadow ||
+        mesh.receiveShadow !== shouldReceiveShadow
+      ) {
+        mesh.castShadow = shouldCastShadow;
+        mesh.receiveShadow = shouldReceiveShadow;
+        registeredMeshes.current.add(mesh);
+        registrationChanged = true;
+      }
     });
-    gl.shadowMap.needsUpdate = true;
+
+    if (registrationChanged || forceShadowRefresh.current) {
+      gl.shadowMap.needsUpdate = true;
+      forceShadowRefresh.current = false;
+    }
   });
 
   return null;
@@ -1113,36 +1127,81 @@ function CameraTopShadowLight() {
   );
 }
 
-function PillarProjectedShadows({
+function normalizeSurfaceTangent(
+  tangent: THREE.Vector3,
+  surfaceNormal: THREE.Vector3
+) {
+  tangent.addScaledVector(surfaceNormal, -tangent.dot(surfaceNormal));
+  if (tangent.lengthSq() < 1e-8) {
+    tangent.set(
+      Math.abs(surfaceNormal.y) > 0.9 ? 1 : 0,
+      Math.abs(surfaceNormal.y) > 0.9 ? 0 : 1,
+      0
+    );
+    tangent.addScaledVector(surfaceNormal, -tangent.dot(surfaceNormal));
+  }
+  return tangent.normalize();
+}
+
+function ProjectedPillarContactShadows({
   pillars
 }: {
   pillars: VolumePillar[];
 }) {
-  const { camera, size } = useThree();
-  const geometry = useMemo(() => {
-    const value = new LineSegmentsGeometry();
-    value.setPositions([0, 0, 0, 0, 0, 0]);
-    return value;
-  }, []);
-  const material = useMemo(
+  const { camera } = useThree();
+  const ribbonGeometry = useMemo(() => new THREE.BufferGeometry(), []);
+  const contactGeometry = useMemo(() => new THREE.BufferGeometry(), []);
+  const ribbonMaterial = useMemo(
     () =>
-      new LineMaterial({
-        color: "#20282a",
-        linewidth: 1.05,
+      new THREE.MeshBasicMaterial({
+        color: "#263033",
         transparent: true,
-        opacity: 0.22,
+        opacity: 0.115,
         depthTest: true,
         depthWrite: false,
-        worldUnits: false
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -1.5,
+        polygonOffsetUnits: -2,
+        toneMapped: false
       }),
     []
   );
-  const shadowLines = useMemo(() => {
-    const value = new LineSegments2(geometry, material);
+  const contactMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: "#1d2729",
+        transparent: true,
+        opacity: 0.17,
+        depthTest: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -3,
+        toneMapped: false
+      }),
+    []
+  );
+  const ribbonMesh = useMemo(() => {
+    const value = new THREE.Mesh(ribbonGeometry, ribbonMaterial);
     value.frustumCulled = false;
     value.renderOrder = 8;
+    value.userData.skipShadowRegistration = true;
     return value;
-  }, [geometry, material]);
+  }, [ribbonGeometry, ribbonMaterial]);
+  const contactMesh = useMemo(() => {
+    const value = new THREE.Mesh(contactGeometry, contactMaterial);
+    value.frustumCulled = false;
+    value.renderOrder = 9;
+    value.userData.skipShadowRegistration = true;
+    return value;
+  }, [contactGeometry, contactMaterial]);
+  const shadowGroup = useMemo(() => {
+    const value = new THREE.Group();
+    value.add(ribbonMesh, contactMesh);
+    return value;
+  }, [contactMesh, ribbonMesh]);
   const cameraUp = useRef(new THREE.Vector3());
   const cameraForward = useRef(new THREE.Vector3());
   const rayWorld = useRef(new THREE.Vector3());
@@ -1152,22 +1211,30 @@ function PillarProjectedShadows({
   const normal = useRef(new THREE.Vector3());
   const pillarTop = useRef(new THREE.Vector3());
   const hitPoint = useRef(new THREE.Vector3());
-  const previousPoint = useRef(new THREE.Vector3());
-  const nextPoint = useRef(new THREE.Vector3());
+  const shadowTangent = useRef(new THREE.Vector3());
+  const shadowSide = useRef(new THREE.Vector3());
+  const curvePoint = useRef(new THREE.Vector3());
+  const previousCurvePoint = useRef(new THREE.Vector3());
+  const nextCurvePoint = useRef(new THREE.Vector3());
+  const leftPoint = useRef(new THREE.Vector3());
+  const rightPoint = useRef(new THREE.Vector3());
+  const nextLeftPoint = useRef(new THREE.Vector3());
+  const nextRightPoint = useRef(new THREE.Vector3());
+  const contactPoint = useRef(new THREE.Vector3());
+  const nextContactPoint = useRef(new THREE.Vector3());
 
-  useEffect(() => {
-    material.resolution.set(size.width, size.height);
-  }, [material, size.height, size.width]);
   useEffect(
     () => () => {
-      geometry.dispose();
-      material.dispose();
+      ribbonGeometry.dispose();
+      contactGeometry.dispose();
+      ribbonMaterial.dispose();
+      contactMaterial.dispose();
     },
-    [geometry, material]
+    [contactGeometry, contactMaterial, ribbonGeometry, ribbonMaterial]
   );
 
   useFrame(() => {
-    const parent = shadowLines.parent;
+    const parent = shadowGroup.parent;
     if (!parent) return;
 
     cameraUp.current
@@ -1186,9 +1253,10 @@ function PillarProjectedShadows({
       .applyQuaternion(parentQuaternion.current.invert())
       .normalize();
 
-    const receiverRadius = GLOBE_RADIUS * 1.018;
-    const displayRadius = receiverRadius + 0.08;
-    const positions: number[] = [];
+    const displayRadius =
+      SHADOW_RECEIVER_RADIUS + PROJECTED_SHADOW_DEPTH_OFFSET;
+    const ribbonPositions: number[] = [];
+    const contactPositions: number[] = [];
 
     pillars.forEach((pillar, pillarIndex) => {
       if (pillar.altitude <= 0.012 || pillarIndex % 2 !== 0) return;
@@ -1216,7 +1284,8 @@ function PillarProjectedShadows({
         pillarTop.current.dot(pillarRay.current);
       const discriminant =
         projection * projection -
-        (pillarTop.current.lengthSq() - receiverRadius * receiverRadius);
+        (pillarTop.current.lengthSq() -
+          SHADOW_RECEIVER_RADIUS * SHADOW_RECEIVER_RADIUS);
       if (discriminant <= 0) return;
 
       const distance = -projection - Math.sqrt(discriminant);
@@ -1232,35 +1301,160 @@ function PillarProjectedShadows({
           .lerp(hitPoint.current, 0.065 / angularDistance)
           .normalize();
       }
-      hitPoint.current.multiplyScalar(displayRadius);
-      previousPoint.current
+      const rootHalfWidth = THREE.MathUtils.clamp(
+        0.2 + pillar.radius * 2.5 + pillar.altitude * 0.85,
+        0.22,
+        0.46
+      );
+      const ribbonSegments = 5;
+
+      previousCurvePoint.current
         .copy(normal.current)
         .multiplyScalar(displayRadius);
-
-      for (let segment = 1; segment <= 4; segment += 1) {
-        nextPoint.current
-          .copy(previousPoint.current)
-          .lerp(hitPoint.current, 1 / (5 - segment))
+      for (let segment = 0; segment < ribbonSegments; segment += 1) {
+        const progress = segment / ribbonSegments;
+        const nextProgress = (segment + 1) / ribbonSegments;
+        nextCurvePoint.current
+          .copy(normal.current)
+          .lerp(hitPoint.current, nextProgress)
           .normalize()
           .multiplyScalar(displayRadius);
-        positions.push(
-          previousPoint.current.x,
-          previousPoint.current.y,
-          previousPoint.current.z,
-          nextPoint.current.x,
-          nextPoint.current.y,
-          nextPoint.current.z
+        curvePoint.current
+          .copy(previousCurvePoint.current)
+          .normalize();
+        shadowTangent.current
+          .copy(nextCurvePoint.current)
+          .sub(previousCurvePoint.current);
+        normalizeSurfaceTangent(
+          shadowTangent.current,
+          curvePoint.current
         );
-        previousPoint.current.copy(nextPoint.current);
+        shadowSide.current
+          .crossVectors(curvePoint.current, shadowTangent.current)
+          .normalize();
+
+        const halfWidth = THREE.MathUtils.lerp(
+          rootHalfWidth,
+          rootHalfWidth * 0.2,
+          progress
+        );
+        const nextHalfWidth = THREE.MathUtils.lerp(
+          rootHalfWidth,
+          rootHalfWidth * 0.2,
+          nextProgress
+        );
+        leftPoint.current
+          .copy(previousCurvePoint.current)
+          .addScaledVector(shadowSide.current, halfWidth)
+          .normalize()
+          .multiplyScalar(displayRadius);
+        rightPoint.current
+          .copy(previousCurvePoint.current)
+          .addScaledVector(shadowSide.current, -halfWidth)
+          .normalize()
+          .multiplyScalar(displayRadius);
+        nextLeftPoint.current
+          .copy(nextCurvePoint.current)
+          .addScaledVector(shadowSide.current, nextHalfWidth)
+          .normalize()
+          .multiplyScalar(displayRadius);
+        nextRightPoint.current
+          .copy(nextCurvePoint.current)
+          .addScaledVector(shadowSide.current, -nextHalfWidth)
+          .normalize()
+          .multiplyScalar(displayRadius);
+
+        ribbonPositions.push(
+          leftPoint.current.x,
+          leftPoint.current.y,
+          leftPoint.current.z,
+          rightPoint.current.x,
+          rightPoint.current.y,
+          rightPoint.current.z,
+          nextLeftPoint.current.x,
+          nextLeftPoint.current.y,
+          nextLeftPoint.current.z,
+          rightPoint.current.x,
+          rightPoint.current.y,
+          rightPoint.current.z,
+          nextRightPoint.current.x,
+          nextRightPoint.current.y,
+          nextRightPoint.current.z,
+          nextLeftPoint.current.x,
+          nextLeftPoint.current.y,
+          nextLeftPoint.current.z
+        );
+        previousCurvePoint.current.copy(nextCurvePoint.current);
+      }
+
+      shadowTangent.current
+        .copy(hitPoint.current)
+        .sub(normal.current);
+      normalizeSurfaceTangent(shadowTangent.current, normal.current);
+      shadowSide.current
+        .crossVectors(normal.current, shadowTangent.current)
+        .normalize();
+      const contactCenter = curvePoint.current
+        .copy(normal.current)
+        .addScaledVector(
+          shadowTangent.current,
+          rootHalfWidth * 0.22 / displayRadius
+        )
+        .normalize()
+        .multiplyScalar(displayRadius);
+      const contactSegments = 10;
+      for (let segment = 0; segment < contactSegments; segment += 1) {
+        const angle = (segment / contactSegments) * Math.PI * 2;
+        const nextAngle = ((segment + 1) / contactSegments) * Math.PI * 2;
+        contactPoint.current
+          .copy(contactCenter)
+          .addScaledVector(
+            shadowTangent.current,
+            Math.cos(angle) * rootHalfWidth * 1.4
+          )
+          .addScaledVector(
+            shadowSide.current,
+            Math.sin(angle) * rootHalfWidth
+          )
+          .normalize()
+          .multiplyScalar(displayRadius);
+        nextContactPoint.current
+          .copy(contactCenter)
+          .addScaledVector(
+            shadowTangent.current,
+            Math.cos(nextAngle) * rootHalfWidth * 1.4
+          )
+          .addScaledVector(
+            shadowSide.current,
+            Math.sin(nextAngle) * rootHalfWidth
+          )
+          .normalize()
+          .multiplyScalar(displayRadius);
+        contactPositions.push(
+          contactCenter.x,
+          contactCenter.y,
+          contactCenter.z,
+          contactPoint.current.x,
+          contactPoint.current.y,
+          contactPoint.current.z,
+          nextContactPoint.current.x,
+          nextContactPoint.current.y,
+          nextContactPoint.current.z
+        );
       }
     });
 
-    geometry.setPositions(
-      positions.length ? positions : [0, 0, 0, 0, 0, 0]
+    ribbonGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(ribbonPositions, 3)
+    );
+    contactGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(contactPositions, 3)
     );
   });
 
-  return <primitive object={shadowLines} />;
+  return <primitive object={shadowGroup} />;
 }
 
 function BoundaryWalls({ polygons }: { polygons: GlobePolygon[] }) {
@@ -1724,7 +1918,7 @@ export function R3fMarketGlobe({
         <GlobeCamera distance={cameraDistance} />
         <AtmosphericFog distance={cameraDistance} />
         <RendererLightingSetup />
-        <GlobeShadowPass
+        <PersistentGlobeShadowRegistry
           revision={`${activeCountry.code}:${selectedCode}:${pillars.length}`}
         />
         <OceanReflectionEnvironment />
@@ -1841,8 +2035,8 @@ export function R3fMarketGlobe({
           />
           <BoundaryWalls polygons={worldPolygons} />
           <BoundaryWalls polygons={regionalPolygons} />
-          {ANALYTIC_PILLAR_SHADOWS_ENABLED ? (
-            <PillarProjectedShadows pillars={pillars} />
+          {PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED ? (
+            <ProjectedPillarContactShadows pillars={pillars} />
           ) : null}
           {tradeLabels.map((label) => {
             const latitude = THREE.MathUtils.degToRad(label.lat);
