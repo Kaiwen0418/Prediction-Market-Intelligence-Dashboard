@@ -678,6 +678,15 @@ Status: complete
 - [x] Verify country-to-country and region-to-region switching by direct click.
 - [x] Save desktop and mobile interaction screenshots.
 
+### Phase 52: Stronger Contextual Pillars
+
+Status: complete
+
+- [x] Reduce the height and width suppression applied outside the focused country.
+- [x] Increase contextual pillar density while preserving a strict per-region cap.
+- [x] Compare focused and contextual hierarchy across the European market cluster.
+- [x] Verify desktop/mobile composition and interaction performance.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

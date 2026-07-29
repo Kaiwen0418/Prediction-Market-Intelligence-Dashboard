@@ -716,11 +716,11 @@ function createRegionPillars(
   const requestedCount = Math.round(
     (12 + progress * 104) *
       (selected ? 1.38 : 1) *
-      (focusedCountry ? 1 : 0.52)
+      (focusedCountry ? 1 : 0.66)
   );
   const count = Math.min(
     requestedCount,
-    focusedCountry ? (selected ? 76 : 48) : 18
+    focusedCountry ? (selected ? 76 : 48) : 24
   );
   const random = seededRandom(
     hashString(`${datum.region.countryCode}:${datum.region.code}:r3f-volume`)
@@ -771,7 +771,7 @@ function createRegionPillars(
       1,
       gaussianWeight * 1.55 + random() * 0.1
     );
-    const focusScale = focusedCountry ? 1 : 0.42;
+    const focusScale = focusedCountry ? 1 : 0.62;
     const edgeFloor = (0.006 + progress * 0.008) * focusScale;
     const peak =
       (0.038 + progress * 0.1) *
@@ -794,7 +794,7 @@ function createRegionPillars(
       lng,
       altitude: Math.min(
         altitude,
-        focusedCountry ? (selected ? 0.13 : 0.115) : 0.048
+        focusedCountry ? (selected ? 0.13 : 0.115) : 0.07
       ),
       color: interpolateColor(colorRange[0], colorRange[1], colorWeight),
       radius:
@@ -802,7 +802,7 @@ function createRegionPillars(
           progress * 0.016 +
           gaussianWeight * 0.026 +
           random() * 0.007) *
-        (focusedCountry ? 1 : 0.72)
+        (focusedCountry ? 1 : 0.82)
     });
   }
 
