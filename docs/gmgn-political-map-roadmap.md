@@ -585,6 +585,16 @@ Status: complete
 - [x] Increase projected pillar-shadow density and opacity.
 - [x] Compare the revised scene against the Phase 40 shadow baseline.
 
+### Phase 43: Volumetric Border Walls
+
+Status: complete
+
+- [x] Give country and regional borders physical tangent-plane width.
+- [x] Build separate horizontal top and vertical side faces.
+- [x] Keep top faces light and side faces shaded under the fixed overhead light.
+- [x] Preserve wall shadow casting and reception.
+- [x] Verify wall width, joints, and shading across Europe, US, and mobile views.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

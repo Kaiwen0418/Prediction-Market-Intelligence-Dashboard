@@ -387,6 +387,7 @@ type BoundaryWallSegment = {
   end: Position;
   bottomAltitude: number;
   topAltitude: number;
+  halfWidth: number;
   color: THREE.Color;
   priority: number;
 };
@@ -411,6 +412,8 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
       polygon.layer === "region" ? (polygon.selected ? 0.006 : 0.0044) : 0.0028;
     const priority =
       polygon.layer === "region" ? (polygon.selected ? 3 : 2) : 1;
+    const halfWidth =
+      polygon.layer === "region" ? (polygon.selected ? 0.18 : 0.13) : 0.1;
     const color = new THREE.Color(
       polygon.layer === "region" ? "#fffdf7" : "#e8efed"
     );
@@ -433,6 +436,7 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
           end,
           bottomAltitude: capAltitude + 0.0002,
           topAltitude: capAltitude + wallHeight,
+          halfWidth,
           color,
           priority
         });
@@ -446,23 +450,86 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
   const bottomEnd = new THREE.Vector3();
   const topStart = new THREE.Vector3();
   const topEnd = new THREE.Vector3();
+  const radialStart = new THREE.Vector3();
+  const radialEnd = new THREE.Vector3();
+  const segmentDirection = new THREE.Vector3();
+  const sideStart = new THREE.Vector3();
+  const sideEnd = new THREE.Vector3();
+  const bottomStartLeft = new THREE.Vector3();
+  const bottomStartRight = new THREE.Vector3();
+  const bottomEndLeft = new THREE.Vector3();
+  const bottomEndRight = new THREE.Vector3();
+  const topStartLeft = new THREE.Vector3();
+  const topStartRight = new THREE.Vector3();
+  const topEndLeft = new THREE.Vector3();
+  const topEndRight = new THREE.Vector3();
+  const pushFace = (points: THREE.Vector3[], color: THREE.Color) => {
+    points.forEach((point) => {
+      positions.push(point.x, point.y, point.z);
+      colors.push(color.r, color.g, color.b);
+    });
+  };
 
   segments.forEach((segment) => {
     globePosition(segment.start, segment.bottomAltitude, bottomStart);
     globePosition(segment.end, segment.bottomAltitude, bottomEnd);
     globePosition(segment.start, segment.topAltitude, topStart);
     globePosition(segment.end, segment.topAltitude, topEnd);
-    [
-      bottomStart,
-      bottomEnd,
-      topEnd,
-      bottomStart,
-      topEnd,
-      topStart
-    ].forEach((point) => {
-      positions.push(point.x, point.y, point.z);
-      colors.push(segment.color.r, segment.color.g, segment.color.b);
-    });
+    radialStart.copy(bottomStart).normalize();
+    radialEnd.copy(bottomEnd).normalize();
+    segmentDirection.copy(bottomEnd).sub(bottomStart).normalize();
+    sideStart
+      .crossVectors(radialStart, segmentDirection)
+      .normalize()
+      .multiplyScalar(segment.halfWidth);
+    sideEnd
+      .crossVectors(radialEnd, segmentDirection)
+      .normalize()
+      .multiplyScalar(segment.halfWidth);
+    bottomStartLeft.copy(bottomStart).add(sideStart);
+    bottomStartRight.copy(bottomStart).sub(sideStart);
+    bottomEndLeft.copy(bottomEnd).add(sideEnd);
+    bottomEndRight.copy(bottomEnd).sub(sideEnd);
+    topStartLeft.copy(topStart).add(sideStart);
+    topStartRight.copy(topStart).sub(sideStart);
+    topEndLeft.copy(topEnd).add(sideEnd);
+    topEndRight.copy(topEnd).sub(sideEnd);
+
+    const topColor = segment.color;
+    const sideColor = segment.color.clone().multiplyScalar(0.7);
+    pushFace(
+      [
+        topStartLeft,
+        topEndLeft,
+        topEndRight,
+        topStartLeft,
+        topEndRight,
+        topStartRight
+      ],
+      topColor
+    );
+    pushFace(
+      [
+        bottomStartLeft,
+        bottomEndLeft,
+        topEndLeft,
+        bottomStartLeft,
+        topEndLeft,
+        topStartLeft
+      ],
+      sideColor
+    );
+    pushFace(
+      [
+        bottomEndRight,
+        bottomStartRight,
+        topStartRight,
+        bottomEndRight,
+        topStartRight,
+        topEndRight
+      ],
+      sideColor
+    );
   });
 
   const geometry = new THREE.BufferGeometry();
@@ -1057,6 +1124,7 @@ function BoundaryWalls({ polygons }: { polygons: GlobePolygon[] }) {
   const material = useMemo(() => {
     const value = new THREE.MeshStandardMaterial({
       vertexColors: true,
+      flatShading: true,
       roughness: 0.72,
       metalness: 0,
       envMapIntensity: 0.16,
