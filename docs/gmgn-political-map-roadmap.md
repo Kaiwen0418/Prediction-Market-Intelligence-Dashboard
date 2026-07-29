@@ -708,6 +708,19 @@ Status: complete
 - [x] Verify the same Canvas survives direct country clicks with shadows intact.
 - [x] Measure approximately 390-405 ms focus updates on desktop/mobile and save screenshots.
 
+### Phase 55: Fullscreen Market Workspace
+
+Status: complete
+
+- [x] Replace the framed grey product shell with an edge-to-edge market workspace.
+- [x] Add a compact icon navigation rail with accessible labels and theme control.
+- [x] Consolidate market identity, live state, probability, save, and share actions into the top header.
+- [x] Fill the first desktop viewport with the 3D globe and a fixed market overview inspector.
+- [x] Preserve the activity scanner and evidence views below the primary globe workspace.
+- [x] Reorder mobile content as globe, overview, activity, and evidence with a bottom navigation rail.
+- [x] Verify nonblank WebGL output, exact viewport framing, and zero horizontal overflow.
+- [x] Save desktop and mobile screenshots under `tmp/frontend-fullscreen-workspace/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

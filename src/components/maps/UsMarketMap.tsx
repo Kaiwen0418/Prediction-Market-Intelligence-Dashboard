@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { Maximize2, Pause, Play, X } from "lucide-react";
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
 import franceRegions from "@/components/maps/data/france-regions.json";
@@ -151,6 +152,7 @@ function formatContractDate(value: string | undefined, status: MarketSnapshot["s
 
 type UsMarketMapProps = {
   market: MarketSnapshot;
+  workspaceLayout?: boolean;
   marketSeries?: TimePoint[];
   liveTrades?: MarketTradePrint[];
   polymarketMarkets?: MarketSnapshot[];
@@ -181,6 +183,7 @@ type UsMarketMapProps = {
 
 export function UsMarketMap({
   market,
+  workspaceLayout = false,
   marketSeries = [],
   liveTrades = [],
   polymarketMarkets = [],
@@ -729,14 +732,16 @@ export function UsMarketMap({
 
   return (
     <div
-      className={`grid gap-8 ${
+      className={`market-map-layout grid gap-8 ${
+        workspaceLayout ? "market-map-layout--workspace " : ""
+      }${
         mapView === "country"
           ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.9fr)] lg:items-start xl:grid-cols-[3fr_1fr]"
           : ""
       }`}
     >
-      <div className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="market-map-primary min-w-0">
+        <div className="market-map-context mb-4 flex flex-wrap items-center gap-3">
           <p className="font-sans text-xs font-medium text-slate-600">
             {mapView === "world"
               ? `${allRegionMarkets.length} markets tracked across ${availableCountries.length} countries`
@@ -746,7 +751,7 @@ export function UsMarketMap({
           </p>
         </div>
 
-        <div className="grid items-stretch gap-6">
+        <div className="market-map-stack grid items-stretch gap-6">
           <div
             ref={mapSurfaceRef}
             className="market-map-surface relative order-1 aspect-[4/3] min-h-[320px] overflow-hidden rounded-lg bg-transparent lg:aspect-[16/10]"
@@ -1203,8 +1208,12 @@ export function UsMarketMap({
             ) : null}
             <div
               data-map-control
-              className="absolute right-3 top-3 z-10 flex gap-2"
+              className="market-map-controls absolute right-3 top-3 z-10 flex gap-2"
             >
+              <span className="market-map-live-status">
+                <span aria-hidden="true" />
+                Live
+              </span>
               <button
                 type="button"
                 title={fullscreenActive ? "Exit fullscreen" : "Enter fullscreen"}
@@ -1213,9 +1222,9 @@ export function UsMarketMap({
                 }
                 aria-pressed={fullscreenActive}
                 onClick={toggleFullscreen}
-                className="grid h-9 w-9 place-items-center border border-slate-300 bg-white/95 font-sans text-base font-semibold text-slate-800 shadow-sm transition hover:border-slate-500"
+                className="market-map-control-button"
               >
-                {fullscreenActive ? "×" : "⛶"}
+                {fullscreenActive ? <X aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
               </button>
               <button
                 type="button"
@@ -1223,56 +1232,67 @@ export function UsMarketMap({
                 aria-label={tourActive ? "Pause live map tour" : "Resume live map tour"}
                 aria-pressed={tourActive}
                 onClick={() => setTourEnabled(!tourActive)}
-                className="grid h-9 w-9 place-items-center border border-slate-300 bg-white/95 font-sans text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-500"
+                className="market-map-control-button"
               >
-                {tourActive ? "Ⅱ" : "▶"}
+                {tourActive ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
               </button>
             </div>
           </div>
-          <div className="order-2 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600">
-            <span className="font-medium text-slate-900">Activity score</span>
-            {SIGNAL_LEGEND.map((item) => (
-              <span key={item.severity} className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: getMarketSignalColor(item.severity === "critical" ? 85 : item.severity === "high" ? 70 : item.severity === "elevated" ? 50 : 0) }}
-                />
-                {item.label}
+          {workspaceLayout ? (
+            <div className="market-map-legend market-map-volume-key order-2">
+              <span className="market-map-volume-title">24h volume</span>
+              <span className="market-map-volume-scale" aria-hidden="true" />
+              <span className="market-map-volume-range">
+                <span>Low</span>
+                <span>High</span>
               </span>
-            ))}
-            <span className="font-medium text-slate-900">24h volume</span>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="h-2.5 w-2.5 rounded-full bg-slate-700"
-                style={{ opacity: getMarketVolumeOpacity(100) }}
-              />
-              Low
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="h-2.5 w-2.5 rounded-full bg-slate-700"
-                style={{ opacity: getMarketVolumeOpacity(500_000) }}
-              />
-              High
-            </span>
-            <a
-              href={
-                mapView === "world"
-                  ? "https://github.com/topojson/world-atlas"
-                  : activeCountry.boundarySourceUrl
-              }
-              target="_blank"
-              rel="noreferrer"
-              className="ml-auto text-slate-400 hover:text-slate-700"
-            >
-              Boundaries:{" "}
-              {mapView === "world"
-                ? "Natural Earth"
-                : activeCountry.boundarySourceLabel}{" "}
-              ↗
-            </a>
-          </div>
-          <div className="order-3">
+            </div>
+          ) : (
+            <div className="market-map-legend order-2 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600">
+              <span className="font-medium text-slate-900">Activity score</span>
+              {SIGNAL_LEGEND.map((item) => (
+                <span key={item.severity} className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: getMarketSignalColor(item.severity === "critical" ? 85 : item.severity === "high" ? 70 : item.severity === "elevated" ? 50 : 0) }}
+                  />
+                  {item.label}
+                </span>
+              ))}
+              <span className="font-medium text-slate-900">24h volume</span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="h-2.5 w-2.5 rounded-full bg-slate-700"
+                  style={{ opacity: getMarketVolumeOpacity(100) }}
+                />
+                Low
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="h-2.5 w-2.5 rounded-full bg-slate-700"
+                  style={{ opacity: getMarketVolumeOpacity(500_000) }}
+                />
+                High
+              </span>
+              <a
+                href={
+                  mapView === "world"
+                    ? "https://github.com/topojson/world-atlas"
+                    : activeCountry.boundarySourceUrl
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto text-slate-400 hover:text-slate-700"
+              >
+                Boundaries:{" "}
+                {mapView === "world"
+                  ? "Natural Earth"
+                  : activeCountry.boundarySourceLabel}{" "}
+                ↗
+              </a>
+            </div>
+          )}
+          <div id="market-activity" className="market-map-feed order-3">
             <AbnormalActivityFeed
               regions={
                 countryScope === "global" ? allRegionMarkets : regionMarkets
@@ -1314,8 +1334,11 @@ export function UsMarketMap({
       </div>
 
       <div
+        id="market-pairs"
         className={
-          mapView === "world" ? "hidden" : "pt-4 lg:pl-2 lg:pt-0"
+          mapView === "world"
+            ? "hidden"
+            : "market-map-inspector pt-4 lg:pl-2 lg:pt-0"
         }
       >
         <p className="metric-label">Market Overview</p>
