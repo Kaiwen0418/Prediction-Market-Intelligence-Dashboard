@@ -55,6 +55,7 @@ type VolumePillar = {
   lat: number;
   lng: number;
   altitude: number;
+  shadowReceiverAltitude: number;
   color: string;
   radius: number;
 };
@@ -113,7 +114,6 @@ const GLOBE_LOCAL_LIGHT_RAY = GLOBE_LOCAL_LIGHT_TARGET.clone()
   .sub(GLOBE_LOCAL_LIGHT_POSITION)
   .normalize();
 const PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED = true;
-const SHADOW_RECEIVER_RADIUS = GLOBE_RADIUS * 1.018;
 const PROJECTED_SHADOW_DEPTH_OFFSET = 0.045;
 const LAND_CAP_ALTITUDE = 0.0045;
 const REGION_CAP_ALTITUDE = 0.011;
@@ -1152,6 +1152,11 @@ function createRegionPillars(
         altitude,
         focusedCountry ? (selected ? 0.13 : 0.115) : 0.07
       ),
+      shadowReceiverAltitude: focusedCountry
+        ? selected
+          ? SELECTED_REGION_CAP_ALTITUDE
+          : REGION_CAP_ALTITUDE
+        : 0,
       color: interpolateColor(colorRange[0], colorRange[1], colorWeight),
       radius:
         (0.017 +
@@ -1480,13 +1485,15 @@ function ProjectedPillarContactShadows({
   useEffect(() => {
     rayLocal.current.copy(GLOBE_LOCAL_LIGHT_RAY);
 
-    const displayRadius =
-      SHADOW_RECEIVER_RADIUS + PROJECTED_SHADOW_DEPTH_OFFSET;
     const ribbonPositions: number[] = [];
     const contactPositions: number[] = [];
 
     pillars.forEach((pillar, pillarIndex) => {
       if (pillar.altitude <= 0.012 || pillarIndex % 2 !== 0) return;
+      const receiverRadius =
+        GLOBE_RADIUS * (1 + pillar.shadowReceiverAltitude);
+      const displayRadius =
+        receiverRadius + PROJECTED_SHADOW_DEPTH_OFFSET;
       const latitude = THREE.MathUtils.degToRad(pillar.lat);
       const longitude = THREE.MathUtils.degToRad(pillar.lng);
       normal.current
@@ -1512,7 +1519,7 @@ function ProjectedPillarContactShadows({
       const discriminant =
         projection * projection -
         (pillarTop.current.lengthSq() -
-          SHADOW_RECEIVER_RADIUS * SHADOW_RECEIVER_RADIUS);
+          receiverRadius * receiverRadius);
       if (discriminant <= 0) return;
 
       const distance = -projection - Math.sqrt(discriminant);
@@ -1738,7 +1745,8 @@ function BoundaryWalls({
       geometry={geometry}
       material={material}
       castShadow
-      receiveShadow
+      receiveShadow={false}
+      userData={{ skipShadowRegistration: true }}
       renderOrder={6}
     />
   );
@@ -1933,14 +1941,24 @@ export function R3fMarketGlobe({
     [regionalPolygonCapMaterials]
   );
   const polygonSideMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
+    () => {
+      const material = new THREE.MeshStandardMaterial({
         color: LAND_EXTRUSION_SIDE_COLOR,
         roughness: 0.74,
         metalness: 0,
         envMapIntensity: 0.1,
         side: THREE.DoubleSide
-      }),
+      });
+      material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replaceAll(
+          "&& receiveShadow",
+          "&& false"
+        );
+      };
+      material.customProgramCacheKey = () =>
+        "market-polygon-side-without-received-shadows-v1";
+      return material;
+    },
     []
   );
   const hiddenPolygonSideMaterial = useMemo(

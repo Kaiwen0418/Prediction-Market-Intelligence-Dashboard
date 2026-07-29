@@ -847,6 +847,19 @@ Status: complete
 - [x] Verify rotating and settled states at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-deferred-intro-layers/`.
 
+### Phase 67: Per-Surface Pillar Shadow Registration
+
+Status: complete
+
+- [x] Record the correct shadow receiver altitude on each generated pillar.
+- [x] Project selected-region shadows onto the elevated selected cap.
+- [x] Project other focused-country shadows onto their regional caps.
+- [x] Keep contextual ribbons on the ocean receiver shell so real land shadows remain depth-correct without a floating overlay.
+- [x] Keep border walls as shadow casters but exclude their vertical sides from pillar-shadow reception.
+- [x] Disable shadow-map reception in polygon side shaders while preserving directional material shading.
+- [x] Verify London and Berlin shadow registration at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-context-shadow-registration/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
