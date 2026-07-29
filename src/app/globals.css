@@ -106,20 +106,6 @@ body {
     0 0 8px var(--demo-card-bg);
 }
 
-.market-map-trade-label {
-  text-shadow:
-    -1px -1px 0 rgba(255, 255, 255, 0.96),
-    1px -1px 0 rgba(255, 255, 255, 0.96),
-    -1px 1px 0 rgba(255, 255, 255, 0.96),
-    1px 1px 0 rgba(255, 255, 255, 0.96);
-}
-
-@media (max-width: 520px) {
-  .market-map-trade-label--context {
-    display: none;
-  }
-}
-
 /* Fullscreen market workspace */
 .market-workspace {
   min-height: 100vh;

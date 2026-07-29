@@ -19,6 +19,10 @@ import germanyStates from "@/components/maps/data/germany-states.json";
 import ukRegions from "@/components/maps/data/uk-regions.json";
 import ukraineOblasts from "@/components/maps/data/ukraine-oblasts.json";
 import worldCountries from "@/components/maps/data/world-countries-110m.json";
+import {
+  appendTradePopupQueue,
+  type ExpiringTradePopup
+} from "@/components/maps/mapTradePopups";
 import { getMarketSignalColor } from "@/components/maps/marketSignals";
 import type {
   CountryMarketMap,
@@ -61,10 +65,10 @@ type VolumePillar = {
 };
 
 type GlobeTradeLabel = {
+  id: string;
   lat: number;
   lng: number;
   text: string;
-  positive: boolean;
   selected: boolean;
 };
 
@@ -76,8 +80,9 @@ export type GlobeRegionDatum = {
 
 export type GlobeTradeDatum = {
   region: RegionMarket;
+  id: string;
+  timestamp: string;
   text: string;
-  positive: boolean;
 };
 
 type R3fMarketGlobeProps = {
@@ -1788,6 +1793,12 @@ export function R3fMarketGlobe({
   );
   const introRevealStartedRef = useRef(false);
   const [introDataVisible, setIntroDataVisible] = useState(false);
+  const seenTradeIdsRef = useRef(new Set<string>());
+  const seenTradeOrderRef = useRef<string[]>([]);
+  const tradeScopeRef = useRef(activeCountry.code);
+  const [tradePopupQueue, setTradePopupQueue] = useState<
+    ExpiringTradePopup<GlobeTradeDatum>[]
+  >([]);
   const handleGlobeReady = useCallback(() => {
     if (introRevealStartedRef.current) return;
     introRevealStartedRef.current = true;
@@ -2019,21 +2030,15 @@ export function R3fMarketGlobe({
     []
   );
   const contextualCountryCodes = useMemo(() => {
-    const [focusLng, focusLat] = activeCountry.defaultCenter;
     const result = new Set<string>();
 
     regions.forEach(({ region }) => {
-      if (region.countryCode === activeCountry.code) return;
-      const longitudeDistance = Math.abs(
-        ((region.center[0] - focusLng + 540) % 360) - 180
-      );
-      const latitudeDistance = Math.abs(region.center[1] - focusLat);
-      if (longitudeDistance <= 42 && latitudeDistance <= 28) {
+      if (region.countryCode !== activeCountry.code) {
         result.add(region.countryCode);
       }
     });
     return result;
-  }, [activeCountry, regions]);
+  }, [activeCountry.code, regions]);
   const focusedFeatureByRegionKey = useMemo(() => {
     const result = new Map<string, MapFeature>();
     if (nationalRegion) {
@@ -2118,28 +2123,57 @@ export function R3fMarketGlobe({
         return longitudeDistance <= 42 && latitudeDistance <= 28;
       })
       .sort(
-        (left, right) => {
-          const selectedDifference =
-            Number(
-              right.region.countryCode === activeCountry.code &&
-                right.region.code === selectedCode
-            ) -
-            Number(
-              left.region.countryCode === activeCountry.code &&
-                left.region.code === selectedCode
-            );
-          if (selectedDifference) return selectedDifference;
-          return (
-            Number(right.region.countryCode === activeCountry.code) -
-            Number(left.region.countryCode === activeCountry.code)
-          );
-        }
-      )
-      .slice(0, 6);
-  }, [activeCountry, selectedCode, trades]);
+        (left, right) =>
+          new Date(left.timestamp).getTime() -
+          new Date(right.timestamp).getTime()
+      );
+  }, [activeCountry, trades]);
+  useEffect(() => {
+    const scopeChanged = tradeScopeRef.current !== activeCountry.code;
+    if (scopeChanged) {
+      tradeScopeRef.current = activeCountry.code;
+      seenTradeIdsRef.current.clear();
+      seenTradeOrderRef.current = [];
+    }
+
+    const incoming = visibleTrades.filter(
+      (trade) => !seenTradeIdsRef.current.has(trade.id)
+    );
+    if (!incoming.length && !scopeChanged) return;
+
+    incoming.forEach((trade) => {
+      seenTradeIdsRef.current.add(trade.id);
+      seenTradeOrderRef.current.push(trade.id);
+    });
+    while (seenTradeOrderRef.current.length > 500) {
+      const expiredId = seenTradeOrderRef.current.shift();
+      if (expiredId) seenTradeIdsRef.current.delete(expiredId);
+    }
+
+    const now = Date.now();
+    setTradePopupQueue((current) =>
+      appendTradePopupQueue(scopeChanged ? [] : current, incoming, now)
+    );
+  }, [activeCountry.code, visibleTrades]);
+  useEffect(() => {
+    if (!tradePopupQueue.length) return;
+
+    const nextExpiry = Math.min(
+      ...tradePopupQueue.map((popup) => popup.expiresAt)
+    );
+    const timeout = window.setTimeout(() => {
+      const now = Date.now();
+      setTradePopupQueue((current) =>
+        current.filter((popup) => popup.expiresAt > now)
+      );
+    }, Math.max(0, nextExpiry - Date.now()));
+
+    return () => window.clearTimeout(timeout);
+  }, [tradePopupQueue]);
   const tradeLabels = useMemo<GlobeTradeLabel[]>(
     () =>
-      visibleTrades.map(({ region, text, positive }, index) => ({
+      tradePopupQueue.map(({ id, region, text }, index) => ({
+        id,
         lat:
           region.center[1] +
           (region.countryCode === activeCountry.code ? 2 : 1.35) +
@@ -2149,12 +2183,11 @@ export function R3fMarketGlobe({
           (index % 2 === 0 ? 1 : -1) *
             (region.countryCode === activeCountry.code ? 7 : 5),
         text,
-        positive,
         selected:
           region.countryCode === activeCountry.code &&
           region.code === selectedCode
       })),
-    [activeCountry.code, selectedCode, visibleTrades]
+    [activeCountry.code, selectedCode, tradePopupQueue]
   );
   const globeMaterial = useMemo(
     () => {
@@ -2241,6 +2274,7 @@ export function R3fMarketGlobe({
       className="h-full w-full"
       aria-label={`${activeCountry.label} 3D market volume map`}
       data-pillar-count={pillars.length}
+      data-context-pillar-count={visibleContextPillars.length}
       data-trade-label-count={tradeLabels.length}
       data-intro-layers-visible={introDataVisible}
     >
@@ -2398,7 +2432,7 @@ export function R3fMarketGlobe({
 
                 return (
                   <Html
-                    key={`${label.lat}:${label.lng}:${label.text}`}
+                    key={label.id}
                     position={position}
                     center
                     zIndexRange={[20, 0]}
@@ -2409,11 +2443,7 @@ export function R3fMarketGlobe({
                         label.selected
                           ? "market-map-trade-label--selected"
                           : "market-map-trade-label--context"
-                      } whitespace-nowrap font-sans text-[11px] font-extrabold ${
-                        label.positive
-                          ? "text-emerald-700"
-                          : "text-rose-700"
-                      }`}
+                      } whitespace-nowrap font-sans text-[11px] font-extrabold text-slate-700`}
                     >
                       {label.text}
                     </span>

@@ -860,6 +860,19 @@ Status: complete
 - [x] Verify London and Berlin shadow registration at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-context-shadow-registration/`.
 
+### Phase 68: Persistent Context Pillars and Live Trade FIFO
+
+Status: complete
+
+- [x] Keep every non-focused country pillar field mounted and visible while switching US states.
+- [x] Preserve European context pillar counts across California-to-Florida selection.
+- [x] Remove synthetic volume fallback popups and only map actual Polymarket venue trades.
+- [x] Append unseen trade IDs to a three-slot FIFO queue.
+- [x] Expire each popup after seven seconds without replaying unchanged polling results.
+- [x] Remove popup text outlines and use fixed dark gray text on desktop and mobile.
+- [x] Add regression coverage for venue matching, FIFO capacity, and expiry.
+- [x] Save screenshots under `tmp/frontend-persistent-context-live-trade-fifo/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
