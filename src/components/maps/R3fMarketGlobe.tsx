@@ -96,7 +96,7 @@ const WORLD_FEATURES = worldFeatureCollection.features;
 const GLOBE_RADIUS = 100;
 const GLOBE_SCALE = 1.48;
 const MAP_LIGHT_TARGET = new THREE.Vector3(4, 48, 0);
-const ANALYTIC_PILLAR_SHADOWS_ENABLED = false;
+const ANALYTIC_PILLAR_SHADOWS_ENABLED = true;
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
 function createOceanTextures() {
@@ -843,24 +843,10 @@ function AtmosphericFog({ distance }: { distance: number }) {
 function GlobeShadowPass({ revision }: { revision: string }) {
   const { gl, scene } = useThree();
   const framesRemaining = useRef(0);
-  const pillarDepthMaterial = useMemo(
-    () =>
-      new THREE.MeshDepthMaterial({
-        depthPacking: THREE.RGBADepthPacking,
-        side: THREE.DoubleSide
-      }),
-    []
-  );
 
   useEffect(() => {
     framesRemaining.current = 45;
   }, [revision]);
-  useEffect(
-    () => () => {
-      pillarDepthMaterial.dispose();
-    },
-    [pillarDepthMaterial]
-  );
 
   useFrame(() => {
     if (framesRemaining.current <= 0) return;
@@ -880,14 +866,8 @@ function GlobeShadowPass({ revision }: { revision: string }) {
       const isPillar =
         globeObjectType === "point" || globeObjectType === "points";
 
-      mesh.castShadow = isPillar || (!isAtmosphere && !isOcean);
+      mesh.castShadow = !isPillar && !isAtmosphere && !isOcean;
       mesh.receiveShadow = !isAtmosphere && !isPillar;
-      if (isPillar) {
-        mesh.customDepthMaterial = pillarDepthMaterial;
-        materials.forEach((material) => {
-          material.shadowSide = THREE.DoubleSide;
-        });
-      }
     });
     gl.shadowMap.needsUpdate = true;
   });
@@ -983,23 +963,10 @@ function PillarProjectedShadows({
   const material = useMemo(
     () =>
       new LineMaterial({
-        color: "#5c3b34",
-        linewidth: 1.15,
+        color: "#20282a",
+        linewidth: 1.05,
         transparent: true,
-        opacity: 0.4,
-        depthTest: true,
-        depthWrite: false,
-        worldUnits: false
-      }),
-    []
-  );
-  const softMaterial = useMemo(
-    () =>
-      new LineMaterial({
-        color: "#4f3b38",
-        linewidth: 3,
-        transparent: true,
-        opacity: 0.14,
+        opacity: 0.22,
         depthTest: true,
         depthWrite: false,
         worldUnits: false
@@ -1012,12 +979,6 @@ function PillarProjectedShadows({
     value.renderOrder = 8;
     return value;
   }, [geometry, material]);
-  const softShadowLines = useMemo(() => {
-    const value = new LineSegments2(geometry, softMaterial);
-    value.frustumCulled = false;
-    value.renderOrder = 7;
-    return value;
-  }, [geometry, softMaterial]);
   const cameraUp = useRef(new THREE.Vector3());
   const cameraForward = useRef(new THREE.Vector3());
   const rayWorld = useRef(new THREE.Vector3());
@@ -1031,15 +992,13 @@ function PillarProjectedShadows({
 
   useEffect(() => {
     material.resolution.set(size.width, size.height);
-    softMaterial.resolution.set(size.width, size.height);
-  }, [material, size.height, size.width, softMaterial]);
+  }, [material, size.height, size.width]);
   useEffect(
     () => () => {
       geometry.dispose();
       material.dispose();
-      softMaterial.dispose();
     },
-    [geometry, material, softMaterial]
+    [geometry, material]
   );
 
   useFrame(() => {
@@ -1067,7 +1026,7 @@ function PillarProjectedShadows({
     const positions: number[] = [];
 
     pillars.forEach((pillar, pillarIndex) => {
-      if (pillar.altitude <= 0.022 || pillarIndex % 2 !== 0) return;
+      if (pillar.altitude <= 0.012 || pillarIndex % 2 !== 0) return;
       const latitude = THREE.MathUtils.degToRad(pillar.lat);
       const longitude = THREE.MathUtils.degToRad(pillar.lng);
       normal.current
@@ -1129,12 +1088,7 @@ function PillarProjectedShadows({
     );
   });
 
-  return (
-    <>
-      <primitive object={softShadowLines} />
-      <primitive object={shadowLines} />
-    </>
-  );
+  return <primitive object={shadowLines} />;
 }
 
 function BoundaryWalls({ polygons }: { polygons: GlobePolygon[] }) {

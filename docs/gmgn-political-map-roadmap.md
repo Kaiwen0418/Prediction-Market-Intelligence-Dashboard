@@ -616,6 +616,17 @@ Status: complete
 - [x] Limit tall central spikes and bias most pillars toward shorter heights.
 - [x] Verify France and US desktop/mobile composition and performance.
 
+### Phase 46: Deterministic Single-Layer Pillar Shadows
+
+Status: complete
+
+- [x] Diagnose native shadow loss against shadow-map texel size and reduced pillar heights.
+- [x] Keep native PCF shadows for land and volumetric walls.
+- [x] Remove pillars from the native shadow map to prevent double rendering.
+- [x] Replace the colored core and penumbra pair with one neutral projected layer.
+- [x] Include shorter pillars in the deterministic projection fallback.
+- [x] Verify repeatable shadows across France, US, reloads, and mobile.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
