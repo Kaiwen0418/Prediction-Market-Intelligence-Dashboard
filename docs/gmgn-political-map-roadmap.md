@@ -811,6 +811,18 @@ Status: complete
 - [x] Verify wall-face contrast at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-natural-wall-shading/`.
 
+### Phase 64: Single Regional Border Layer
+
+Status: complete
+
+- [x] Identify the overlap between built-in polygon extrusion sides and custom boundary walls.
+- [x] Hide routine regional polygon sides so custom boundary geometry owns internal borders.
+- [x] Retain a naturally lit extrusion side only for a uniquely selected raised region.
+- [x] Extend the precise active-country skirt to cover ordinary regional cap sides.
+- [x] Use one shared standard-material side color across polygon skirts and boundary walls.
+- [x] Verify national focus at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-single-region-border/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

@@ -118,7 +118,8 @@ const REGION_WALL_HEIGHT = 0.0018;
 const SELECTED_REGION_WALL_HEIGHT = 0.0028;
 const SELECTED_COUNTRY_SKIRT_HALF_WIDTH = 0.125;
 const SELECTED_COUNTRY_SKIRT_TOP_CLEARANCE = 0.0002;
-const LAND_EXTRUSION_SIDE_COLOR = "#839391";
+const WALL_TOP_COLOR = "#f4f2eb";
+const LAND_EXTRUSION_SIDE_COLOR = "#9aa6a3";
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
 function createOceanTextures() {
@@ -696,6 +697,10 @@ function createBoundaryWallGeometry(
   const segments = new Map<string, BoundaryWallSegment>();
 
   polygons.forEach((polygon) => {
+    const usesPreciseCountryPerimeter =
+      polygon.layer === "land" &&
+      polygon.countryCode === preciseCountryCode &&
+      Boolean(preciseCountryPerimeter?.length);
     const capAltitude =
       polygon.layer === "land"
         ? LAND_CAP_ALTITUDE
@@ -712,6 +717,11 @@ function createBoundaryWallGeometry(
             LAND_CAP_ALTITUDE +
             SELECTED_REGION_WALL_HEIGHT -
             SELECTED_COUNTRY_SKIRT_TOP_CLEARANCE
+          : usesPreciseCountryPerimeter
+            ? REGION_CAP_ALTITUDE -
+              LAND_CAP_ALTITUDE +
+              REGION_WALL_HEIGHT -
+              SELECTED_COUNTRY_SKIRT_TOP_CLEARANCE
           : 0.0016;
     const priority =
       polygon.layer === "region" ? (polygon.selected ? 3 : 2) : 1;
@@ -722,21 +732,19 @@ function createBoundaryWallGeometry(
           : 0.075
         : polygon.selected
           ? SELECTED_COUNTRY_SKIRT_HALF_WIDTH
+          : usesPreciseCountryPerimeter
+            ? 0.09
           : 0.055;
     const color = new THREE.Color(
-      polygon.layer === "region" || polygon.selected ? "#f4f2eb" : "#dfe7e4"
+      polygon.layer === "region" || polygon.selected
+        ? WALL_TOP_COLOR
+        : "#dfe7e4"
     );
-    const sideColor =
-      polygon.layer === "land" && polygon.selected
-        ? new THREE.Color(LAND_EXTRUSION_SIDE_COLOR)
-        : color.clone().multiplyScalar(0.7);
+    const sideColor = new THREE.Color(LAND_EXTRUSION_SIDE_COLOR);
 
-    const precisePerimeter =
-      polygon.layer === "land" &&
-      polygon.countryCode === preciseCountryCode &&
-      preciseCountryPerimeter?.length
-        ? preciseCountryPerimeter
-        : null;
+    const precisePerimeter = usesPreciseCountryPerimeter
+      ? preciseCountryPerimeter
+      : null;
     const polygonEdges =
       edgesByPolygon?.get(polygon) ??
       precisePerimeter ??
@@ -1876,6 +1884,35 @@ export function R3fMarketGlobe({
     },
     [regionalPolygonCapMaterials]
   );
+  const polygonSideMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: LAND_EXTRUSION_SIDE_COLOR,
+        roughness: 0.74,
+        metalness: 0,
+        envMapIntensity: 0.1,
+        side: THREE.DoubleSide
+      }),
+    []
+  );
+  const hiddenPolygonSideMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        colorWrite: false,
+        side: THREE.DoubleSide
+      }),
+    []
+  );
+  useEffect(
+    () => () => {
+      polygonSideMaterial.dispose();
+      hiddenPolygonSideMaterial.dispose();
+    },
+    [hiddenPolygonSideMaterial, polygonSideMaterial]
+  );
   const selectablePolygons = useMemo(
     () => [...worldPolygons, ...regionalPolygons],
     [regionalPolygons, worldPolygons]
@@ -1890,17 +1927,22 @@ export function R3fMarketGlobe({
       regionalPolygonCapMaterials.get(polygon as GlobePolygon)!,
     [regionalPolygonCapMaterials]
   );
-  const getPolygonSideColor = useCallback(
-    (polygon: object) => {
-      const globePolygon = polygon as GlobePolygon;
-      if (globePolygon.layer === "region") {
-        return globePolygon.selected
-          ? LAND_EXTRUSION_SIDE_COLOR
-          : "rgba(92, 65, 55, 0.84)";
-      }
-      return LAND_EXTRUSION_SIDE_COLOR;
-    },
-    []
+  const nationalFocusSelected =
+    nationalRegion?.region.code === selectedCode;
+  const getWorldPolygonSideMaterial = useCallback(
+    () => polygonSideMaterial,
+    [polygonSideMaterial]
+  );
+  const getRegionalPolygonSideMaterial = useCallback(
+    (polygon: object) =>
+      !nationalFocusSelected && (polygon as GlobePolygon).selected
+        ? polygonSideMaterial
+        : hiddenPolygonSideMaterial,
+    [
+      hiddenPolygonSideMaterial,
+      nationalFocusSelected,
+      polygonSideMaterial
+    ]
   );
   const getWorldPolygonAltitude = useCallback(() => LAND_CAP_ALTITUDE, []);
   const getRegionalPolygonAltitude = useCallback(
@@ -2194,7 +2236,8 @@ export function R3fMarketGlobe({
             polygonsTransitionDuration={0}
             polygonGeoJsonGeometry="geometry"
             polygonCapMaterial={getWorldPolygonCapMaterial}
-            polygonSideColor={getPolygonSideColor}
+            polygonSideColor=""
+            polygonSideMaterial={getWorldPolygonSideMaterial}
             polygonStrokeColor={false}
             polygonAltitude={getWorldPolygonAltitude}
           />
@@ -2218,7 +2261,8 @@ export function R3fMarketGlobe({
             polygonsTransitionDuration={0}
             polygonGeoJsonGeometry="geometry"
             polygonCapMaterial={getRegionalPolygonCapMaterial}
-            polygonSideColor={getPolygonSideColor}
+            polygonSideColor=""
+            polygonSideMaterial={getRegionalPolygonSideMaterial}
             polygonStrokeColor={false}
             polygonAltitude={getRegionalPolygonAltitude}
           />
