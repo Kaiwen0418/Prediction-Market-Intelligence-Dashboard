@@ -637,6 +637,19 @@ Status: complete
 - [x] Update filter parsing and serialization for the new default.
 - [x] Verify `/` opens the 3D globe and `?view=world` still opens the 2D map.
 
+### Phase 48: Orbit Stability and Interaction Performance
+
+Status: complete
+
+- [x] Reduce orbit rotation and zoom sensitivity with controlled damping.
+- [x] Force native shadow-map refreshes throughout drag interactions.
+- [x] Clamp projected pillar rays inward so orbiting cannot make them miss the globe.
+- [x] Cap focused, selected, and contextual pillar counts per region.
+- [x] Merge non-interactive pillar geometry and reduce radial tessellation.
+- [x] Reduce native land/wall shadow-map cost while preserving visible depth.
+- [x] Verify shadows before and after repeated drags on desktop and mobile.
+- [x] Confirm the requested port `3000` development server remains stopped.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

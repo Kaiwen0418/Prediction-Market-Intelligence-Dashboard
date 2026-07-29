@@ -704,10 +704,14 @@ function createRegionPillars(
   const polygon = chooseRegionGeometry(mapFeature.geometry, datum.region.center);
   const bounds = getBounds(polygon);
   const progress = volumeProgress(datum.volume24h, datum.signalScore);
-  const count = Math.round(
+  const requestedCount = Math.round(
     (12 + progress * 104) *
       (selected ? 1.38 : 1) *
       (focusedCountry ? 1 : 0.52)
+  );
+  const count = Math.min(
+    requestedCount,
+    focusedCountry ? (selected ? 76 : 48) : 18
   );
   const random = seededRandom(
     hashString(`${datum.region.countryCode}:${datum.region.code}:r3f-volume`)
@@ -809,17 +813,28 @@ function GlobeCamera({ distance }: { distance: number }) {
 }
 
 function GlobeControls({ distance }: { distance: number }) {
-  const { size } = useThree();
+  const { gl, invalidate, size } = useThree();
   const compact = size.width < 520;
+  const refreshShadows = () => {
+    gl.shadowMap.needsUpdate = true;
+    invalidate();
+  };
 
   return (
     <OrbitControls
       enablePan={false}
+      enableDamping
+      dampingFactor={0.075}
+      rotateSpeed={0.34}
+      zoomSpeed={0.65}
       target={[0, 43, 0]}
       minDistance={(compact ? distance * 1.1 : distance) - 30}
       maxDistance={(compact ? distance * 1.1 : distance) + 80}
       minPolarAngle={Math.PI * 0.25}
       maxPolarAngle={Math.PI * 0.68}
+      onStart={refreshShadows}
+      onChange={refreshShadows}
+      onEnd={refreshShadows}
     />
   );
 }
@@ -883,10 +898,12 @@ function RendererLightingSetup() {
     const previousExposure = gl.toneMappingExposure;
     const previousShadowEnabled = gl.shadowMap.enabled;
     const previousShadowType = gl.shadowMap.type;
+    const previousShadowAutoUpdate = gl.shadowMap.autoUpdate;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.04;
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFShadowMap;
+    gl.shadowMap.autoUpdate = true;
     gl.shadowMap.needsUpdate = true;
 
     return () => {
@@ -894,6 +911,7 @@ function RendererLightingSetup() {
       gl.toneMappingExposure = previousExposure;
       gl.shadowMap.enabled = previousShadowEnabled;
       gl.shadowMap.type = previousShadowType;
+      gl.shadowMap.autoUpdate = previousShadowAutoUpdate;
     };
   }, [gl]);
 
@@ -936,8 +954,8 @@ function CameraTopShadowLight() {
         shadow-bias={-0.00006}
         shadow-normalBias={0.015}
         shadow-radius={1.8}
-        shadow-mapSize-width={4096}
-        shadow-mapSize-height={4096}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
         shadow-camera-near={70}
         shadow-camera-far={520}
         shadow-camera-left={-152}
@@ -983,6 +1001,7 @@ function PillarProjectedShadows({
   const cameraForward = useRef(new THREE.Vector3());
   const rayWorld = useRef(new THREE.Vector3());
   const rayLocal = useRef(new THREE.Vector3());
+  const pillarRay = useRef(new THREE.Vector3());
   const parentQuaternion = useRef(new THREE.Quaternion());
   const normal = useRef(new THREE.Vector3());
   const pillarTop = useRef(new THREE.Vector3());
@@ -1040,8 +1059,15 @@ function PillarProjectedShadows({
         .copy(normal.current)
         .multiplyScalar(GLOBE_RADIUS * (1 + pillar.altitude));
 
+      pillarRay.current.copy(rayLocal.current);
+      const inwardProjection = pillarRay.current.dot(normal.current);
+      if (inwardProjection > -0.2) {
+        pillarRay.current
+          .addScaledVector(normal.current, -0.2 - inwardProjection)
+          .normalize();
+      }
       const projection =
-        pillarTop.current.dot(rayLocal.current);
+        pillarTop.current.dot(pillarRay.current);
       const discriminant =
         projection * projection -
         (pillarTop.current.lengthSq() - receiverRadius * receiverRadius);
@@ -1051,7 +1077,7 @@ function PillarProjectedShadows({
       if (distance <= 0) return;
       hitPoint.current
         .copy(pillarTop.current)
-        .addScaledVector(rayLocal.current, distance)
+        .addScaledVector(pillarRay.current, distance)
         .normalize();
       const angularDistance = normal.current.angleTo(hitPoint.current);
       if (angularDistance > 0.065) {
@@ -1444,8 +1470,8 @@ export function R3fMarketGlobe({
     >
       <Canvas
         camera={{ fov: 35, near: 1, far: 1000 }}
-        dpr={[1, 2]}
-        gl={{ alpha: true, antialias: true }}
+        dpr={[1, 1.75]}
+        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
         shadows
       >
         <GlobeCamera distance={cameraDistance} />
@@ -1518,7 +1544,8 @@ export function R3fMarketGlobe({
             pointAltitude="altitude"
             pointRadius="radius"
             pointColor="color"
-            pointsMerge={false}
+            pointResolution={6}
+            pointsMerge
             pointsTransitionDuration={0}
           />
           <BoundaryWalls polygons={polygons} />
