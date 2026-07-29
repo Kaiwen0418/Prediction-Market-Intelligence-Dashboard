@@ -96,6 +96,7 @@ const WORLD_FEATURES = worldFeatureCollection.features;
 const GLOBE_RADIUS = 100;
 const GLOBE_SCALE = 1.48;
 const MAP_LIGHT_TARGET = new THREE.Vector3(4, 48, 0);
+const ANALYTIC_PILLAR_SHADOWS_ENABLED = false;
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
 function createOceanTextures() {
@@ -1547,7 +1548,9 @@ export function R3fMarketGlobe({
             pointsTransitionDuration={0}
           />
           <BoundaryWalls polygons={polygons} />
-          <PillarProjectedShadows pillars={pillars} />
+          {ANALYTIC_PILLAR_SHADOWS_ENABLED ? (
+            <PillarProjectedShadows pillars={pillars} />
+          ) : null}
           {tradeLabels.map((label) => {
             const latitude = THREE.MathUtils.degToRad(label.lat);
             const longitude = THREE.MathUtils.degToRad(label.lng);

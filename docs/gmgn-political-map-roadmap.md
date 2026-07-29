@@ -595,6 +595,16 @@ Status: complete
 - [x] Preserve wall shadow casting and reception.
 - [x] Verify wall width, joints, and shading across Europe, US, and mobile views.
 
+### Phase 44: Native-Only Shadow Comparison
+
+Status: complete
+
+- [x] Disable the analytic pillar-shadow core and penumbra layers.
+- [x] Retain native directional-light PCF shadows for pillars, land, and walls.
+- [x] Compare native-only rendering against the Phase 43 analytic-overlay view.
+- [x] Verify France and US desktop views before selecting the preferred treatment.
+- [x] Keep native-only rendering as the current state for one neutral shadow hue, accepting reduced visibility from the smallest European pillars.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
