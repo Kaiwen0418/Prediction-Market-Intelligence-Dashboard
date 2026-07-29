@@ -658,6 +658,16 @@ Status: complete
 - [x] Preserve the ocean material, atmospheric horizon, and transparent WebGL canvas.
 - [x] Verify the result at desktop and mobile viewports and save screenshots.
 
+### Phase 50: Northern Market Orbit Rail
+
+Status: complete
+
+- [x] Add a fixed horizontal orbit range around the selected country focus.
+- [x] Keep the range broad enough to traverse the US, Europe, and Middle East.
+- [x] Prevent downward rotation into southern and underside views.
+- [x] Verify both horizontal endpoints and the northern tilt range.
+- [x] Confirm constrained dragging remains fluent on desktop and mobile.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

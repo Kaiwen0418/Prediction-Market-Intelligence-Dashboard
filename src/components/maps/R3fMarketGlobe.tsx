@@ -95,6 +95,8 @@ const worldFeatureCollection = feature(
 const WORLD_FEATURES = worldFeatureCollection.features;
 const GLOBE_RADIUS = 100;
 const GLOBE_SCALE = 1.48;
+const MARKET_ORBIT_WEST_LONGITUDE = -125;
+const MARKET_ORBIT_EAST_LONGITUDE = 55;
 const MAP_LIGHT_TARGET = new THREE.Vector3(4, 48, 0);
 const ANALYTIC_PILLAR_SHADOWS_ENABLED = true;
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
@@ -812,9 +814,33 @@ function GlobeCamera({ distance }: { distance: number }) {
   return null;
 }
 
-function GlobeControls({ distance }: { distance: number }) {
+function GlobeControls({
+  distance,
+  focusLongitude
+}: {
+  distance: number;
+  focusLongitude: number;
+}) {
   const { gl, invalidate, size } = useThree();
   const compact = size.width < 520;
+  const minimumAzimuth = Math.min(
+    0,
+    Math.max(
+      -Math.PI * 0.96,
+      THREE.MathUtils.degToRad(
+        MARKET_ORBIT_WEST_LONGITUDE - focusLongitude
+      )
+    )
+  );
+  const maximumAzimuth = Math.max(
+    0,
+    Math.min(
+      Math.PI * 0.96,
+      THREE.MathUtils.degToRad(
+        MARKET_ORBIT_EAST_LONGITUDE - focusLongitude
+      )
+    )
+  );
   const refreshShadows = () => {
     gl.shadowMap.needsUpdate = true;
     invalidate();
@@ -830,8 +856,10 @@ function GlobeControls({ distance }: { distance: number }) {
       target={[0, 43, 0]}
       minDistance={(compact ? distance * 1.1 : distance) - 30}
       maxDistance={(compact ? distance * 1.1 : distance) + 80}
-      minPolarAngle={Math.PI * 0.25}
-      maxPolarAngle={Math.PI * 0.68}
+      minAzimuthAngle={minimumAzimuth}
+      maxAzimuthAngle={maximumAzimuth}
+      minPolarAngle={Math.PI * 0.27}
+      maxPolarAngle={Math.PI * 0.515}
       onStart={refreshShadows}
       onChange={refreshShadows}
       onEnd={refreshShadows}
@@ -1585,7 +1613,10 @@ export function R3fMarketGlobe({
             );
           })}
         </group>
-        <GlobeControls distance={cameraDistance} />
+        <GlobeControls
+          distance={cameraDistance}
+          focusLongitude={focusLongitude}
+        />
       </Canvas>
     </div>
   );
