@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type RefObject
+} from "react";
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import Globe from "r3f-globe";
@@ -96,7 +102,11 @@ const GLOBE_SCALE = 1.48;
 const REGION_WALL_SIMPLIFICATION_TOLERANCE = 0.035;
 const MARKET_ORBIT_WEST_LONGITUDE = -125;
 const MARKET_ORBIT_EAST_LONGITUDE = 55;
-const MAP_LIGHT_TARGET = new THREE.Vector3(4, 48, 0);
+const GLOBE_LOCAL_LIGHT_TARGET = new THREE.Vector3(0, 32, 0);
+const GLOBE_LOCAL_LIGHT_POSITION = new THREE.Vector3(0, 230, 55);
+const GLOBE_LOCAL_LIGHT_RAY = GLOBE_LOCAL_LIGHT_TARGET.clone()
+  .sub(GLOBE_LOCAL_LIGHT_POSITION)
+  .normalize();
 const PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED = true;
 const SHADOW_RECEIVER_RADIUS = GLOBE_RADIUS * 1.018;
 const PROJECTED_SHADOW_DEPTH_OFFSET = 0.045;
@@ -1097,37 +1107,40 @@ function RendererLightingSetup() {
   return null;
 }
 
-function CameraTopShadowLight() {
+function GlobeFixedShadowLight({
+  globeGroupRef
+}: {
+  globeGroupRef: RefObject<THREE.Group | null>;
+}) {
   const light = useRef<THREE.DirectionalLight>(null);
   const target = useRef<THREE.Object3D>(null);
-  const { camera } = useThree();
-  const cameraUp = useRef(new THREE.Vector3());
-  const cameraForward = useRef(new THREE.Vector3());
+  const worldLightPosition = useRef(new THREE.Vector3());
+  const worldLightTarget = useRef(new THREE.Vector3());
 
   useFrame(() => {
-    if (!light.current || !target.current) return;
+    const globeGroup = globeGroupRef.current;
+    if (!globeGroup || !light.current || !target.current) return;
 
-    cameraUp.current
-      .set(0, 1, 0)
-      .applyQuaternion(camera.quaternion)
-      .normalize();
-    camera.getWorldDirection(cameraForward.current);
-    target.current.position.copy(MAP_LIGHT_TARGET);
+    globeGroup.updateWorldMatrix(true, false);
+    worldLightPosition.current
+      .copy(GLOBE_LOCAL_LIGHT_POSITION)
+      .applyMatrix4(globeGroup.matrixWorld);
+    worldLightTarget.current
+      .copy(GLOBE_LOCAL_LIGHT_TARGET)
+      .applyMatrix4(globeGroup.matrixWorld);
+    light.current.position.copy(worldLightPosition.current);
+    target.current.position.copy(worldLightTarget.current);
     target.current.updateMatrixWorld();
     light.current.target = target.current;
-    light.current.position
-      .copy(MAP_LIGHT_TARGET)
-      .addScaledVector(cameraUp.current, 285)
-      .addScaledVector(cameraForward.current, -55);
   });
 
   return (
     <>
-      <object3D ref={target} position={MAP_LIGHT_TARGET} />
+      <object3D ref={target} />
       <directionalLight
         ref={light}
         castShadow
-        position={[4, 333, 55]}
+        position={[0, 340, 80]}
         intensity={2.35}
         color="#fffaf0"
         shadow-bias={-0.00006}
@@ -1167,7 +1180,6 @@ function ProjectedPillarContactShadows({
 }: {
   pillars: VolumePillar[];
 }) {
-  const { camera } = useThree();
   const ribbonGeometry = useMemo(() => new THREE.BufferGeometry(), []);
   const contactGeometry = useMemo(() => new THREE.BufferGeometry(), []);
   const ribbonMaterial = useMemo(
@@ -1221,12 +1233,8 @@ function ProjectedPillarContactShadows({
     value.add(ribbonMesh, contactMesh);
     return value;
   }, [contactMesh, ribbonMesh]);
-  const cameraUp = useRef(new THREE.Vector3());
-  const cameraForward = useRef(new THREE.Vector3());
-  const rayWorld = useRef(new THREE.Vector3());
   const rayLocal = useRef(new THREE.Vector3());
   const pillarRay = useRef(new THREE.Vector3());
-  const parentQuaternion = useRef(new THREE.Quaternion());
   const normal = useRef(new THREE.Vector3());
   const pillarTop = useRef(new THREE.Vector3());
   const hitPoint = useRef(new THREE.Vector3());
@@ -1252,25 +1260,8 @@ function ProjectedPillarContactShadows({
     [contactGeometry, contactMaterial, ribbonGeometry, ribbonMaterial]
   );
 
-  useFrame(() => {
-    const parent = shadowGroup.parent;
-    if (!parent) return;
-
-    cameraUp.current
-      .set(0, 1, 0)
-      .applyQuaternion(camera.quaternion)
-      .normalize();
-    camera.getWorldDirection(cameraForward.current);
-    rayWorld.current
-      .copy(cameraUp.current)
-      .multiplyScalar(-285)
-      .addScaledVector(cameraForward.current, 55)
-      .normalize();
-    parent.getWorldQuaternion(parentQuaternion.current);
-    rayLocal.current
-      .copy(rayWorld.current)
-      .applyQuaternion(parentQuaternion.current.invert())
-      .normalize();
+  useEffect(() => {
+    rayLocal.current.copy(GLOBE_LOCAL_LIGHT_RAY);
 
     const displayRadius =
       SHADOW_RECEIVER_RADIUS + PROJECTED_SHADOW_DEPTH_OFFSET;
@@ -1471,7 +1462,7 @@ function ProjectedPillarContactShadows({
       "position",
       new THREE.Float32BufferAttribute(contactPositions, 3)
     );
-  });
+  }, [contactGeometry, pillars, ribbonGeometry]);
 
   return <primitive object={shadowGroup} />;
 }
@@ -1955,7 +1946,7 @@ export function R3fMarketGlobe({
         <OceanReflectionEnvironment />
         <ambientLight intensity={0.035} />
         <hemisphereLight args={["#f8fbff", "#425861", 0.09]} />
-        <CameraTopShadowLight />
+        <GlobeFixedShadowLight globeGroupRef={globeGroupRef} />
         <directionalLight
           position={[0, 210, 180]}
           intensity={0.06}

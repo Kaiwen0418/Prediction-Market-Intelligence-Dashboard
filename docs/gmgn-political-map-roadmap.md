@@ -746,6 +746,18 @@ Status: complete
 - [x] Verify France national focus and California state-focus regression behavior.
 - [x] Save desktop and mobile screenshots under `tmp/frontend-selected-border-skirt/`.
 
+### Phase 58: Globe-Fixed Lighting
+
+Status: complete
+
+- [x] Define one globe-local source, target, and projection ray for all shadow paths.
+- [x] Transform the native directional light from the globe group matrix.
+- [x] Remove camera-up and camera-forward coupling from pillar contact shadows.
+- [x] Rebuild projected ribbon geometry only when pillar data changes.
+- [x] Keep native and projected shadow directions aligned through globe focus changes.
+- [x] Verify fixed geographic shadow direction at both orbit-rail extremes.
+- [x] Save desktop and mobile screenshots under `tmp/frontend-globe-fixed-light/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
