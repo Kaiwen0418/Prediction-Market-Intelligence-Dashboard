@@ -115,6 +115,8 @@ const REGION_CAP_ALTITUDE = 0.011;
 const SELECTED_REGION_CAP_ALTITUDE = 0.018;
 const REGION_WALL_HEIGHT = 0.0018;
 const SELECTED_REGION_WALL_HEIGHT = 0.0028;
+const SELECTED_COUNTRY_SKIRT_HALF_WIDTH = 0.125;
+const SELECTED_COUNTRY_SKIRT_TOP_CLEARANCE = 0.0002;
 const LAND_EXTRUSION_SIDE_COLOR = "#526669";
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
@@ -549,12 +551,21 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
           ? SELECTED_REGION_WALL_HEIGHT
           : REGION_WALL_HEIGHT
         : polygon.selected
-          ? SELECTED_REGION_CAP_ALTITUDE - LAND_CAP_ALTITUDE + 0.0003
+          ? SELECTED_REGION_CAP_ALTITUDE -
+            LAND_CAP_ALTITUDE +
+            SELECTED_REGION_WALL_HEIGHT -
+            SELECTED_COUNTRY_SKIRT_TOP_CLEARANCE
           : 0.0016;
     const priority =
       polygon.layer === "region" ? (polygon.selected ? 3 : 2) : 1;
     const halfWidth =
-      polygon.layer === "region" ? (polygon.selected ? 0.11 : 0.075) : 0.055;
+      polygon.layer === "region"
+        ? polygon.selected
+          ? 0.11
+          : 0.075
+        : polygon.selected
+          ? SELECTED_COUNTRY_SKIRT_HALF_WIDTH
+          : 0.055;
     const color = new THREE.Color(
       polygon.layer === "region" || polygon.selected ? "#f4f2eb" : "#dfe7e4"
     );

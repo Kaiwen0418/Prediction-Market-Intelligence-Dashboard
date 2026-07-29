@@ -778,6 +778,17 @@ Status: complete
 - [x] Verify France at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-reduced-regional-walls/`.
 
+### Phase 61: Selected Skirt Wall Coverage
+
+Status: complete
+
+- [x] Widen the selected country skirt beyond the outer regional wall.
+- [x] Extend the skirt to cover the outer regional wall sides.
+- [x] Leave a small height clearance so the illuminated regional wall top remains visible.
+- [x] Preserve internal regional wall dimensions and the selected side color.
+- [x] Verify France at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-selected-skirt-coverage/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
