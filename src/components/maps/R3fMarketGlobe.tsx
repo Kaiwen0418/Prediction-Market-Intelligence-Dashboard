@@ -96,6 +96,7 @@ const worldFeatureCollection = feature(
 const WORLD_FEATURES = worldFeatureCollection.features;
 const GLOBE_RADIUS = 100;
 const GLOBE_SCALE = 1.48;
+const REGION_WALL_SIMPLIFICATION_TOLERANCE = 0.035;
 const MARKET_ORBIT_WEST_LONGITUDE = -125;
 const MARKET_ORBIT_EAST_LONGITUDE = 55;
 const MAP_LIGHT_TARGET = new THREE.Vector3(4, 48, 0);
@@ -412,6 +413,110 @@ function boundarySegmentKey(start: Position, end: Position) {
     : `${endKey}|${startKey}`;
 }
 
+function squaredPointSegmentDistance(
+  point: Position,
+  start: Position,
+  end: Position
+) {
+  const longitudeScale = Math.cos(
+    THREE.MathUtils.degToRad((point[1] + start[1] + end[1]) / 3)
+  );
+  const pointX = point[0] * longitudeScale;
+  const startX = start[0] * longitudeScale;
+  const endX = end[0] * longitudeScale;
+  const segmentX = endX - startX;
+  const segmentY = end[1] - start[1];
+  const segmentLengthSquared = segmentX ** 2 + segmentY ** 2;
+  const progress =
+    segmentLengthSquared === 0
+      ? 0
+      : THREE.MathUtils.clamp(
+          ((pointX - startX) * segmentX +
+            (point[1] - start[1]) * segmentY) /
+            segmentLengthSquared,
+          0,
+          1
+        );
+  const offsetX = pointX - (startX + segmentX * progress);
+  const offsetY = point[1] - (start[1] + segmentY * progress);
+  return offsetX ** 2 + offsetY ** 2;
+}
+
+function simplifyOpenBoundary(points: Position[], tolerance: number) {
+  if (points.length <= 2) return points;
+  // Iterative Douglas-Peucker avoids deep recursion on detailed boundaries.
+  const keep = new Uint8Array(points.length);
+  const pending: Array<[number, number]> = [[0, points.length - 1]];
+  const toleranceSquared = tolerance ** 2;
+  keep[0] = 1;
+  keep[points.length - 1] = 1;
+
+  while (pending.length) {
+    const [startIndex, endIndex] = pending.pop()!;
+    let furthestIndex = -1;
+    let furthestDistance = toleranceSquared;
+
+    for (let index = startIndex + 1; index < endIndex; index += 1) {
+      const distance = squaredPointSegmentDistance(
+        points[index],
+        points[startIndex],
+        points[endIndex]
+      );
+      if (distance > furthestDistance) {
+        furthestDistance = distance;
+        furthestIndex = index;
+      }
+    }
+
+    if (furthestIndex !== -1) {
+      keep[furthestIndex] = 1;
+      pending.push(
+        [startIndex, furthestIndex],
+        [furthestIndex, endIndex]
+      );
+    }
+  }
+
+  return points.filter((_, index) => keep[index]);
+}
+
+function simplifyBoundaryRing(ring: Position[], tolerance: number) {
+  const points =
+    ring.length > 1 &&
+    ring[0][0] === ring[ring.length - 1][0] &&
+    ring[0][1] === ring[ring.length - 1][1]
+      ? ring.slice(0, -1)
+      : ring;
+  if (points.length <= 4) return points;
+
+  // Split the closed ring across its widest span so both open halves simplify.
+  const longitudeScale = Math.cos(
+    THREE.MathUtils.degToRad(points[0][1])
+  );
+  let splitIndex = 1;
+  let splitDistance = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const longitudeDistance =
+      (points[index][0] - points[0][0]) * longitudeScale;
+    const latitudeDistance = points[index][1] - points[0][1];
+    const distance = longitudeDistance ** 2 + latitudeDistance ** 2;
+    if (distance > splitDistance) {
+      splitDistance = distance;
+      splitIndex = index;
+    }
+  }
+
+  const firstHalf = simplifyOpenBoundary(
+    points.slice(0, splitIndex + 1),
+    tolerance
+  );
+  const secondHalf = simplifyOpenBoundary(
+    [...points.slice(splitIndex), points[0]],
+    tolerance
+  );
+  return [...firstHalf.slice(0, -1), ...secondHalf.slice(0, -1)];
+}
+
 function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
   const segments = new Map<string, BoundaryWallSegment>();
 
@@ -429,7 +534,13 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
     );
 
     polygonParts(polygon.geometry).forEach((part) => {
-      const ring = part[0];
+      const ring =
+        polygon.layer === "region"
+          ? simplifyBoundaryRing(
+              part[0],
+              REGION_WALL_SIMPLIFICATION_TOLERANCE
+            )
+          : part[0];
       for (let index = 0; index < ring.length; index += 1) {
         const start = ring[index];
         const end = ring[(index + 1) % ring.length];

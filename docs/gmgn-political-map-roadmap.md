@@ -687,6 +687,16 @@ Status: complete
 - [x] Compare focused and contextual hierarchy across the European market cluster.
 - [x] Verify desktop/mobile composition and interaction performance.
 
+### Phase 53: Simplified Regional Border Walls
+
+Status: complete
+
+- [x] Simplify province and state wall rings before volumetric extrusion.
+- [x] Preserve full-resolution land fills, gradients, and geographic hit testing.
+- [x] Measure a 51-85% wall-vertex reduction across France, Germany, the UK, Ukraine, and US states.
+- [x] Verify walls remain aligned, closed, and visually smooth on desktop/mobile.
+- [x] Confirm orbit and country-switch interaction remains responsive.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
