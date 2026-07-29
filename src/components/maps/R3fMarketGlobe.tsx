@@ -555,6 +555,7 @@ function buildRegionalBoundaryPrecision(
   polygons: GlobePolygon[]
 ): RegionalBoundaryPrecision {
   const edgeCounts = new Map<string, number>();
+  const edgeOwners = new Map<string, GlobePolygon>();
   const polygonRings = new Map<GlobePolygon, Position[][]>();
 
   polygons.forEach((polygon) => {
@@ -572,6 +573,13 @@ function buildRegionalBoundaryPrecision(
         const end = ring[(index + 1) % ring.length];
         const key = boundarySegmentKey(start, end, 6);
         edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
+        const currentOwner = edgeOwners.get(key);
+        if (
+          !currentOwner ||
+          (polygon.selected && !currentOwner.selected)
+        ) {
+          edgeOwners.set(key, polygon);
+        }
       });
     });
   });
@@ -600,17 +608,30 @@ function buildRegionalBoundaryPrecision(
     (polygonRings.get(polygon) ?? []).forEach((ring) => {
       const classifiedEdges = ring.map((start, index) => {
         const end = ring[(index + 1) % ring.length];
+        const key = boundarySegmentKey(start, end, 6);
+        const edgeCount = edgeCounts.get(key) ?? 0;
         return {
           start,
           end,
-          perimeter:
-            edgeCounts.get(boundarySegmentKey(start, end, 6)) === 1
+          kind:
+            edgeCount === 1
+              ? ("perimeter" as const)
+              : edgeOwners.get(key) === polygon
+                ? ("internal" as const)
+                : ("skip" as const)
         };
       });
       if (!classifiedEdges.length) return;
 
-      const allPerimeter = classifiedEdges.every((edge) => edge.perimeter);
-      const allInternal = classifiedEdges.every((edge) => !edge.perimeter);
+      const allPerimeter = classifiedEdges.every(
+        (edge) => edge.kind === "perimeter"
+      );
+      const allInternal = classifiedEdges.every(
+        (edge) => edge.kind === "internal"
+      );
+      const allSkipped = classifiedEdges.every(
+        (edge) => edge.kind === "skip"
+      );
       if (allPerimeter) {
         appendPath(
           polygonEdges,
@@ -623,6 +644,7 @@ function buildRegionalBoundaryPrecision(
         );
         return;
       }
+      if (allSkipped) return;
       if (allInternal) {
         appendPath(
           polygonEdges,
@@ -638,10 +660,10 @@ function buildRegionalBoundaryPrecision(
 
       const firstChangeIndex = classifiedEdges.findIndex(
         (edge, index) =>
-          edge.perimeter !==
+          edge.kind !==
           classifiedEdges[
             (index + classifiedEdges.length - 1) % classifiedEdges.length
-          ].perimeter
+          ].kind
       );
       const orderedEdges = [
         ...classifiedEdges.slice(firstChangeIndex),
@@ -650,7 +672,7 @@ function buildRegionalBoundaryPrecision(
       const runs: typeof classifiedEdges[] = [];
       orderedEdges.forEach((edge) => {
         const currentRun = runs[runs.length - 1];
-        if (!currentRun || currentRun[0].perimeter !== edge.perimeter) {
+        if (!currentRun || currentRun[0].kind !== edge.kind) {
           runs.push([edge]);
         } else {
           currentRun.push(edge);
@@ -658,8 +680,9 @@ function buildRegionalBoundaryPrecision(
       });
 
       runs.forEach((run) => {
+        if (run[0].kind === "skip") return;
         const points = [run[0].start, ...run.map((edge) => edge.end)];
-        const processedPoints = run[0].perimeter
+        const processedPoints = run[0].kind === "perimeter"
           ? simplifyOpenBoundary(
               points,
               COUNTRY_WALL_SIMPLIFICATION_TOLERANCE
@@ -672,7 +695,7 @@ function buildRegionalBoundaryPrecision(
           polygonEdges,
           processedPoints,
           false,
-          run[0].perimeter
+          run[0].kind === "perimeter"
         );
       });
     });

@@ -823,6 +823,17 @@ Status: complete
 - [x] Verify national focus at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-single-region-border/`.
 
+### Phase 65: Single Owner Per Shared Border
+
+Status: complete
+
+- [x] Identify duplicate custom walls generated independently by adjacent regions.
+- [x] Assign every shared raw boundary edge to one owning polygon.
+- [x] Prefer the selected polygon as owner when a selected region shares an edge.
+- [x] Skip non-owner copies before regional path simplification and mesh generation.
+- [x] Verify border intersections at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-single-owner-border/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
