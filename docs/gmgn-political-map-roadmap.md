@@ -758,6 +758,16 @@ Status: complete
 - [x] Verify fixed geographic shadow direction at both orbit-rail extremes.
 - [x] Save desktop and mobile screenshots under `tmp/frontend-globe-fixed-light/`.
 
+### Phase 59: Consistent Selected Wall Side Color
+
+Status: complete
+
+- [x] Replace the warm selected extrusion override with the shared cool wall-side color.
+- [x] Apply one side color across selected country sides, the extended lower skirt, and ordinary country walls.
+- [x] Preserve the selected cap gradient, lighted wall tops, extrusion height, and shadows.
+- [x] Verify France at desktop and mobile viewports against neighboring wall sides.
+- [x] Save desktop and mobile screenshots under `tmp/frontend-consistent-wall-side/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

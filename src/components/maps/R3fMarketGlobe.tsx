@@ -113,7 +113,7 @@ const PROJECTED_SHADOW_DEPTH_OFFSET = 0.045;
 const LAND_CAP_ALTITUDE = 0.0045;
 const REGION_CAP_ALTITUDE = 0.011;
 const SELECTED_REGION_CAP_ALTITUDE = 0.018;
-const SELECTED_EXTRUSION_SIDE_COLOR = "#6f5045";
+const LAND_EXTRUSION_SIDE_COLOR = "#526669";
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
 function createOceanTextures() {
@@ -558,7 +558,7 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
     );
     const sideColor =
       polygon.layer === "land" && polygon.selected
-        ? new THREE.Color(SELECTED_EXTRUSION_SIDE_COLOR)
+        ? new THREE.Color(LAND_EXTRUSION_SIDE_COLOR)
         : color.clone().multiplyScalar(0.7);
 
     polygonParts(polygon.geometry).forEach((part) => {
@@ -1689,12 +1689,10 @@ export function R3fMarketGlobe({
       const globePolygon = polygon as GlobePolygon;
       if (globePolygon.layer === "region") {
         return globePolygon.selected
-          ? SELECTED_EXTRUSION_SIDE_COLOR
+          ? LAND_EXTRUSION_SIDE_COLOR
           : "rgba(92, 65, 55, 0.84)";
       }
-      return globePolygon.selected
-        ? SELECTED_EXTRUSION_SIDE_COLOR
-        : "rgba(82, 102, 105, 0.84)";
+      return LAND_EXTRUSION_SIDE_COLOR;
     },
     []
   );
