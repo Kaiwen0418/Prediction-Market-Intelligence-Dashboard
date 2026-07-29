@@ -697,6 +697,17 @@ Status: complete
 - [x] Verify walls remain aligned, closed, and visually smooth on desktop/mobile.
 - [x] Confirm orbit and country-switch interaction remains responsive.
 
+### Phase 54: Persistent Globe Context Layers
+
+Status: complete
+
+- [x] Keep the Canvas and WebGL context mounted across country selection.
+- [x] Split static world polygons from focused regional polygons and walls.
+- [x] Keep non-focused pillar geometry stable in per-country merged layers.
+- [x] Rebuild only focused-country pillars and province-level geometry.
+- [x] Verify the same Canvas survives direct country clicks with shadows intact.
+- [x] Measure approximately 390-405 ms focus updates on desktop/mobile and save screenshots.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

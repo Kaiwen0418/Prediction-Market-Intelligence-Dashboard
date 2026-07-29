@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import Globe from "r3f-globe";
@@ -1390,7 +1390,7 @@ export function R3fMarketGlobe({
       selectedCode
     ]
   );
-  const polygons = useMemo<GlobePolygon[]>(
+  const worldPolygons = useMemo<GlobePolygon[]>(
     () => {
       const countryScoreByCode = new Map<string, number>();
       const countryDatumByCode = new Map<string, GlobeRegionDatum>();
@@ -1403,66 +1403,110 @@ export function R3fMarketGlobe({
         }
       });
 
-      return [
-        ...WORLD_FEATURES.map((worldFeature) => {
-          const country = COUNTRY_MARKET_MAPS.find((candidate) =>
-            candidate.worldFeatureIds.includes(String(worldFeature.id))
-          );
-          const countryDatum = country
-            ? countryDatumByCode.get(country.code)
-            : undefined;
-          const gradientCenter =
-            countryDatum?.region.center ??
-            getGeometryCenter(worldFeature.geometry);
-          return {
-            feature: worldFeature,
-            geometry: worldFeature.geometry,
-            countryCode: country?.code,
-            gradientCenter,
-            gradientRadius: getGradientRadius(
-              worldFeature.geometry,
-              gradientCenter
-            ),
-            signalScore: country
-              ? countryScoreByCode.get(country.code)
-              : undefined,
-            layer: "land" as const
-          };
-        }),
-        ...regionalPolygons
-      ];
+      return WORLD_FEATURES.map((worldFeature) => {
+        const country = COUNTRY_MARKET_MAPS.find((candidate) =>
+          candidate.worldFeatureIds.includes(String(worldFeature.id))
+        );
+        const countryDatum = country
+          ? countryDatumByCode.get(country.code)
+          : undefined;
+        const gradientCenter =
+          countryDatum?.region.center ??
+          getGeometryCenter(worldFeature.geometry);
+        return {
+          feature: worldFeature,
+          geometry: worldFeature.geometry,
+          countryCode: country?.code,
+          gradientCenter,
+          gradientRadius: getGradientRadius(
+            worldFeature.geometry,
+            gradientCenter
+          ),
+          signalScore: country
+            ? countryScoreByCode.get(country.code)
+            : undefined,
+          layer: "land" as const
+        };
+      });
     },
-    [regionalPolygons, regions]
+    [regions]
   );
-  const polygonCapMaterials = useMemo(
+  const worldPolygonCapMaterials = useMemo(
     () =>
       new Map(
-        polygons.map((polygon) => [
+        worldPolygons.map((polygon) => [
           polygon,
           createGradientCapMaterial(polygon)
         ])
       ),
-    [polygons]
+    [worldPolygons]
   );
   useEffect(
     () => () => {
-      polygonCapMaterials.forEach((material) => material.dispose());
+      worldPolygonCapMaterials.forEach((material) => material.dispose());
     },
-    [polygonCapMaterials]
+    [worldPolygonCapMaterials]
   );
-  const visibleRegions = useMemo(() => {
+  const regionalPolygonCapMaterials = useMemo(
+    () =>
+      new Map(
+        regionalPolygons.map((polygon) => [
+          polygon,
+          createGradientCapMaterial(polygon)
+        ])
+      ),
+    [regionalPolygons]
+  );
+  useEffect(
+    () => () => {
+      regionalPolygonCapMaterials.forEach((material) => material.dispose());
+    },
+    [regionalPolygonCapMaterials]
+  );
+  const selectablePolygons = useMemo(
+    () => [...worldPolygons, ...regionalPolygons],
+    [regionalPolygons, worldPolygons]
+  );
+  const getWorldPolygonCapMaterial = useCallback(
+    (polygon: object) =>
+      worldPolygonCapMaterials.get(polygon as GlobePolygon)!,
+    [worldPolygonCapMaterials]
+  );
+  const getRegionalPolygonCapMaterial = useCallback(
+    (polygon: object) =>
+      regionalPolygonCapMaterials.get(polygon as GlobePolygon)!,
+    [regionalPolygonCapMaterials]
+  );
+  const getPolygonSideColor = useCallback(
+    (polygon: object) =>
+      (polygon as GlobePolygon).layer === "region"
+        ? "rgba(92, 65, 55, 0.84)"
+        : "rgba(82, 102, 105, 0.84)",
+    []
+  );
+  const getWorldPolygonAltitude = useCallback(() => 0.0045, []);
+  const getRegionalPolygonAltitude = useCallback(
+    (polygon: object) =>
+      (polygon as GlobePolygon).selected ? 0.018 : 0.011,
+    []
+  );
+  const contextualCountryCodes = useMemo(() => {
     const [focusLng, focusLat] = activeCountry.defaultCenter;
+    const result = new Set<string>();
 
-    return regions.filter(({ region }) => {
-      if (region.countryCode === activeCountry.code) return true;
+    regions.forEach(({ region }) => {
+      if (region.countryCode === activeCountry.code) return;
       const longitudeDistance = Math.abs(
         ((region.center[0] - focusLng + 540) % 360) - 180
       );
       const latitudeDistance = Math.abs(region.center[1] - focusLat);
-      return longitudeDistance <= 42 && latitudeDistance <= 28;
+      if (longitudeDistance <= 42 && latitudeDistance <= 28) {
+        result.add(region.countryCode);
+      }
     });
+    return result;
   }, [activeCountry, regions]);
-  const featureByRegionKey = useMemo(() => {
+  const focusedFeatureByRegionKey = useMemo(() => {
     const result = new Map<string, MapFeature>();
     if (nationalRegion) {
       const countryFeature = WORLD_FEATURES.find((worldFeature) =>
@@ -1477,40 +1521,62 @@ export function R3fMarketGlobe({
         result.set(getRegionKey(polygon.region), polygon.feature);
       }
     });
-    visibleRegions.forEach(({ region }) => {
-      const key = getRegionKey(region);
-      if (result.has(key)) return;
-      const boundaryFeature = getRegionBoundaryFeature(region);
-      if (boundaryFeature) result.set(key, boundaryFeature);
-    });
     return result;
   }, [
     activeCountry.worldFeatureIds,
     nationalRegion,
-    regionalPolygons,
-    visibleRegions
+    regionalPolygons
   ]);
-  const pillars = useMemo(
+  const focusedPillars = useMemo(
     () =>
-      visibleRegions.flatMap((datum) => {
+      activeRegions.flatMap((datum) => {
         if (datum.region.marketStatus === "closed") return [];
         if (datum.volume24h === null && datum.signalScore < 50) return [];
-        const mapFeature = featureByRegionKey.get(getRegionKey(datum.region));
+        const mapFeature = focusedFeatureByRegionKey.get(
+          getRegionKey(datum.region)
+        );
         if (!mapFeature) return [];
         return createRegionPillars(
           datum,
           mapFeature,
-          datum.region.countryCode === activeCountry.code &&
-            datum.region.code === selectedCode,
-          datum.region.countryCode === activeCountry.code
+          datum.region.code === selectedCode,
+          true
         );
       }),
     [
-      activeCountry.code,
-      featureByRegionKey,
-      selectedCode,
-      visibleRegions
+      activeRegions,
+      focusedFeatureByRegionKey,
+      selectedCode
     ]
+  );
+  const contextualPillarsByCountry = useMemo(() => {
+    const result = new Map<string, VolumePillar[]>();
+
+    regions.forEach((datum) => {
+      if (datum.region.marketStatus === "closed") return;
+      if (datum.volume24h === null && datum.signalScore < 50) return;
+      const mapFeature = getRegionBoundaryFeature(datum.region);
+      if (!mapFeature) return;
+      const countryPillars = result.get(datum.region.countryCode) ?? [];
+      countryPillars.push(
+        ...createRegionPillars(datum, mapFeature, false, false)
+      );
+      result.set(datum.region.countryCode, countryPillars);
+    });
+
+    return result;
+  }, [regions]);
+  const visibleContextPillars = useMemo(
+    () =>
+      [...contextualPillarsByCountry.entries()].flatMap(
+        ([countryCode, countryPillars]) =>
+          contextualCountryCodes.has(countryCode) ? countryPillars : []
+      ),
+    [contextualCountryCodes, contextualPillarsByCountry]
+  );
+  const pillars = useMemo(
+    () => [...focusedPillars, ...visibleContextPillars],
+    [focusedPillars, visibleContextPillars]
   );
   const visibleTrades = useMemo(() => {
     const [focusLng, focusLat] = activeCountry.defaultCenter;
@@ -1636,7 +1702,7 @@ export function R3fMarketGlobe({
       THREE.MathUtils.radToDeg(Math.atan2(localPoint.x, localPoint.z)),
       THREE.MathUtils.radToDeg(Math.asin(localPoint.y))
     ];
-    const polygon = [...polygons]
+    const polygon = [...selectablePolygons]
       .reverse()
       .find((candidate) => pointInGeometry(position, candidate.geometry));
     return selectPolygon(polygon);
@@ -1704,24 +1770,66 @@ export function R3fMarketGlobe({
                 selectAtWorldPoint(pointerEvent.point);
               }
             }}
-            polygonsData={polygons}
+            polygonsData={worldPolygons}
             polygonsTransitionDuration={0}
             polygonGeoJsonGeometry="geometry"
-            polygonCapMaterial={(polygon) =>
-              polygonCapMaterials.get(polygon as GlobePolygon)!
-            }
-            polygonSideColor={(polygon) =>
-              (polygon as GlobePolygon).layer === "region"
-                ? "rgba(92, 65, 55, 0.84)"
-                : "rgba(82, 102, 105, 0.84)"
-            }
+            polygonCapMaterial={getWorldPolygonCapMaterial}
+            polygonSideColor={getPolygonSideColor}
             polygonStrokeColor={false}
-            polygonAltitude={(polygon) => {
-              const item = polygon as GlobePolygon;
-              if (item.layer === "land") return 0.0045;
-              return item.selected ? 0.018 : 0.011;
+            polygonAltitude={getWorldPolygonAltitude}
+          />
+          <Globe
+            animateIn={false}
+            showGlobe={false}
+            showAtmosphere={false}
+            onClick={(layer, data, event) => {
+              const pointerEvent = event as unknown as {
+                delta?: number;
+                point?: THREE.Vector3;
+              };
+              if ((pointerEvent.delta ?? 0) > 5) return;
+              if (layer === "polygon") {
+                selectPolygon(data as GlobePolygon | undefined);
+              } else if (pointerEvent.point) {
+                selectAtWorldPoint(pointerEvent.point);
+              }
             }}
-            pointsData={pillars}
+            polygonsData={regionalPolygons}
+            polygonsTransitionDuration={0}
+            polygonGeoJsonGeometry="geometry"
+            polygonCapMaterial={getRegionalPolygonCapMaterial}
+            polygonSideColor={getPolygonSideColor}
+            polygonStrokeColor={false}
+            polygonAltitude={getRegionalPolygonAltitude}
+          />
+          {[...contextualPillarsByCountry.entries()].map(
+            ([countryCode, countryPillars]) => (
+              <group
+                key={`context-pillars:${countryCode}`}
+                visible={contextualCountryCodes.has(countryCode)}
+              >
+                <Globe
+                  animateIn={false}
+                  showGlobe={false}
+                  showAtmosphere={false}
+                  pointsData={countryPillars}
+                  pointLat="lat"
+                  pointLng="lng"
+                  pointAltitude="altitude"
+                  pointRadius="radius"
+                  pointColor="color"
+                  pointResolution={6}
+                  pointsMerge
+                  pointsTransitionDuration={0}
+                />
+              </group>
+            )
+          )}
+          <Globe
+            animateIn={false}
+            showGlobe={false}
+            showAtmosphere={false}
+            pointsData={focusedPillars}
             pointLat="lat"
             pointLng="lng"
             pointAltitude="altitude"
@@ -1731,7 +1839,8 @@ export function R3fMarketGlobe({
             pointsMerge
             pointsTransitionDuration={0}
           />
-          <BoundaryWalls polygons={polygons} />
+          <BoundaryWalls polygons={worldPolygons} />
+          <BoundaryWalls polygons={regionalPolygons} />
           {ANALYTIC_PILLAR_SHADOWS_ENABLED ? (
             <PillarProjectedShadows pillars={pillars} />
           ) : null}

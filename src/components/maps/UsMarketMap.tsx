@@ -762,7 +762,6 @@ export function UsMarketMap({
           >
             {mapView === "country" ? (
               <R3fMarketGlobe
-                key={activeCountry.code}
                 activeCountry={activeCountry}
                 regions={globeRegionData}
                 selectedCode={activeSelectedCode}
