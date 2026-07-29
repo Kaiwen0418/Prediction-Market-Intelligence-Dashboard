@@ -410,13 +410,13 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
     const capAltitude =
       polygon.layer === "land" ? 0.0045 : polygon.selected ? 0.018 : 0.011;
     const wallHeight =
-      polygon.layer === "region" ? (polygon.selected ? 0.006 : 0.0044) : 0.0028;
+      polygon.layer === "region" ? (polygon.selected ? 0.0042 : 0.0028) : 0.0016;
     const priority =
       polygon.layer === "region" ? (polygon.selected ? 3 : 2) : 1;
     const halfWidth =
-      polygon.layer === "region" ? (polygon.selected ? 0.18 : 0.13) : 0.1;
+      polygon.layer === "region" ? (polygon.selected ? 0.11 : 0.075) : 0.055;
     const color = new THREE.Color(
-      polygon.layer === "region" ? "#fffdf7" : "#e8efed"
+      polygon.layer === "region" ? "#f4f2eb" : "#dfe7e4"
     );
 
     polygonParts(polygon.geometry).forEach((part) => {
@@ -435,7 +435,7 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
         segments.set(key, {
           start,
           end,
-          bottomAltitude: capAltitude + 0.0002,
+          bottomAltitude: capAltitude + 0.0001,
           topAltitude: capAltitude + wallHeight,
           halfWidth,
           color,
@@ -612,12 +612,25 @@ function getPolygonScoreColor(polygon: GlobePolygon) {
     : getMarketSignalColor(polygon.signalScore ?? 0);
 }
 
+function getGlobeSignalColor(score: number) {
+  const baseColor = getMarketSignalColor(score);
+  return score < 50
+    ? adjustColor(baseColor, -0.025, 0.24)
+    : adjustColor(baseColor, -0.01, 0.08);
+}
+
 function createGradientCapMaterial(polygon: GlobePolygon) {
-  const centerColor = getPolygonScoreColor(polygon);
+  const baseColor = getPolygonScoreColor(polygon);
+  const centerColor =
+    polygon.signalScore === undefined
+      ? baseColor
+      : polygon.selected
+        ? adjustColor(baseColor, -0.025, 0.1)
+        : getGlobeSignalColor(polygon.signalScore);
   const edgeColor =
     polygon.signalScore === undefined
       ? adjustColor(centerColor, 0.035, -0.08)
-      : adjustColor(centerColor, 0.05, -0.3);
+      : adjustColor(centerColor, 0.105, -0.5);
   const [lng, lat] = polygon.gradientCenter;
   const latitude = THREE.MathUtils.degToRad(lat);
   const longitude = THREE.MathUtils.degToRad(lng);
@@ -672,13 +685,13 @@ function createGradientCapMaterial(polygon: GlobePolygon) {
         "vec4 diffuseColor = vec4( diffuse, opacity );",
         [
           "float marketAngularDistance = acos(clamp(dot(normalize(vMarketGlobeDirection), marketGradientCenter), -1.0, 1.0));",
-          "float marketEdgeMix = smoothstep(marketGradientRadius * 0.08, marketGradientRadius, marketAngularDistance);",
+          "float marketEdgeMix = smoothstep(marketGradientRadius * 0.04, marketGradientRadius * 0.82, marketAngularDistance);",
           "vec3 marketGradientColor = mix(marketCenterColor, marketEdgeColor, marketEdgeMix);",
           "vec4 diffuseColor = vec4(marketGradientColor, opacity);"
         ].join("\n")
       );
   };
-  material.customProgramCacheKey = () => "market-gradient-cap-v1";
+  material.customProgramCacheKey = () => "market-gradient-cap-v2";
   return material;
 }
 
@@ -708,14 +721,14 @@ function createRegionPillars(
         (bounds.minLng + bounds.maxLng) / 2,
         (bounds.minLat + bounds.maxLat) / 2
       ];
-  const scoreColor = getMarketSignalColor(datum.signalScore);
+  const scoreColor = getGlobeSignalColor(datum.signalScore);
   const colorRange = [
     adjustColor(scoreColor, selected ? -0.26 : -0.2, 0.04),
     adjustColor(scoreColor, selected ? 0.08 : 0.04, 0.02)
   ];
   const countryScale =
     datum.region.countryCode === "US"
-      ? 1.55
+      ? 1.32
       : datum.region.countryCode === "RU"
         ? 1.35
         : 1;
@@ -738,23 +751,30 @@ function createRegionPillars(
     const radialDistanceSquared =
       normalizedX * normalizedX + normalizedY * normalizedY;
     const gaussianWeight = Math.max(
-      0.018,
-      Math.exp(-0.5 * radialDistanceSquared) ** 1.3
+      0.01,
+      Math.exp(-0.5 * radialDistanceSquared) ** 1.55
     );
     const colorWeight = Math.min(
       1,
       gaussianWeight * 1.55 + random() * 0.1
     );
     const focusScale = focusedCountry ? 1 : 0.42;
-    const edgeFloor = (0.01 + progress * 0.012) * focusScale;
+    const edgeFloor = (0.006 + progress * 0.008) * focusScale;
     const peak =
       (0.038 + progress * 0.1) *
       (selected ? 1.12 : 1) *
       countryScale *
       focusScale *
       (focusedCountry ? 1.04 : 1);
-    const heightVariation = Math.exp((random() - 0.5) * 0.32);
-    const altitude = edgeFloor + peak * gaussianWeight * heightVariation;
+    const heightSample = random();
+    const centralSpike =
+      gaussianWeight > 0.48 && heightSample > 0.93;
+    const heightVariation = centralSpike
+      ? 1.22 + random() * 0.42
+      : 0.24 + Math.pow(heightSample, 2.5) * 0.76;
+    const mountainWeight = gaussianWeight ** 2.05;
+    const altitude =
+      edgeFloor + peak * mountainWeight * heightVariation;
 
     points.push({
       lat,
@@ -1125,7 +1145,7 @@ function BoundaryWalls({ polygons }: { polygons: GlobePolygon[] }) {
   const material = useMemo(() => {
     const value = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      flatShading: true,
+      flatShading: false,
       roughness: 0.72,
       metalness: 0,
       envMapIntensity: 0.16,
@@ -1470,7 +1490,7 @@ export function R3fMarketGlobe({
     >
       <Canvas
         camera={{ fov: 35, near: 1, far: 1000 }}
-        dpr={[1, 1.65]}
+        dpr={[1, 2]}
         gl={{ alpha: true, antialias: true }}
         shadows
       >

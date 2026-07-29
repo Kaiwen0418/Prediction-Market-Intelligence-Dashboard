@@ -605,6 +605,17 @@ Status: complete
 - [x] Verify France and US desktop views before selecting the preferred treatment.
 - [x] Keep native-only rendering as the current state for one neutral shadow hue, accepting reduced visibility from the smallest European pillars.
 
+### Phase 45: Refined Walls, Gradients, and Pillar Distribution
+
+Status: complete
+
+- [x] Make volumetric border walls thinner, shorter, and less reflective.
+- [x] Increase the center-to-edge saturation contrast within scored regions.
+- [x] Raise saturation for low-score yellow regions without changing global legend colors.
+- [x] Replace broad uniform pillar heights with a steep mountain distribution.
+- [x] Limit tall central spikes and bias most pillars toward shorter heights.
+- [x] Verify France and US desktop/mobile composition and performance.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
