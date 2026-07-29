@@ -99,7 +99,8 @@ const worldFeatureCollection = feature(
 const WORLD_FEATURES = worldFeatureCollection.features;
 const GLOBE_RADIUS = 100;
 const GLOBE_SCALE = 1.48;
-const REGION_WALL_SIMPLIFICATION_TOLERANCE = 0.035;
+const COUNTRY_WALL_SIMPLIFICATION_TOLERANCE = 0.08;
+const REGION_WALL_SIMPLIFICATION_TOLERANCE = 0.18;
 const MARKET_ORBIT_WEST_LONGITUDE = -125;
 const MARKET_ORBIT_EAST_LONGITUDE = 55;
 const GLOBE_LOCAL_LIGHT_TARGET = new THREE.Vector3(0, 32, 0);
@@ -421,9 +422,23 @@ type BoundaryWallSegment = {
   priority: number;
 };
 
-function boundarySegmentKey(start: Position, end: Position) {
+type BoundaryEdge = {
+  start: Position;
+  end: Position;
+};
+
+type RegionalBoundaryPrecision = {
+  edgesByPolygon: Map<GlobePolygon, BoundaryEdge[]>;
+  perimeter: BoundaryEdge[];
+};
+
+function boundarySegmentKey(
+  start: Position,
+  end: Position,
+  precision = 4
+) {
   const pointKey = ([lng, lat]: Position) =>
-    `${lng.toFixed(4)},${lat.toFixed(4)}`;
+    `${lng.toFixed(precision)},${lat.toFixed(precision)}`;
   const startKey = pointKey(start);
   const endKey = pointKey(end);
   return startKey < endKey
@@ -535,7 +550,149 @@ function simplifyBoundaryRing(ring: Position[], tolerance: number) {
   return [...firstHalf.slice(0, -1), ...secondHalf.slice(0, -1)];
 }
 
-function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
+function buildRegionalBoundaryPrecision(
+  polygons: GlobePolygon[]
+): RegionalBoundaryPrecision {
+  const edgeCounts = new Map<string, number>();
+  const polygonRings = new Map<GlobePolygon, Position[][]>();
+
+  polygons.forEach((polygon) => {
+    const rings = polygonParts(polygon.geometry).map((part) => {
+      const ring = part[0];
+      return ring.length > 1 &&
+        ring[0][0] === ring[ring.length - 1][0] &&
+        ring[0][1] === ring[ring.length - 1][1]
+        ? ring.slice(0, -1)
+        : ring;
+    });
+    polygonRings.set(polygon, rings);
+    rings.forEach((ring) => {
+      ring.forEach((start, index) => {
+        const end = ring[(index + 1) % ring.length];
+        const key = boundarySegmentKey(start, end, 6);
+        edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
+      });
+    });
+  });
+
+  const edgesByPolygon = new Map<GlobePolygon, BoundaryEdge[]>();
+  const perimeter: BoundaryEdge[] = [];
+  const appendPath = (
+    target: BoundaryEdge[],
+    points: Position[],
+    close: boolean,
+    isPerimeter: boolean
+  ) => {
+    const edgeCount = close ? points.length : points.length - 1;
+    for (let index = 0; index < edgeCount; index += 1) {
+      const edge = {
+        start: points[index],
+        end: points[(index + 1) % points.length]
+      };
+      target.push(edge);
+      if (isPerimeter) perimeter.push(edge);
+    }
+  };
+
+  polygons.forEach((polygon) => {
+    const polygonEdges: BoundaryEdge[] = [];
+    (polygonRings.get(polygon) ?? []).forEach((ring) => {
+      const classifiedEdges = ring.map((start, index) => {
+        const end = ring[(index + 1) % ring.length];
+        return {
+          start,
+          end,
+          perimeter:
+            edgeCounts.get(boundarySegmentKey(start, end, 6)) === 1
+        };
+      });
+      if (!classifiedEdges.length) return;
+
+      const allPerimeter = classifiedEdges.every((edge) => edge.perimeter);
+      const allInternal = classifiedEdges.every((edge) => !edge.perimeter);
+      if (allPerimeter) {
+        appendPath(
+          polygonEdges,
+          simplifyBoundaryRing(
+            ring,
+            COUNTRY_WALL_SIMPLIFICATION_TOLERANCE
+          ),
+          true,
+          true
+        );
+        return;
+      }
+      if (allInternal) {
+        appendPath(
+          polygonEdges,
+          simplifyBoundaryRing(
+            ring,
+            REGION_WALL_SIMPLIFICATION_TOLERANCE
+          ),
+          true,
+          false
+        );
+        return;
+      }
+
+      const firstChangeIndex = classifiedEdges.findIndex(
+        (edge, index) =>
+          edge.perimeter !==
+          classifiedEdges[
+            (index + classifiedEdges.length - 1) % classifiedEdges.length
+          ].perimeter
+      );
+      const orderedEdges = [
+        ...classifiedEdges.slice(firstChangeIndex),
+        ...classifiedEdges.slice(0, firstChangeIndex)
+      ];
+      const runs: typeof classifiedEdges[] = [];
+      orderedEdges.forEach((edge) => {
+        const currentRun = runs[runs.length - 1];
+        if (!currentRun || currentRun[0].perimeter !== edge.perimeter) {
+          runs.push([edge]);
+        } else {
+          currentRun.push(edge);
+        }
+      });
+
+      runs.forEach((run) => {
+        const points = [run[0].start, ...run.map((edge) => edge.end)];
+        const processedPoints = run[0].perimeter
+          ? simplifyOpenBoundary(
+              points,
+              COUNTRY_WALL_SIMPLIFICATION_TOLERANCE
+            )
+          : simplifyOpenBoundary(
+              points,
+              REGION_WALL_SIMPLIFICATION_TOLERANCE
+            );
+        appendPath(
+          polygonEdges,
+          processedPoints,
+          false,
+          run[0].perimeter
+        );
+      });
+    });
+    edgesByPolygon.set(polygon, polygonEdges);
+  });
+
+  return { edgesByPolygon, perimeter };
+}
+
+function createBoundaryWallGeometry(
+  polygons: GlobePolygon[],
+  {
+    edgesByPolygon,
+    preciseCountryCode,
+    preciseCountryPerimeter
+  }: {
+    edgesByPolygon?: Map<GlobePolygon, BoundaryEdge[]>;
+    preciseCountryCode?: string;
+    preciseCountryPerimeter?: BoundaryEdge[];
+  } = {}
+) {
   const segments = new Map<string, BoundaryWallSegment>();
 
   polygons.forEach((polygon) => {
@@ -574,36 +731,48 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
         ? new THREE.Color(LAND_EXTRUSION_SIDE_COLOR)
         : color.clone().multiplyScalar(0.7);
 
-    polygonParts(polygon.geometry).forEach((part) => {
-      const ring =
-        polygon.layer === "region"
-          ? simplifyBoundaryRing(
-              part[0],
-              REGION_WALL_SIMPLIFICATION_TOLERANCE
-            )
-          : part[0];
-      for (let index = 0; index < ring.length; index += 1) {
-        const start = ring[index];
-        const end = ring[(index + 1) % ring.length];
-        if (
-          Math.abs(start[0] - end[0]) < 1e-7 &&
-          Math.abs(start[1] - end[1]) < 1e-7
-        ) {
-          continue;
-        }
-        const key = boundarySegmentKey(start, end);
-        if ((segments.get(key)?.priority ?? 0) > priority) continue;
-        segments.set(key, {
+    const precisePerimeter =
+      polygon.layer === "land" &&
+      polygon.countryCode === preciseCountryCode &&
+      preciseCountryPerimeter?.length
+        ? preciseCountryPerimeter
+        : null;
+    const polygonEdges =
+      edgesByPolygon?.get(polygon) ??
+      precisePerimeter ??
+      polygonParts(polygon.geometry).flatMap((part) => {
+        const ring =
+          polygon.layer === "region"
+            ? simplifyBoundaryRing(
+                part[0],
+                REGION_WALL_SIMPLIFICATION_TOLERANCE
+              )
+            : part[0];
+        return ring.map((start, index) => ({
           start,
-          end,
-          bottomAltitude: capAltitude + 0.0001,
-          topAltitude: capAltitude + wallHeight,
-          halfWidth,
-          color,
-          sideColor,
-          priority
-        });
+          end: ring[(index + 1) % ring.length]
+        }));
+      });
+
+    polygonEdges.forEach(({ start, end }) => {
+      if (
+        Math.abs(start[0] - end[0]) < 1e-7 &&
+        Math.abs(start[1] - end[1]) < 1e-7
+      ) {
+        return;
       }
+      const key = boundarySegmentKey(start, end);
+      if ((segments.get(key)?.priority ?? 0) > priority) return;
+      segments.set(key, {
+        start,
+        end,
+        bottomAltitude: capAltitude + 0.0001,
+        topAltitude: capAltitude + wallHeight,
+        halfWidth,
+        color,
+        sideColor,
+        priority
+      });
     });
   });
 
@@ -1480,10 +1649,30 @@ function ProjectedPillarContactShadows({
   return <primitive object={shadowGroup} />;
 }
 
-function BoundaryWalls({ polygons }: { polygons: GlobePolygon[] }) {
+function BoundaryWalls({
+  polygons,
+  edgesByPolygon,
+  preciseCountryCode,
+  preciseCountryPerimeter
+}: {
+  polygons: GlobePolygon[];
+  edgesByPolygon?: Map<GlobePolygon, BoundaryEdge[]>;
+  preciseCountryCode?: string;
+  preciseCountryPerimeter?: BoundaryEdge[];
+}) {
   const geometry = useMemo(
-    () => createBoundaryWallGeometry(polygons),
-    [polygons]
+    () =>
+      createBoundaryWallGeometry(polygons, {
+        edgesByPolygon,
+        preciseCountryCode,
+        preciseCountryPerimeter
+      }),
+    [
+      edgesByPolygon,
+      polygons,
+      preciseCountryCode,
+      preciseCountryPerimeter
+    ]
   );
   const material = useMemo(() => {
     const value = new THREE.MeshStandardMaterial({
@@ -1606,6 +1795,10 @@ export function R3fMarketGlobe({
       regionByFeatureId,
       selectedCode
     ]
+  );
+  const regionalBoundaryPrecision = useMemo(
+    () => buildRegionalBoundaryPrecision(regionalPolygons),
+    [regionalPolygons]
   );
   const worldPolygons = useMemo<GlobePolygon[]>(
     () => {
@@ -2066,8 +2259,15 @@ export function R3fMarketGlobe({
             pointsMerge
             pointsTransitionDuration={0}
           />
-          <BoundaryWalls polygons={worldPolygons} />
-          <BoundaryWalls polygons={regionalPolygons} />
+          <BoundaryWalls
+            polygons={worldPolygons}
+            preciseCountryCode={activeCountry.code}
+            preciseCountryPerimeter={regionalBoundaryPrecision.perimeter}
+          />
+          <BoundaryWalls
+            polygons={regionalPolygons}
+            edgesByPolygon={regionalBoundaryPrecision.edgesByPolygon}
+          />
           {PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED ? (
             <ProjectedPillarContactShadows pillars={pillars} />
           ) : null}

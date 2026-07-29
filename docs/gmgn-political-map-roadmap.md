@@ -789,6 +789,17 @@ Status: complete
 - [x] Verify France at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-selected-skirt-coverage/`.
 
+### Phase 62: Unified Border Precision
+
+Status: complete
+
+- [x] Detect the active country perimeter from unshared regional boundary edges.
+- [x] Reuse the same high-precision perimeter for country and outer regional walls.
+- [x] Apply lighter simplification to country walls and stronger simplification to shared regional walls.
+- [x] Keep national coastlines precise without producing serrated short wall segments.
+- [x] Verify France at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-unified-border-precision/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
