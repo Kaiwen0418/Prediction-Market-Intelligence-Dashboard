@@ -734,6 +734,18 @@ Status: complete
 - [x] Verify shadows after repeated orbit drags and direct country focus switching.
 - [x] Save desktop and mobile screenshots under `tmp/frontend-persistent-shadow-ribbons/`.
 
+### Phase 57: Selected Country Side Skirt
+
+Status: complete
+
+- [x] Share explicit altitude constants across land caps, regional caps, and boundary walls.
+- [x] Detect national-market focus without changing state or province selection geometry.
+- [x] Extend the lower active-country wall to overlap the selected regional cap.
+- [x] Use one selected-extrusion side color for the land side and extended lower wall.
+- [x] Preserve the short, lighted upper border wall above the selected cap.
+- [x] Verify France national focus and California state-focus regression behavior.
+- [x] Save desktop and mobile screenshots under `tmp/frontend-selected-border-skirt/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

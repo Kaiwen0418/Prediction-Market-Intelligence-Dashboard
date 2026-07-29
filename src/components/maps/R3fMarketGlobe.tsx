@@ -100,6 +100,10 @@ const MAP_LIGHT_TARGET = new THREE.Vector3(4, 48, 0);
 const PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED = true;
 const SHADOW_RECEIVER_RADIUS = GLOBE_RADIUS * 1.018;
 const PROJECTED_SHADOW_DEPTH_OFFSET = 0.045;
+const LAND_CAP_ALTITUDE = 0.0045;
+const REGION_CAP_ALTITUDE = 0.011;
+const SELECTED_REGION_CAP_ALTITUDE = 0.018;
+const SELECTED_EXTRUSION_SIDE_COLOR = "#6f5045";
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
 function createOceanTextures() {
@@ -399,6 +403,7 @@ type BoundaryWallSegment = {
   topAltitude: number;
   halfWidth: number;
   color: THREE.Color;
+  sideColor: THREE.Color;
   priority: number;
 };
 
@@ -521,16 +526,30 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
 
   polygons.forEach((polygon) => {
     const capAltitude =
-      polygon.layer === "land" ? 0.0045 : polygon.selected ? 0.018 : 0.011;
+      polygon.layer === "land"
+        ? LAND_CAP_ALTITUDE
+        : polygon.selected
+          ? SELECTED_REGION_CAP_ALTITUDE
+          : REGION_CAP_ALTITUDE;
     const wallHeight =
-      polygon.layer === "region" ? (polygon.selected ? 0.0042 : 0.0028) : 0.0016;
+      polygon.layer === "region"
+        ? polygon.selected
+          ? 0.0042
+          : 0.0028
+        : polygon.selected
+          ? SELECTED_REGION_CAP_ALTITUDE - LAND_CAP_ALTITUDE + 0.0003
+          : 0.0016;
     const priority =
       polygon.layer === "region" ? (polygon.selected ? 3 : 2) : 1;
     const halfWidth =
       polygon.layer === "region" ? (polygon.selected ? 0.11 : 0.075) : 0.055;
     const color = new THREE.Color(
-      polygon.layer === "region" ? "#f4f2eb" : "#dfe7e4"
+      polygon.layer === "region" || polygon.selected ? "#f4f2eb" : "#dfe7e4"
     );
+    const sideColor =
+      polygon.layer === "land" && polygon.selected
+        ? new THREE.Color(SELECTED_EXTRUSION_SIDE_COLOR)
+        : color.clone().multiplyScalar(0.7);
 
     polygonParts(polygon.geometry).forEach((part) => {
       const ring =
@@ -558,6 +577,7 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
           topAltitude: capAltitude + wallHeight,
           halfWidth,
           color,
+          sideColor,
           priority
         });
       }
@@ -616,7 +636,6 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
     topEndRight.copy(topEnd).sub(sideEnd);
 
     const topColor = segment.color;
-    const sideColor = segment.color.clone().multiplyScalar(0.7);
     pushFace(
       [
         topStartLeft,
@@ -637,7 +656,7 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
         topEndLeft,
         topStartLeft
       ],
-      sideColor
+      segment.sideColor
     );
     pushFace(
       [
@@ -648,7 +667,7 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
         topStartRight,
         topEndRight
       ],
-      sideColor
+      segment.sideColor
     );
   });
 
@@ -1619,11 +1638,14 @@ export function R3fMarketGlobe({
           signalScore: country
             ? countryScoreByCode.get(country.code)
             : undefined,
+          selected:
+            country?.code === activeCountry.code &&
+            nationalRegion?.region.code === selectedCode,
           layer: "land" as const
         };
       });
     },
-    [regions]
+    [activeCountry.code, nationalRegion, regions, selectedCode]
   );
   const worldPolygonCapMaterials = useMemo(
     () =>
@@ -1672,16 +1694,25 @@ export function R3fMarketGlobe({
     [regionalPolygonCapMaterials]
   );
   const getPolygonSideColor = useCallback(
-    (polygon: object) =>
-      (polygon as GlobePolygon).layer === "region"
-        ? "rgba(92, 65, 55, 0.84)"
-        : "rgba(82, 102, 105, 0.84)",
+    (polygon: object) => {
+      const globePolygon = polygon as GlobePolygon;
+      if (globePolygon.layer === "region") {
+        return globePolygon.selected
+          ? SELECTED_EXTRUSION_SIDE_COLOR
+          : "rgba(92, 65, 55, 0.84)";
+      }
+      return globePolygon.selected
+        ? SELECTED_EXTRUSION_SIDE_COLOR
+        : "rgba(82, 102, 105, 0.84)";
+    },
     []
   );
-  const getWorldPolygonAltitude = useCallback(() => 0.0045, []);
+  const getWorldPolygonAltitude = useCallback(() => LAND_CAP_ALTITUDE, []);
   const getRegionalPolygonAltitude = useCallback(
     (polygon: object) =>
-      (polygon as GlobePolygon).selected ? 0.018 : 0.011,
+      (polygon as GlobePolygon).selected
+        ? SELECTED_REGION_CAP_ALTITUDE
+        : REGION_CAP_ALTITUDE,
     []
   );
   const contextualCountryCodes = useMemo(() => {
