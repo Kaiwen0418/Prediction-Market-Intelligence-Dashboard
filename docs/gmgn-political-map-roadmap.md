@@ -768,6 +768,16 @@ Status: complete
 - [x] Verify France at desktop and mobile viewports against neighboring wall sides.
 - [x] Save desktop and mobile screenshots under `tmp/frontend-consistent-wall-side/`.
 
+### Phase 60: Reduced Regional Wall Height
+
+Status: complete
+
+- [x] Reduce selected and ordinary regional boundary wall heights.
+- [x] Preserve a subtle selected-region height distinction.
+- [x] Keep national outer skirts, wall widths, cap elevations, colors, and lighting unchanged.
+- [x] Verify France at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-reduced-regional-walls/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

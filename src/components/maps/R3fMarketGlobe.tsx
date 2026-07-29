@@ -113,6 +113,8 @@ const PROJECTED_SHADOW_DEPTH_OFFSET = 0.045;
 const LAND_CAP_ALTITUDE = 0.0045;
 const REGION_CAP_ALTITUDE = 0.011;
 const SELECTED_REGION_CAP_ALTITUDE = 0.018;
+const REGION_WALL_HEIGHT = 0.0018;
+const SELECTED_REGION_WALL_HEIGHT = 0.0028;
 const LAND_EXTRUSION_SIDE_COLOR = "#526669";
 const COUNTRY_BOUNDARY_CACHE = new Map<string, MapFeature[]>();
 
@@ -544,8 +546,8 @@ function createBoundaryWallGeometry(polygons: GlobePolygon[]) {
     const wallHeight =
       polygon.layer === "region"
         ? polygon.selected
-          ? 0.0042
-          : 0.0028
+          ? SELECTED_REGION_WALL_HEIGHT
+          : REGION_WALL_HEIGHT
         : polygon.selected
           ? SELECTED_REGION_CAP_ALTITUDE - LAND_CAP_ALTITUDE + 0.0003
           : 0.0016;
