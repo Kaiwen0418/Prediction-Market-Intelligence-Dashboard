@@ -16,3 +16,5 @@ If the user explicitly asks to keep a service running, leave it running and repo
 ## Frontend Visual QA
 
 For every frontend update, save visual QA screenshots to a task-specific folder under `tmp/` in the repository. Keep those screenshots as deliverable artifacts unless the user explicitly asks to remove them.
+
+After each verified frontend visual tuning pass, commit its code and roadmap changes as a separate checkpoint with a descriptive message. Keep generated screenshots under `tmp/` out of Git unless the user explicitly requests versioned image artifacts.
