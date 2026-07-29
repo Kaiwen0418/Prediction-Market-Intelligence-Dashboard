@@ -100,6 +100,26 @@ body {
   animation: map-trade-tape-enter 180ms ease-out;
 }
 
+.text-shadow-sm {
+  text-shadow:
+    0 1px 0 var(--demo-card-bg),
+    0 0 8px var(--demo-card-bg);
+}
+
+.market-map-trade-label {
+  text-shadow:
+    -1px -1px 0 rgba(255, 255, 255, 0.96),
+    1px -1px 0 rgba(255, 255, 255, 0.96),
+    -1px 1px 0 rgba(255, 255, 255, 0.96),
+    1px 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+@media (max-width: 520px) {
+  .market-map-trade-label--context {
+    display: none;
+  }
+}
+
 .market-map-surface:fullscreen {
   width: 100vw;
   height: 100vh;
@@ -112,6 +132,7 @@ body {
   .map-trade-tape-enter {
     animation: none;
   }
+
 }
 
 a {

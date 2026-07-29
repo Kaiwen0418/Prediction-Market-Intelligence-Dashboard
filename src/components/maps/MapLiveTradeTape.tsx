@@ -20,6 +20,19 @@ function formatNotional(trade: MarketTradePrint) {
   }).format(trade.price * trade.size);
 }
 
+export function formatTradePopupText(trade: MarketTradePrint) {
+  const outcome = trade.outcome?.trim().toUpperCase();
+  const label =
+    outcome === "YES" || outcome === "NO"
+      ? outcome
+      : trade.side === "buy"
+        ? "YES"
+        : "NO";
+  const sign = trade.side === "buy" ? "+" : "-";
+
+  return `${label} ${sign}${formatNotional(trade)}`;
+}
+
 export function getVisibleMarketTrades(
   trades: MarketTradePrint[],
   offset: number,
@@ -83,19 +96,14 @@ export function MapLiveTradeTape({
     <section
       aria-label="Live trades for regional market pairs"
       aria-live="polite"
-      className="absolute bottom-3 left-3 z-10 w-[calc(100%_-_1.5rem)] max-w-[calc(100vw_-_3.5rem)] overflow-hidden border border-slate-300/70 bg-transparent font-sans sm:max-w-[390px]"
+      className="pointer-events-none absolute bottom-4 left-4 z-10 flex w-[calc(100%_-_2rem)] max-w-[calc(100vw_-_3.5rem)] flex-col items-start gap-1.5 overflow-hidden font-sans sm:max-w-[300px]"
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <div className="flex h-8 items-center justify-between border-b border-slate-200 px-3">
-        <span className="flex items-center gap-2 text-[10px] font-semibold uppercase text-slate-900">
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase text-slate-900">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           Live trades
-        </span>
-        <span className="text-[9px] font-medium uppercase text-slate-500">
-          Region pairs
-        </span>
       </div>
-      <div key={offset} className="map-trade-tape-enter">
+      <div key={offset} className="map-trade-tape-enter flex flex-col items-start gap-1.5">
         {visibleTrades.map((trade, index) => (
           <a
             key={trade.id}
@@ -104,35 +112,21 @@ export function MapLiveTradeTape({
             }`}
             target="_blank"
             rel="noreferrer"
-            className={`h-11 grid-cols-[42px_minmax(0,1fr)_64px] items-center gap-2 border-b border-slate-100 px-3 last:border-b-0 hover:bg-slate-50 ${
+            className={`pointer-events-auto grid max-w-full grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-shadow-sm ${
               index === 2 ? "hidden sm:grid" : "grid"
             }`}
           >
             <span
-              className={`text-[10px] font-semibold uppercase ${
+              className={`text-[12px] font-bold tabular-nums ${
                 trade.side === "buy"
                   ? "text-emerald-700"
                   : "text-rose-700"
               }`}
             >
-              {trade.side}
+              {formatTradePopupText(trade)}
             </span>
-            <span className="min-w-0">
-              <span className="block truncate text-[11px] font-medium text-slate-900">
-                {trade.title}
-              </span>
-              <span className="block truncate text-[9px] text-slate-500">
-                {trade.outcome ? `${trade.outcome} · ` : ""}
-                {formatTimestamp(trade.timestamp, "HH:mm:ss")}
-              </span>
-            </span>
-            <span className="text-right">
-              <span className="block text-[11px] font-semibold tabular-nums text-slate-900">
-                {(trade.price * 100).toFixed(0)}¢
-              </span>
-              <span className="block text-[9px] tabular-nums text-slate-500">
-                {formatNotional(trade)}
-              </span>
+            <span className="truncate text-[9px] font-medium text-slate-600">
+              {formatTimestamp(trade.timestamp, "HH:mm:ss")}
             </span>
           </a>
         ))}

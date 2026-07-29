@@ -480,6 +480,111 @@ Status: planned
 - [ ] Define retention, migration, backup, and restore policies before storing production user data.
 - [ ] Keep Redis optional for single-replica local development and provide deterministic in-memory fallbacks.
 
+### Phase 33: Volume Terrain Map Concept
+
+Status: complete
+
+- [x] Replace blocky marker pyramids in the product direction with sparse thin volume pillars.
+- [x] Model regional volume as a natural mountain field using a center-weighted height distribution, superseded by the Gaussian mixture in Phase 37.
+- [x] Remove background surfaces from live trade map text so trade prints read as direct map annotations.
+- [x] Add an interim tilted SVG map treatment so country views start moving toward the curved globe concept.
+- [x] Port the terrain model into an R3F/Three.js globe with real repository boundaries.
+- [x] Bind the 3D globe to country selection, regional selection, live volume, and trade annotations.
+- [x] Tune camera framing, lighting, and mobile density from visual QA against the approved concept.
+
+### Phase 34: Globe Concept Fidelity
+
+Status: complete
+
+- [x] Add nearby configured market terrain around the selected country.
+- [x] Vary pillar color and width by mountain height while preserving sparse coverage.
+- [x] Increase selected-region prominence without clipping desktop or mobile framing.
+- [x] Add stronger land, ocean, and extrusion depth cues from visual QA.
+- [x] Keep contextual trade annotations on desktop and prioritize the selected label on mobile.
+
+### Phase 35: Atmospheric Horizon and Score Color Parity
+
+Status: complete
+
+- [x] Treat the concept's neutral neighboring countries as visual reference only; preserve flat-map score coloring as the product requirement.
+- [x] Color every configured globe country from its highest open regional activity score.
+- [x] Derive each volume mountain's pillar colors from the same score color as its country.
+- [x] Add distance-aware atmospheric obscuring at the far sphere horizon.
+- [x] Verify score-color and horizon behavior on compact Europe and continent-scale views.
+
+### Phase 36: Surface Reflection, Shadows, and Raised Borders
+
+Status: complete
+
+- [x] Add a procedural reflective ripple texture to the ocean surface.
+- [x] Enable soft cast and receive shadows for land polygons and volume pillars.
+- [x] Render borders as separate paths slightly above their polygon surfaces.
+- [x] Verify reflection, shadow projection, and border elevation on desktop and mobile.
+
+### Phase 37: Focused Pillar Hierarchy and Top Lighting
+
+Status: complete
+
+- [x] Scale down pillar count, height, and width outside the focused country.
+- [x] Replace the binomial-style field with a truncated Gaussian mixture that concentrates most pillars around the regional market center.
+- [x] Preserve a sparse uniform tail so the volume mountain retains a natural footprint.
+- [x] Fix the key light above the globe so projected shadows travel downward.
+- [x] Concentrate ocean reflection lighting in the upper hemisphere.
+- [x] Verify focused-country hierarchy, concentration, shadow direction, and upper-ocean reflection across Europe, US, and mobile views.
+
+### Phase 38: Pillar-Root Surface Gradients
+
+Status: complete
+
+- [x] Replace flat polygon cap fills with geodesic gradient materials.
+- [x] Anchor maximum score-color saturation beneath each region's pillar center.
+- [x] Reduce saturation and slightly lift lightness toward polygon borders.
+- [x] Preserve score hue families, elevated borders, and shadow reception.
+- [x] Verify gradient continuity and score readability across Europe, US, and mobile views.
+
+### Phase 39: Camera-Fixed Top Light and Realistic Shading
+
+Status: complete
+
+- [x] Keep the shadow-casting key light outside the rotating globe group.
+- [x] Reposition the key from camera screen-up coordinates so it remains visually overhead through orbit interaction.
+- [x] Track a stable map target so pillar shadows project downward in the view.
+- [x] Use a tuned PCF shadow map with a tighter orthographic shadow frustum; VSM was rejected because it suppressed generated point-layer pillars.
+- [x] Reduce ambient wash and add ACES filmic tone mapping for stronger material depth.
+- [x] Verify shadow direction before and after globe interaction, plus reflection and score-color fidelity on desktop and mobile.
+
+### Phase 40: Visible Pillar Shadow Projection
+
+Status: complete
+
+- [x] Register generated `three-globe` point meshes as shadow casters by object type.
+- [x] Disable pillar height transitions before shadow registration.
+- [x] Reduce normal bias below the thin pillar radius so shadows are not erased.
+- [x] Tighten the shadow frustum and raise its map resolution to resolve narrow pillars.
+- [x] Keep land and ocean materials as explicit shadow receivers while pillars remain caster-only.
+- [x] Add analytic light-ray shadow projections for pillars that remain below native shadow-map pixel resolution.
+- [x] Verify visible pillar shadows on land and coastal water at desktop and mobile scales.
+
+### Phase 41: Physical Borders and Seamless Ocean Reflection
+
+Status: complete
+
+- [x] Replace elevated path lines with merged, deduplicated short-wall geometry.
+- [x] Make country and regional wall faces cast and receive directional shadows.
+- [x] Replace non-periodic ocean wave frequencies with a seamless periodic field.
+- [x] Increase procedural normal and reflection environment resolution.
+- [x] Retune the ocean as a rough dielectric surface instead of a metallic clearcoat.
+- [x] Verify border depth and ocean continuity across Europe, US, and mobile views.
+
+### Phase 42: Restore Land and Pillar Shadow Contrast
+
+Status: complete
+
+- [x] Reduce environment fill on land caps and physical border walls.
+- [x] Restore darker land extrusion faces beneath elevated regions.
+- [x] Increase projected pillar-shadow density and opacity.
+- [x] Compare the revised scene against the Phase 40 shadow baseline.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

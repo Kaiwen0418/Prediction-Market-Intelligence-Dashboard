@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import usAtlas from "us-atlas/states-10m.json";
 import franceRegions from "@/components/maps/data/france-regions.json";
@@ -30,7 +31,11 @@ import {
   getMapTransitionPosition,
   type MapCameraPosition
 } from "@/components/maps/mapCamera";
-import { MapLiveTradeTape } from "@/components/maps/MapLiveTradeTape";
+import {
+  MapLiveTradeTape,
+  filterRegionMarketTrades,
+  formatTradePopupText
+} from "@/components/maps/MapLiveTradeTape";
 import {
   formatMarketVolume,
   getMarketVolumeOpacity,
@@ -64,6 +69,21 @@ import type { RegionSignal } from "@/types/signals";
 import { formatTimestamp } from "@/utils/time";
 import { useSignalWatchlist } from "@/hooks/useSignalWatchlist";
 
+const R3fMarketGlobe = dynamic(
+  () =>
+    import("@/components/maps/R3fMarketGlobe").then(
+      (module) => module.R3fMarketGlobe
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center font-sans text-xs text-slate-500">
+        Loading 3D market map…
+      </div>
+    )
+  }
+);
+
 const UKRAINE_LOCALITY_LABEL_OFFSETS: Record<
   string,
   { x: number; y: number }
@@ -76,6 +96,14 @@ const UKRAINE_LOCALITY_LABEL_OFFSETS: Record<
 };
 
 const ukraineOblastGeography = normalizeD3PolygonWinding(ukraineOblasts);
+
+type RegionalTradePopup = {
+  region: RegionMarket;
+  id: string;
+  href?: string;
+  positive: boolean;
+  text: string;
+};
 
 function formatCompactCurrency(value?: number) {
   if (value === undefined || !Number.isFinite(value)) {
@@ -258,6 +286,92 @@ export function UsMarketMap({
       regionMarkets
     ]
   );
+  const globeRegionData = useMemo(
+    () =>
+      mapView === "country"
+        ? allRegionMarkets
+            .map((region) => {
+              const signal = getRegionSignal(region);
+              const volume = getRegionMarketVolume(
+                region,
+                kalshiMarkets,
+                polymarketMarkets
+              );
+
+              return {
+                region,
+                signalScore: signal.score,
+                volume24h: volume
+              };
+            })
+            .filter(
+              ({ region }) =>
+                region.marketStatus !== "closed" &&
+                region.marketStatus !== "inactive"
+            )
+        : [],
+    [
+      kalshiMarkets,
+      mapView,
+      polymarketMarkets,
+      allRegionMarkets,
+      signalByRegion
+    ]
+  );
+  const regionalTradePopups = useMemo<RegionalTradePopup[]>(
+    () =>
+      mapView === "country"
+        ? allRegionMarkets
+            .map((region): RegionalTradePopup | null => {
+              const visibleTrade = filterRegionMarketTrades(
+                liveTrades,
+                getRegionPolymarketSlugs(region)
+              )[0];
+              if (visibleTrade) {
+                return {
+                  region,
+                  id: visibleTrade.id,
+                  href: `https://polymarket.com/event/${
+                    visibleTrade.eventSlug || visibleTrade.marketSlug
+                  }`,
+                  positive: visibleTrade.side === "buy",
+                  text: formatTradePopupText(visibleTrade)
+                };
+              }
+
+              const signal = getRegionSignal(region);
+              const volume = getRegionMarketVolume(
+                region,
+                kalshiMarkets,
+                polymarketMarkets
+              );
+              const topMarket = polymarketMarkets
+                .filter((candidate) => marketMatchesRegion(region, candidate))
+                .sort((left, right) => right.volume24h - left.volume24h)[0];
+
+              if (volume === null || !topMarket) return null;
+
+              return {
+                region,
+                id: `${region.countryCode}:${region.code}:volume-fallback`,
+                href: `https://polymarket.com/event/${
+                  topMarket.eventSlug || topMarket.slug
+                }`,
+                positive: signal.score >= 50,
+                text: `YES +${formatMarketVolume(volume)}`
+              };
+            })
+            .filter((popup): popup is RegionalTradePopup => popup !== null)
+        : [],
+    [
+      kalshiMarkets,
+      liveTrades,
+      mapView,
+      polymarketMarkets,
+      allRegionMarkets,
+      signalByRegion
+    ]
+  );
   const labeledCountries = useMemo(
     () =>
       countrySummaries
@@ -318,6 +432,7 @@ export function UsMarketMap({
   const mapSettleTimeoutRef = useRef<number | null>(null);
   const mapSurfaceRef = useRef<HTMLDivElement>(null);
   const activeSelectedCode = selectedCode ?? localSelectedCode;
+  const countryMapActive = mapView === "country";
   const selectedState = getSpotlightState(activeSelectedCode);
   const defaultRegion = getSpotlightState(defaultCode);
   const activeRegion =
@@ -634,7 +749,9 @@ export function UsMarketMap({
         <div className="grid items-stretch gap-6">
           <div
             ref={mapSurfaceRef}
-            className="market-map-surface relative order-2 aspect-[4/3] min-h-[320px] overflow-hidden rounded-lg bg-transparent lg:order-1 lg:aspect-[16/10]"
+            className={`market-map-surface relative order-1 aspect-[4/3] min-h-[320px] overflow-hidden rounded-lg lg:aspect-[16/10] ${
+              mapView === "country" ? "bg-[#dce8eb]" : "bg-transparent"
+            }`}
             style={{ border: "1.5px solid var(--demo-card-bg)" }}
             onPointerDownCapture={(event) => {
               if (
@@ -645,12 +762,22 @@ export function UsMarketMap({
               setTourEnabled(false);
             }}
           >
+            {mapView === "country" ? (
+              <R3fMarketGlobe
+                key={activeCountry.code}
+                activeCountry={activeCountry}
+                regions={globeRegionData}
+                selectedCode={activeSelectedCode}
+                trades={regionalTradePopups}
+                onSelectRegion={selectRegion}
+              />
+            ) : (
             <ComposableMap
               projection="geoMercator"
               projectionConfig={{ scale: 147 }}
               width={980}
               height={620}
-              className="h-full w-full"
+              className="market-map-svg h-full w-full"
             >
               <ZoomableGroup
                 center={mapPosition.center}
@@ -682,7 +809,7 @@ export function UsMarketMap({
                         : null;
                       const topSignal = countrySummary?.topRegion?.signal ?? null;
                       const isSelectedCountry =
-                        mapView === "country" && country?.code === activeCountry.code;
+                        countryMapActive && country?.code === activeCountry.code;
                       const countryInteractive =
                         mapView === "world"
                           ? country
@@ -757,7 +884,7 @@ export function UsMarketMap({
                   }
                 </Geographies>
 
-                {mapView === "country" ? (() => {
+                {countryMapActive ? (() => {
                   const country = activeCountry;
                   const regions = regionMarkets;
                   const regionById = new Map<string, RegionMarket>();
@@ -915,7 +1042,7 @@ export function UsMarketMap({
                   );
                 })() : null}
 
-                {mapView === "country" && activeCountry.code === "UA"
+                {countryMapActive && activeCountry.code === "UA"
                   ? regionMarkets
                       .filter((region) => region.coverage === "region")
                       .map((region) => {
@@ -1050,6 +1177,7 @@ export function UsMarketMap({
                     ))}
               </ZoomableGroup>
             </ComposableMap>
+            )}
             {hoveredRegion && hoveredSignal ? (
               <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[260px] border border-slate-200 bg-white/95 px-3 py-2 font-sans shadow-sm">
                 <div className="flex items-center justify-between gap-4">
@@ -1067,12 +1195,14 @@ export function UsMarketMap({
                 </p>
               </div>
             ) : null}
-            <MapLiveTradeTape
-              marketSlugs={allRegionMarkets.flatMap((region) =>
-                getRegionPolymarketSlugs(region)
-              )}
-              trades={liveTrades}
-            />
+            {mapView === "world" ? (
+              <MapLiveTradeTape
+                marketSlugs={allRegionMarkets.flatMap((region) =>
+                  getRegionPolymarketSlugs(region)
+                )}
+                trades={liveTrades}
+              />
+            ) : null}
             <div
               data-map-control
               className="absolute right-3 top-3 z-10 flex gap-2"
@@ -1101,7 +1231,7 @@ export function UsMarketMap({
               </button>
             </div>
           </div>
-          <div className="order-3 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600 lg:order-2">
+          <div className="order-2 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-slate-600">
             <span className="font-medium text-slate-900">Activity score</span>
             {SIGNAL_LEGEND.map((item) => (
               <span key={item.severity} className="flex items-center gap-2">
@@ -1144,7 +1274,7 @@ export function UsMarketMap({
               ↗
             </a>
           </div>
-          <div className="order-1 lg:order-3">
+          <div className="order-3">
             <AbnormalActivityFeed
               regions={
                 countryScope === "global" ? allRegionMarkets : regionMarkets

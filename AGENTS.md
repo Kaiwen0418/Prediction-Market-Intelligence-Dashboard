@@ -12,3 +12,7 @@ Before finishing a task, clean up temporary resources created during that task:
 Only clean up resources created or explicitly owned by the current task. Never use broad commands such as `pkill node`, and never stop user-owned processes, shared containers, databases, caches, or external services.
 
 If the user explicitly asks to keep a service running, leave it running and report its address and process details in the final response.
+
+## Frontend Visual QA
+
+For every frontend update, save visual QA screenshots to a task-specific folder under `tmp/` in the repository. Keep those screenshots as deliverable artifacts unless the user explicitly asks to remove them.
