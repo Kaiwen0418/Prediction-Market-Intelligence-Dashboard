@@ -834,6 +834,45 @@ Status: complete
 - [x] Verify border intersections at desktop and mobile viewports.
 - [x] Save screenshots under `tmp/frontend-single-owner-border/`.
 
+### Phase 66: Deferred Intro Data Layers
+
+Status: complete
+
+- [x] Match the data-layer reveal delay to the globe's 1200ms intro rotation.
+- [x] Keep the independent regional polygon globe hidden during the main globe rotation.
+- [x] Keep country and regional border walls hidden during the intro rotation.
+- [x] Keep focused and contextual pillars plus projected shadows hidden during rotation.
+- [x] Defer live trade labels with the same reveal gate.
+- [x] Preserve immediate layer updates after the one-time initial reveal.
+- [x] Verify rotating and settled states at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-deferred-intro-layers/`.
+
+### Phase 67: Per-Surface Pillar Shadow Registration
+
+Status: complete
+
+- [x] Record the correct shadow receiver altitude on each generated pillar.
+- [x] Project selected-region shadows onto the elevated selected cap.
+- [x] Project other focused-country shadows onto their regional caps.
+- [x] Keep contextual ribbons on the ocean receiver shell so real land shadows remain depth-correct without a floating overlay.
+- [x] Keep border walls as shadow casters but exclude their vertical sides from pillar-shadow reception.
+- [x] Disable shadow-map reception in polygon side shaders while preserving directional material shading.
+- [x] Verify London and Berlin shadow registration at desktop and mobile viewports.
+- [x] Save screenshots under `tmp/frontend-context-shadow-registration/`.
+
+### Phase 68: Persistent Context Pillars and Live Trade FIFO
+
+Status: complete
+
+- [x] Keep every non-focused country pillar field mounted and visible while switching US states.
+- [x] Preserve European context pillar counts across California-to-Florida selection.
+- [x] Remove synthetic volume fallback popups and only map actual Polymarket venue trades.
+- [x] Append unseen trade IDs to a three-slot FIFO queue.
+- [x] Expire each popup after seven seconds without replaying unchanged polling results.
+- [x] Remove popup text outlines and use fixed dark gray text on desktop and mobile.
+- [x] Add regression coverage for venue matching, FIFO capacity, and expiry.
+- [x] Save screenshots under `tmp/frontend-persistent-context-live-trade-fifo/`.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.

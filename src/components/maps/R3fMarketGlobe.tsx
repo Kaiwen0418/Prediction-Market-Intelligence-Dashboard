@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type RefObject
 } from "react";
 import { Html, OrbitControls } from "@react-three/drei";
@@ -18,6 +19,10 @@ import germanyStates from "@/components/maps/data/germany-states.json";
 import ukRegions from "@/components/maps/data/uk-regions.json";
 import ukraineOblasts from "@/components/maps/data/ukraine-oblasts.json";
 import worldCountries from "@/components/maps/data/world-countries-110m.json";
+import {
+  appendTradePopupQueue,
+  type ExpiringTradePopup
+} from "@/components/maps/mapTradePopups";
 import { getMarketSignalColor } from "@/components/maps/marketSignals";
 import type {
   CountryMarketMap,
@@ -54,15 +59,16 @@ type VolumePillar = {
   lat: number;
   lng: number;
   altitude: number;
+  shadowReceiverAltitude: number;
   color: string;
   radius: number;
 };
 
 type GlobeTradeLabel = {
+  id: string;
   lat: number;
   lng: number;
   text: string;
-  positive: boolean;
   selected: boolean;
 };
 
@@ -74,8 +80,9 @@ export type GlobeRegionDatum = {
 
 export type GlobeTradeDatum = {
   region: RegionMarket;
+  id: string;
+  timestamp: string;
   text: string;
-  positive: boolean;
 };
 
 type R3fMarketGlobeProps = {
@@ -99,6 +106,9 @@ const worldFeatureCollection = feature(
 const WORLD_FEATURES = worldFeatureCollection.features;
 const GLOBE_RADIUS = 100;
 const GLOBE_SCALE = 1.48;
+const GLOBE_INTRO_ROTATION_DURATION_MS = 1200;
+const GLOBE_DATA_REVEAL_DELAY_MS =
+  GLOBE_INTRO_ROTATION_DURATION_MS + 50;
 const COUNTRY_WALL_SIMPLIFICATION_TOLERANCE = 0.08;
 const REGION_WALL_SIMPLIFICATION_TOLERANCE = 0.18;
 const MARKET_ORBIT_WEST_LONGITUDE = -125;
@@ -109,7 +119,6 @@ const GLOBE_LOCAL_LIGHT_RAY = GLOBE_LOCAL_LIGHT_TARGET.clone()
   .sub(GLOBE_LOCAL_LIGHT_POSITION)
   .normalize();
 const PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED = true;
-const SHADOW_RECEIVER_RADIUS = GLOBE_RADIUS * 1.018;
 const PROJECTED_SHADOW_DEPTH_OFFSET = 0.045;
 const LAND_CAP_ALTITUDE = 0.0045;
 const REGION_CAP_ALTITUDE = 0.011;
@@ -1148,6 +1157,11 @@ function createRegionPillars(
         altitude,
         focusedCountry ? (selected ? 0.13 : 0.115) : 0.07
       ),
+      shadowReceiverAltitude: focusedCountry
+        ? selected
+          ? SELECTED_REGION_CAP_ALTITUDE
+          : REGION_CAP_ALTITUDE
+        : 0,
       color: interpolateColor(colorRange[0], colorRange[1], colorWeight),
       radius:
         (0.017 +
@@ -1476,13 +1490,15 @@ function ProjectedPillarContactShadows({
   useEffect(() => {
     rayLocal.current.copy(GLOBE_LOCAL_LIGHT_RAY);
 
-    const displayRadius =
-      SHADOW_RECEIVER_RADIUS + PROJECTED_SHADOW_DEPTH_OFFSET;
     const ribbonPositions: number[] = [];
     const contactPositions: number[] = [];
 
     pillars.forEach((pillar, pillarIndex) => {
       if (pillar.altitude <= 0.012 || pillarIndex % 2 !== 0) return;
+      const receiverRadius =
+        GLOBE_RADIUS * (1 + pillar.shadowReceiverAltitude);
+      const displayRadius =
+        receiverRadius + PROJECTED_SHADOW_DEPTH_OFFSET;
       const latitude = THREE.MathUtils.degToRad(pillar.lat);
       const longitude = THREE.MathUtils.degToRad(pillar.lng);
       normal.current
@@ -1508,7 +1524,7 @@ function ProjectedPillarContactShadows({
       const discriminant =
         projection * projection -
         (pillarTop.current.lengthSq() -
-          SHADOW_RECEIVER_RADIUS * SHADOW_RECEIVER_RADIUS);
+          receiverRadius * receiverRadius);
       if (discriminant <= 0) return;
 
       const distance = -projection - Math.sqrt(discriminant);
@@ -1734,7 +1750,8 @@ function BoundaryWalls({
       geometry={geometry}
       material={material}
       castShadow
-      receiveShadow
+      receiveShadow={false}
+      userData={{ skipShadowRegistration: true }}
       renderOrder={6}
     />
   );
@@ -1771,6 +1788,33 @@ export function R3fMarketGlobe({
   onSelectRegion
 }: R3fMarketGlobeProps) {
   const globeGroupRef = useRef<THREE.Group>(null);
+  const introRevealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const introRevealStartedRef = useRef(false);
+  const [introDataVisible, setIntroDataVisible] = useState(false);
+  const seenTradeIdsRef = useRef(new Set<string>());
+  const seenTradeOrderRef = useRef<string[]>([]);
+  const tradeScopeRef = useRef(activeCountry.code);
+  const [tradePopupQueue, setTradePopupQueue] = useState<
+    ExpiringTradePopup<GlobeTradeDatum>[]
+  >([]);
+  const handleGlobeReady = useCallback(() => {
+    if (introRevealStartedRef.current) return;
+    introRevealStartedRef.current = true;
+    introRevealTimeoutRef.current = setTimeout(() => {
+      setIntroDataVisible(true);
+      introRevealTimeoutRef.current = null;
+    }, GLOBE_DATA_REVEAL_DELAY_MS);
+  }, []);
+  useEffect(
+    () => () => {
+      if (introRevealTimeoutRef.current) {
+        clearTimeout(introRevealTimeoutRef.current);
+      }
+    },
+    []
+  );
   const boundaryFeatures = useMemo(
     () => getCountryBoundaryFeatures(activeCountry),
     [activeCountry]
@@ -1908,14 +1952,24 @@ export function R3fMarketGlobe({
     [regionalPolygonCapMaterials]
   );
   const polygonSideMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
+    () => {
+      const material = new THREE.MeshStandardMaterial({
         color: LAND_EXTRUSION_SIDE_COLOR,
         roughness: 0.74,
         metalness: 0,
         envMapIntensity: 0.1,
         side: THREE.DoubleSide
-      }),
+      });
+      material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replaceAll(
+          "&& receiveShadow",
+          "&& false"
+        );
+      };
+      material.customProgramCacheKey = () =>
+        "market-polygon-side-without-received-shadows-v1";
+      return material;
+    },
     []
   );
   const hiddenPolygonSideMaterial = useMemo(
@@ -1976,21 +2030,15 @@ export function R3fMarketGlobe({
     []
   );
   const contextualCountryCodes = useMemo(() => {
-    const [focusLng, focusLat] = activeCountry.defaultCenter;
     const result = new Set<string>();
 
     regions.forEach(({ region }) => {
-      if (region.countryCode === activeCountry.code) return;
-      const longitudeDistance = Math.abs(
-        ((region.center[0] - focusLng + 540) % 360) - 180
-      );
-      const latitudeDistance = Math.abs(region.center[1] - focusLat);
-      if (longitudeDistance <= 42 && latitudeDistance <= 28) {
+      if (region.countryCode !== activeCountry.code) {
         result.add(region.countryCode);
       }
     });
     return result;
-  }, [activeCountry, regions]);
+  }, [activeCountry.code, regions]);
   const focusedFeatureByRegionKey = useMemo(() => {
     const result = new Map<string, MapFeature>();
     if (nationalRegion) {
@@ -2075,28 +2123,57 @@ export function R3fMarketGlobe({
         return longitudeDistance <= 42 && latitudeDistance <= 28;
       })
       .sort(
-        (left, right) => {
-          const selectedDifference =
-            Number(
-              right.region.countryCode === activeCountry.code &&
-                right.region.code === selectedCode
-            ) -
-            Number(
-              left.region.countryCode === activeCountry.code &&
-                left.region.code === selectedCode
-            );
-          if (selectedDifference) return selectedDifference;
-          return (
-            Number(right.region.countryCode === activeCountry.code) -
-            Number(left.region.countryCode === activeCountry.code)
-          );
-        }
-      )
-      .slice(0, 6);
-  }, [activeCountry, selectedCode, trades]);
+        (left, right) =>
+          new Date(left.timestamp).getTime() -
+          new Date(right.timestamp).getTime()
+      );
+  }, [activeCountry, trades]);
+  useEffect(() => {
+    const scopeChanged = tradeScopeRef.current !== activeCountry.code;
+    if (scopeChanged) {
+      tradeScopeRef.current = activeCountry.code;
+      seenTradeIdsRef.current.clear();
+      seenTradeOrderRef.current = [];
+    }
+
+    const incoming = visibleTrades.filter(
+      (trade) => !seenTradeIdsRef.current.has(trade.id)
+    );
+    if (!incoming.length && !scopeChanged) return;
+
+    incoming.forEach((trade) => {
+      seenTradeIdsRef.current.add(trade.id);
+      seenTradeOrderRef.current.push(trade.id);
+    });
+    while (seenTradeOrderRef.current.length > 500) {
+      const expiredId = seenTradeOrderRef.current.shift();
+      if (expiredId) seenTradeIdsRef.current.delete(expiredId);
+    }
+
+    const now = Date.now();
+    setTradePopupQueue((current) =>
+      appendTradePopupQueue(scopeChanged ? [] : current, incoming, now)
+    );
+  }, [activeCountry.code, visibleTrades]);
+  useEffect(() => {
+    if (!tradePopupQueue.length) return;
+
+    const nextExpiry = Math.min(
+      ...tradePopupQueue.map((popup) => popup.expiresAt)
+    );
+    const timeout = window.setTimeout(() => {
+      const now = Date.now();
+      setTradePopupQueue((current) =>
+        current.filter((popup) => popup.expiresAt > now)
+      );
+    }, Math.max(0, nextExpiry - Date.now()));
+
+    return () => window.clearTimeout(timeout);
+  }, [tradePopupQueue]);
   const tradeLabels = useMemo<GlobeTradeLabel[]>(
     () =>
-      visibleTrades.map(({ region, text, positive }, index) => ({
+      tradePopupQueue.map(({ id, region, text }, index) => ({
+        id,
         lat:
           region.center[1] +
           (region.countryCode === activeCountry.code ? 2 : 1.35) +
@@ -2106,12 +2183,11 @@ export function R3fMarketGlobe({
           (index % 2 === 0 ? 1 : -1) *
             (region.countryCode === activeCountry.code ? 7 : 5),
         text,
-        positive,
         selected:
           region.countryCode === activeCountry.code &&
           region.code === selectedCode
       })),
-    [activeCountry.code, selectedCode, visibleTrades]
+    [activeCountry.code, selectedCode, tradePopupQueue]
   );
   const globeMaterial = useMemo(
     () => {
@@ -2198,7 +2274,9 @@ export function R3fMarketGlobe({
       className="h-full w-full"
       aria-label={`${activeCountry.label} 3D market volume map`}
       data-pillar-count={pillars.length}
+      data-context-pillar-count={visibleContextPillars.length}
       data-trade-label-count={tradeLabels.length}
+      data-intro-layers-visible={introDataVisible}
     >
       <Canvas
         camera={{ fov: 35, near: 1, far: 1000 }}
@@ -2243,6 +2321,7 @@ export function R3fMarketGlobe({
             showAtmosphere
             atmosphereColor="#d8eef6"
             atmosphereAltitude={0.13}
+            onGlobeReady={handleGlobeReady}
             onClick={(layer, data, event) => {
               const pointerEvent = event as unknown as {
                 delta?: number;
@@ -2264,112 +2343,114 @@ export function R3fMarketGlobe({
             polygonStrokeColor={false}
             polygonAltitude={getWorldPolygonAltitude}
           />
-          <Globe
-            animateIn={false}
-            showGlobe={false}
-            showAtmosphere={false}
-            onClick={(layer, data, event) => {
-              const pointerEvent = event as unknown as {
-                delta?: number;
-                point?: THREE.Vector3;
-              };
-              if ((pointerEvent.delta ?? 0) > 5) return;
-              if (layer === "polygon") {
-                selectPolygon(data as GlobePolygon | undefined);
-              } else if (pointerEvent.point) {
-                selectAtWorldPoint(pointerEvent.point);
-              }
-            }}
-            polygonsData={regionalPolygons}
-            polygonsTransitionDuration={0}
-            polygonGeoJsonGeometry="geometry"
-            polygonCapMaterial={getRegionalPolygonCapMaterial}
-            polygonSideColor=""
-            polygonSideMaterial={getRegionalPolygonSideMaterial}
-            polygonStrokeColor={false}
-            polygonAltitude={getRegionalPolygonAltitude}
-          />
-          {[...contextualPillarsByCountry.entries()].map(
-            ([countryCode, countryPillars]) => (
-              <group
-                key={`context-pillars:${countryCode}`}
-                visible={contextualCountryCodes.has(countryCode)}
-              >
-                <Globe
-                  animateIn={false}
-                  showGlobe={false}
-                  showAtmosphere={false}
-                  pointsData={countryPillars}
-                  pointLat="lat"
-                  pointLng="lng"
-                  pointAltitude="altitude"
-                  pointRadius="radius"
-                  pointColor="color"
-                  pointResolution={6}
-                  pointsMerge
-                  pointsTransitionDuration={0}
-                />
-              </group>
-            )
-          )}
-          <Globe
-            animateIn={false}
-            showGlobe={false}
-            showAtmosphere={false}
-            pointsData={focusedPillars}
-            pointLat="lat"
-            pointLng="lng"
-            pointAltitude="altitude"
-            pointRadius="radius"
-            pointColor="color"
-            pointResolution={6}
-            pointsMerge
-            pointsTransitionDuration={0}
-          />
-          <BoundaryWalls
-            polygons={worldPolygons}
-            preciseCountryCode={activeCountry.code}
-            preciseCountryPerimeter={regionalBoundaryPrecision.perimeter}
-          />
-          <BoundaryWalls
-            polygons={regionalPolygons}
-            edgesByPolygon={regionalBoundaryPrecision.edgesByPolygon}
-          />
-          {PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED ? (
-            <ProjectedPillarContactShadows pillars={pillars} />
-          ) : null}
-          {tradeLabels.map((label) => {
-            const latitude = THREE.MathUtils.degToRad(label.lat);
-            const longitude = THREE.MathUtils.degToRad(label.lng);
-            const radius = GLOBE_RADIUS * 1.015;
-            const position: [number, number, number] = [
-              radius * Math.cos(latitude) * Math.sin(longitude),
-              radius * Math.sin(latitude),
-              radius * Math.cos(latitude) * Math.cos(longitude)
-            ];
-
-            return (
-              <Html
-                key={`${label.lat}:${label.lng}:${label.text}`}
-                position={position}
-                center
-                zIndexRange={[20, 0]}
-                style={{ pointerEvents: "none" }}
-              >
-                <span
-                  className={`market-map-trade-label ${
-                    label.selected
-                      ? "market-map-trade-label--selected"
-                      : "market-map-trade-label--context"
-                  } whitespace-nowrap font-sans text-[11px] font-extrabold ${
-                    label.positive ? "text-emerald-700" : "text-rose-700"
-                  }`}
+          <group visible={introDataVisible}>
+            <Globe
+              animateIn={false}
+              showGlobe={false}
+              showAtmosphere={false}
+              onClick={(layer, data, event) => {
+                const pointerEvent = event as unknown as {
+                  delta?: number;
+                  point?: THREE.Vector3;
+                };
+                if ((pointerEvent.delta ?? 0) > 5) return;
+                if (layer === "polygon") {
+                  selectPolygon(data as GlobePolygon | undefined);
+                } else if (pointerEvent.point) {
+                  selectAtWorldPoint(pointerEvent.point);
+                }
+              }}
+              polygonsData={regionalPolygons}
+              polygonsTransitionDuration={0}
+              polygonGeoJsonGeometry="geometry"
+              polygonCapMaterial={getRegionalPolygonCapMaterial}
+              polygonSideColor=""
+              polygonSideMaterial={getRegionalPolygonSideMaterial}
+              polygonStrokeColor={false}
+              polygonAltitude={getRegionalPolygonAltitude}
+            />
+            {[...contextualPillarsByCountry.entries()].map(
+              ([countryCode, countryPillars]) => (
+                <group
+                  key={`context-pillars:${countryCode}`}
+                  visible={contextualCountryCodes.has(countryCode)}
                 >
-                  {label.text}
-                </span>
-              </Html>
-            );
-          })}
+                  <Globe
+                    animateIn={false}
+                    showGlobe={false}
+                    showAtmosphere={false}
+                    pointsData={countryPillars}
+                    pointLat="lat"
+                    pointLng="lng"
+                    pointAltitude="altitude"
+                    pointRadius="radius"
+                    pointColor="color"
+                    pointResolution={6}
+                    pointsMerge
+                    pointsTransitionDuration={0}
+                  />
+                </group>
+              )
+            )}
+            <Globe
+              animateIn={false}
+              showGlobe={false}
+              showAtmosphere={false}
+              pointsData={focusedPillars}
+              pointLat="lat"
+              pointLng="lng"
+              pointAltitude="altitude"
+              pointRadius="radius"
+              pointColor="color"
+              pointResolution={6}
+              pointsMerge
+              pointsTransitionDuration={0}
+            />
+            <BoundaryWalls
+              polygons={worldPolygons}
+              preciseCountryCode={activeCountry.code}
+              preciseCountryPerimeter={regionalBoundaryPrecision.perimeter}
+            />
+            <BoundaryWalls
+              polygons={regionalPolygons}
+              edgesByPolygon={regionalBoundaryPrecision.edgesByPolygon}
+            />
+            {PROJECTED_PILLAR_CONTACT_SHADOWS_ENABLED ? (
+              <ProjectedPillarContactShadows pillars={pillars} />
+            ) : null}
+          </group>
+          {introDataVisible
+            ? tradeLabels.map((label) => {
+                const latitude = THREE.MathUtils.degToRad(label.lat);
+                const longitude = THREE.MathUtils.degToRad(label.lng);
+                const radius = GLOBE_RADIUS * 1.015;
+                const position: [number, number, number] = [
+                  radius * Math.cos(latitude) * Math.sin(longitude),
+                  radius * Math.sin(latitude),
+                  radius * Math.cos(latitude) * Math.cos(longitude)
+                ];
+
+                return (
+                  <Html
+                    key={label.id}
+                    position={position}
+                    center
+                    zIndexRange={[20, 0]}
+                    style={{ pointerEvents: "none" }}
+                  >
+                    <span
+                      className={`market-map-trade-label ${
+                        label.selected
+                          ? "market-map-trade-label--selected"
+                          : "market-map-trade-label--context"
+                      } whitespace-nowrap font-sans text-[11px] font-extrabold text-slate-700`}
+                    >
+                      {label.text}
+                    </span>
+                  </Html>
+                );
+              })
+            : null}
         </group>
         <GlobeControls
           distance={cameraDistance}

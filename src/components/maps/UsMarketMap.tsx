@@ -34,9 +34,9 @@ import {
 } from "@/components/maps/mapCamera";
 import {
   MapLiveTradeTape,
-  filterRegionMarketTrades,
   formatTradePopupText
 } from "@/components/maps/MapLiveTradeTape";
+import { matchVenueTradesToRegions } from "@/components/maps/mapTradePopups";
 import {
   formatMarketVolume,
   getMarketVolumeOpacity,
@@ -101,8 +101,7 @@ const ukraineOblastGeography = normalizeD3PolygonWinding(ukraineOblasts);
 type RegionalTradePopup = {
   region: RegionMarket;
   id: string;
-  href?: string;
-  positive: boolean;
+  timestamp: string;
   text: string;
 };
 
@@ -324,56 +323,16 @@ export function UsMarketMap({
   const regionalTradePopups = useMemo<RegionalTradePopup[]>(
     () =>
       mapView === "country"
-        ? allRegionMarkets
-            .map((region): RegionalTradePopup | null => {
-              const visibleTrade = filterRegionMarketTrades(
-                liveTrades,
-                getRegionPolymarketSlugs(region)
-              )[0];
-              if (visibleTrade) {
-                return {
-                  region,
-                  id: visibleTrade.id,
-                  href: `https://polymarket.com/event/${
-                    visibleTrade.eventSlug || visibleTrade.marketSlug
-                  }`,
-                  positive: visibleTrade.side === "buy",
-                  text: formatTradePopupText(visibleTrade)
-                };
-              }
-
-              const signal = getRegionSignal(region);
-              const volume = getRegionMarketVolume(
-                region,
-                kalshiMarkets,
-                polymarketMarkets
-              );
-              const topMarket = polymarketMarkets
-                .filter((candidate) => marketMatchesRegion(region, candidate))
-                .sort((left, right) => right.volume24h - left.volume24h)[0];
-
-              if (volume === null || !topMarket) return null;
-
-              return {
-                region,
-                id: `${region.countryCode}:${region.code}:volume-fallback`,
-                href: `https://polymarket.com/event/${
-                  topMarket.eventSlug || topMarket.slug
-                }`,
-                positive: signal.score >= 50,
-                text: `YES +${formatMarketVolume(volume)}`
-              };
+        ? matchVenueTradesToRegions(liveTrades, allRegionMarkets).map(
+            ({ region, trade }) => ({
+              region,
+              id: trade.id,
+              timestamp: trade.timestamp,
+              text: formatTradePopupText(trade)
             })
-            .filter((popup): popup is RegionalTradePopup => popup !== null)
+          )
         : [],
-    [
-      kalshiMarkets,
-      liveTrades,
-      mapView,
-      polymarketMarkets,
-      allRegionMarkets,
-      signalByRegion
-    ]
+    [allRegionMarkets, liveTrades, mapView]
   );
   const labeledCountries = useMemo(
     () =>

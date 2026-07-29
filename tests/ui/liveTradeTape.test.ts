@@ -4,6 +4,11 @@ import {
   filterRegionMarketTrades,
   getVisibleMarketTrades
 } from "@/components/maps/MapLiveTradeTape";
+import {
+  appendTradePopupQueue,
+  matchVenueTradesToRegions
+} from "@/components/maps/mapTradePopups";
+import { REGION_MARKETS } from "@/components/maps/spotlightStates";
 import type { MarketTradePrint } from "@/types/market";
 
 const trades = ["one", "two", "three", "four"].map(
@@ -40,5 +45,52 @@ test("live trade tape only includes configured regional market pairs", () => {
       ["one", "configured-event"]
     ).map((trade) => trade.id),
     ["one", "event-match"]
+  );
+});
+
+test("globe trade popups only map actual venue trades to configured regions", () => {
+  const texasTrade = {
+    ...trades[0],
+    id: "texas-trade",
+    marketSlug: "texas-republican-senate-primary-winner"
+  };
+  const unmatchedTrade = {
+    ...trades[1],
+    id: "unmatched-trade",
+    marketSlug: "not-a-configured-regional-market"
+  };
+
+  assert.deepEqual(
+    matchVenueTradesToRegions(
+      [texasTrade, unmatchedTrade],
+      REGION_MARKETS
+    ).map(({ region, trade }) => [region.code, trade.id]),
+    [["TX", "texas-trade"]]
+  );
+});
+
+test("globe trade popup queue expires old entries and caps FIFO at three", () => {
+  const initial = appendTradePopupQueue(
+    [],
+    [{ id: "one" }, { id: "two" }],
+    1_000,
+    7_000
+  );
+  const capped = appendTradePopupQueue(
+    initial,
+    [{ id: "three" }, { id: "four" }],
+    2_000,
+    7_000
+  );
+
+  assert.deepEqual(
+    capped.map(({ id }) => id),
+    ["two", "three", "four"]
+  );
+  assert.deepEqual(
+    appendTradePopupQueue(capped, [{ id: "five" }], 10_000, 7_000).map(
+      ({ id }) => id
+    ),
+    ["five"]
   );
 });
