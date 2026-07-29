@@ -749,9 +749,7 @@ export function UsMarketMap({
         <div className="grid items-stretch gap-6">
           <div
             ref={mapSurfaceRef}
-            className={`market-map-surface relative order-1 aspect-[4/3] min-h-[320px] overflow-hidden rounded-lg lg:aspect-[16/10] ${
-              mapView === "country" ? "bg-[#dce8eb]" : "bg-transparent"
-            }`}
+            className="market-map-surface relative order-1 aspect-[4/3] min-h-[320px] overflow-hidden rounded-lg bg-transparent lg:aspect-[16/10]"
             style={{ border: "1.5px solid var(--demo-card-bg)" }}
             onPointerDownCapture={(event) => {
               if (

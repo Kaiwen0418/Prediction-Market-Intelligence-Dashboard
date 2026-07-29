@@ -650,6 +650,14 @@ Status: complete
 - [x] Verify shadows before and after repeated drags on desktop and mobile.
 - [x] Confirm the requested port `3000` development server remains stopped.
 
+### Phase 49: Transparent Globe Surround
+
+Status: complete
+
+- [x] Remove the flat color behind the spherical globe so the scene blends into the page.
+- [x] Preserve the ocean material, atmospheric horizon, and transparent WebGL canvas.
+- [x] Verify the result at desktop and mobile viewports and save screenshots.
+
 ## Deployment and Operations
 
 - Frontend: Vercel preview and production deployments.
